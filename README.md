@@ -21,7 +21,9 @@ CHIHIRO-EE/
 
 ## 运行
 
-逐步启动与验收见 [docs/START.md](docs/START.md)。
+产品模型见 [docs/product.md](docs/product.md)。  
+Vendor 分支见 [docs/git-workflow.md](docs/git-workflow.md)。  
+当前脚手架启动见 [docs/START.md](docs/START.md)（开发用；目标是千寻自己拉起 NapCat 并展示二维码）。
 
 需本机 NapCat Shell 已登录（`QQ --no-sandbox`）。
 
