@@ -2,7 +2,7 @@ import { spawn, execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import net from 'node:net'
-import { liveNapcatSecrets, napcatPaths } from './napcat-secrets.mjs'
+import { liveNapcatSecrets, listOnebotSecrets, napcatPaths } from './napcat-secrets.mjs'
 
 const { root: NAPCAT_ROOT } = napcatPaths()
 const QR_PATH = path.join(NAPCAT_ROOT, 'cache/qrcode.png')
@@ -38,10 +38,16 @@ function qrStat() {
 }
 
 async function getLoginInfo() {
-  const { onebot } = liveNapcatSecrets()
-  const httpBase = `http://${onebot.httpHost || '127.0.0.1'}:${onebot.httpPort || 5800}`
-  const tokens = [onebot.httpToken, ''].filter((t, i, a) => a.indexOf(t) === i)
-  for (const token of tokens) {
+  const candidates = listOnebotSecrets()
+  const generic = liveNapcatSecrets().onebot
+  candidates.push(generic, { httpHost: '127.0.0.1', httpPort: 5800, httpToken: '' })
+  const tried = new Set()
+  for (const onebot of candidates) {
+    const httpBase = `http://${onebot.httpHost || '127.0.0.1'}:${onebot.httpPort || 5800}`
+    const token = onebot.httpToken || ''
+    const key = `${httpBase}|${token}`
+    if (tried.has(key)) continue
+    tried.add(key)
     try {
       const headers = { 'Content-Type': 'application/json' }
       if (token) headers.Authorization = `Bearer ${token}`

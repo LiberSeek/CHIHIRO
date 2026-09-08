@@ -68,8 +68,10 @@ function applyState(snap) {
   if (phase === 'ready' && snap.uin) {
     show('im')
     const token = snap.webuiToken || ''
-    const next = `/webui/plugin/napcat-plugin-ssqq/page/dashboard${token ? `?webui_token=${encodeURIComponent(token)}` : ''}`
-    if (!ui.im.src.endsWith(next) && !ui.im.src.includes(next)) ui.im.src = next
+    const next = `/plugin/napcat-plugin-ssqq/files/static/index.html${token ? `?webui_token=${encodeURIComponent(token)}` : ''}`
+    if (!ui.im.getAttribute('src') || !ui.im.src.includes('/plugin/napcat-plugin-ssqq/files/static/index.html')) {
+      ui.im.src = next
+    }
     return
   }
   if (phase === 'error') {
@@ -77,8 +79,13 @@ function applyState(snap) {
     ui.loginMsg.textContent = snap.message || '出错了'
     return
   }
-  const hasAccounts = (snap.accounts?.accounts || []).length > 0
-  show(hasAccounts && snap.accounts.activeId ? 'im' : 'empty')
+  const saved = snap.accounts?.accounts || []
+  if (saved.length) {
+    show('login')
+    ui.loginMsg.textContent = snap.message || '正在恢复登录…'
+    return
+  }
+  show('empty')
 }
 
 async function loadClients() {
@@ -163,13 +170,17 @@ ui.select.addEventListener('change', updateHint)
 await loadClients()
 const boot = await (await fetch('/api/runtime/state')).json()
 applyState(boot)
-if (boot.phase === 'idle' && !(boot.accounts?.accounts || []).length) {
-  /* wait for user to add */
-} else if (boot.phase !== 'ready') {
-  fetch('/api/runtime/start', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ client: 'qq' })
-  }).catch(() => {})
+const saved = boot.accounts?.accounts || []
+const last = saved.find((a) => a.id === boot.accounts?.activeId) || saved[0]
+if (boot.phase !== 'ready') {
+  const body = { client: 'qq' }
+  if (last?.uin) body.uin = last.uin
+  if (last || boot.phase === 'qr' || boot.phase === 'logging_in' || boot.phase === 'starting') {
+    fetch('/api/runtime/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).catch(() => {})
+  }
 }
 connectStream()

@@ -100,6 +100,12 @@ const server = http.createServer(async (req, res) => {
     if (handled) return
   }
 
+  if (url.pathname.startsWith('/api/') && url.pathname !== '/api/status') {
+    attachNapcatAuth(req)
+    proxy.web(req, res, { target: cfg.napcat.webui })
+    return
+  }
+
   if (url.pathname === '/api/status') {
     const snap = await runtime.qq.refreshPorts()
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' })

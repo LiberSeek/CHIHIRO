@@ -65,6 +65,21 @@ export function readOnebotSecrets(uin) {
   return { httpToken: '', wsToken: '', httpPort: 5800, wsPort: 5801, uin: uin || null }
 }
 
+export function listOnebotSecrets() {
+  const out = []
+  try {
+    for (const name of fs.readdirSync(CONFIG_DIR)) {
+      if (!/^onebot11_\d+\.json$/.test(name)) continue
+      const uin = name.replace(/^onebot11_/, '').replace(/\.json$/, '')
+      const s = readOnebotSecrets(uin)
+      if (s.httpToken || s.wsToken || s.httpPort) out.push(s)
+    }
+  } catch {
+    /* ignore */
+  }
+  return out
+}
+
 export function liveNapcatSecrets(uin) {
   const webui = readWebuiSecrets()
   const onebot = readOnebotSecrets(uin)
