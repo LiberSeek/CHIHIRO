@@ -1,11 +1,11 @@
-# 千寻 CHIHIRO-CE（产品仓）
+# 千寻 CHIHIRO-EE（产品仓）
 
 QQ 工作台产品代码。工作区在上一级 `Chihiro/`。
 
 ## 目录
 
 ```text
-CHIHIRO-CE/
+CHIHIRO-EE/
 ├── apps/gateway          统一入口（npm run gateway）
 ├── apps/desktop          Pake 桌面壳脚本
 ├── overlays/stapxs       UI / 默认连接补丁
@@ -21,10 +21,12 @@ CHIHIRO-CE/
 
 ## 运行
 
+逐步启动与验收见 [docs/START.md](docs/START.md)。
+
 需本机 NapCat Shell 已登录（`QQ --no-sandbox`）。
 
 ```bash
-cd /Users/raven/iWorking/RavenStudio/Products/PRODUCTION/LiberSeekAI/Chihiro/CHIHIRO-CE
+cd /Users/raven/iWorking/RavenStudio/Products/PRODUCTION/LiberSeekAI/Chihiro/CHIHIRO-EE
 cp config/chihiro.local.example.json config/chihiro.local.json
 npm install
 npm run gateway          # http://127.0.0.1:3100/
