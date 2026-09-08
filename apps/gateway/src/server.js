@@ -4,6 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import httpProxy from 'http-proxy'
 import { createRuntime } from '../../runtime/src/api.mjs'
+import { liveNapcatSecrets } from '../../runtime/src/napcat-secrets.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '../../..')
@@ -32,22 +33,32 @@ function deepMerge(a, b) {
   return out
 }
 
-function envOr(cfgVal, envName) {
-  if (envName && process.env[envName]) return process.env[envName]
-  return cfgVal
-}
-
 const cfg = loadConfig()
 const host = cfg.gateway.host || '127.0.0.1'
 const port = cfg.gateway.port || 3100
-const webuiToken = envOr(cfg.napcat.webuiToken, cfg.napcat.webuiTokenEnv)
-const onebotHttpToken = envOr(cfg.napcat.onebotHttpToken, cfg.napcat.onebotHttpTokenEnv)
-const onebotWsToken = envOr(cfg.napcat.onebotWsToken, cfg.napcat.onebotWsTokenEnv)
-cfg.napcat.webuiToken = webuiToken
-cfg.napcat.onebotHttpToken = onebotHttpToken
-cfg.napcat.onebotWsToken = onebotWsToken
 
 const runtime = createRuntime({ root, cfg })
+
+function liveWebuiToken() {
+  return liveNapcatSecrets().webui.token
+    || process.env.CHIHIRO_WEBUI_TOKEN
+    || cfg.napcat.webuiToken
+    || ''
+}
+
+function liveWsToken() {
+  return liveNapcatSecrets().onebot.wsToken
+    || process.env.CHIHIRO_ONEBOT_WS_TOKEN
+    || cfg.napcat.onebotWsToken
+    || ''
+}
+
+function attachNapcatAuth(req) {
+  const token = liveWebuiToken()
+  if (token && !req.headers.authorization) {
+    req.headers.authorization = `Bearer ${token}`
+  }
+}
 
 const proxy = httpProxy.createProxyServer({
   changeOrigin: true,
@@ -107,6 +118,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname.startsWith('/webui') || url.pathname.startsWith('/plugin')) {
+    attachNapcatAuth(req)
     proxy.web(req, res, { target: cfg.napcat.webui })
     return
   }
@@ -127,13 +139,15 @@ server.on('upgrade', (req, socket, head) => {
   const url = new URL(req.url || '/', `http://${host}:${port}`)
   if (url.pathname.startsWith('/onebot-ws') || url.pathname === '/ws') {
     const target = cfg.napcat.onebotWs.replace(/^ws/, 'http')
-    if (onebotWsToken && !req.headers.authorization) {
-      req.headers.authorization = `Bearer ${onebotWsToken}`
+    const wsToken = liveWsToken()
+    if (wsToken && !req.headers.authorization) {
+      req.headers.authorization = `Bearer ${wsToken}`
     }
     proxy.ws(req, socket, head, { target })
     return
   }
   if (url.pathname.startsWith('/webui') || url.pathname.startsWith('/plugin')) {
+    attachNapcatAuth(req)
     proxy.ws(req, socket, head, { target: cfg.napcat.webui })
     return
   }

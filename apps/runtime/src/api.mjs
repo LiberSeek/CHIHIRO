@@ -8,7 +8,6 @@ export function createRuntime({ root, cfg }) {
   const dataDir = path.join(root, 'data')
   const store = createAccountStore(path.join(dataDir, 'accounts.json'))
   const qq = createQqRuntime({
-    cfg,
     store,
     logDir: path.join(dataDir, 'logs')
   })

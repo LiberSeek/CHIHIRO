@@ -1,16 +1,11 @@
 import { spawn, execFileSync } from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import net from 'node:net'
+import { liveNapcatSecrets, napcatPaths } from './napcat-secrets.mjs'
 
-const HOME = os.homedir()
-const NAPCAT_ROOT = path.join(
-  HOME,
-  'Library/Containers/com.tencent.qq/Data/Library/Application Support/QQ/NapCat'
-)
+const { root: NAPCAT_ROOT } = napcatPaths()
 const QR_PATH = path.join(NAPCAT_ROOT, 'cache/qrcode.png')
-const WEBUI_JSON = path.join(NAPCAT_ROOT, 'config/webui.json')
 const QQ_BIN = '/Applications/QQ.app/Contents/MacOS/QQ'
 
 function sleep(ms) {
@@ -33,14 +28,6 @@ function portOpen(port, host = '127.0.0.1') {
   })
 }
 
-function readWebuiToken() {
-  try {
-    return JSON.parse(fs.readFileSync(WEBUI_JSON, 'utf8')).token || ''
-  } catch {
-    return ''
-  }
-}
-
 function qrStat() {
   try {
     const st = fs.statSync(QR_PATH)
@@ -50,21 +37,25 @@ function qrStat() {
   }
 }
 
-async function getLoginInfo(httpBase, token) {
-  try {
-    const res = await fetch(`${httpBase}/get_login_info`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      },
-      body: '{}',
-      signal: AbortSignal.timeout(1500)
-    })
-    const json = await res.json()
-    if (json?.status === 'ok' && json.data?.user_id) return json.data
-  } catch {
-    /* not ready */
+async function getLoginInfo() {
+  const { onebot } = liveNapcatSecrets()
+  const httpBase = `http://${onebot.httpHost || '127.0.0.1'}:${onebot.httpPort || 5800}`
+  const tokens = [onebot.httpToken, ''].filter((t, i, a) => a.indexOf(t) === i)
+  for (const token of tokens) {
+    try {
+      const headers = { 'Content-Type': 'application/json' }
+      if (token) headers.Authorization = `Bearer ${token}`
+      const res = await fetch(`${httpBase}/get_login_info`, {
+        method: 'POST',
+        headers,
+        body: '{}',
+        signal: AbortSignal.timeout(1500)
+      })
+      const json = await res.json()
+      if (json?.status === 'ok' && json.data?.user_id) return json.data
+    } catch {
+      /* try next */
+    }
   }
   return null
 }
@@ -87,9 +78,7 @@ function findQqPids() {
   }
 }
 
-export function createQqRuntime({ cfg, store, logDir }) {
-  const httpBase = cfg.napcat.onebotHttp
-  const onebotToken = cfg.napcat.onebotHttpToken
+export function createQqRuntime({ store, logDir }) {
   const state = {
     phase: 'idle', // idle | starting | qr | logging_in | ready | error
     message: '',
@@ -109,10 +98,12 @@ export function createQqRuntime({ cfg, store, logDir }) {
   }
 
   function snapshot() {
+    const secrets = liveNapcatSecrets(state.uin)
     return {
       ...state,
       qr: qrStat(),
-      webuiToken: readWebuiToken(),
+      secrets,
+      webuiToken: secrets.webui.token || '',
       accounts: store.list()
     }
   }
@@ -126,7 +117,7 @@ export function createQqRuntime({ cfg, store, logDir }) {
     state.webuiUp = await portOpen(6099)
     state.onebotUp = await portOpen(5800)
     if (state.onebotUp) {
-      const info = await getLoginInfo(httpBase, onebotToken)
+      const info = await getLoginInfo()
       if (info) {
         state.phase = 'ready'
         state.uin = String(info.user_id)
