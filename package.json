@@ -1,0 +1,31 @@
+{
+  "name": "chihiro",
+  "version": "0.1.0",
+  "private": true,
+  "description": "\u5343\u5bfb Chihiro \u2014 QQ IM workbench shell over NapCat + Stapxs + AstrBot",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run gateway",
+    "gateway": "node apps/gateway/src/server.js",
+    "dev:gateway": "node --watch apps/gateway/src/server.js",
+    "status": "node scripts/status.mjs",
+    "open:im": "node scripts/open.mjs im",
+    "open:webui": "node scripts/open.mjs webui",
+    "open:astrbot": "node scripts/open.mjs astrbot",
+    "compose:up": "docker compose up -d",
+    "compose:down": "docker compose down",
+    "compose:logs": "docker compose logs -f",
+    "pake:im": "node scripts/pake-im.mjs",
+    "upstream:status": "node scripts/upstream-status.mjs",
+    "overlay:stapxs": "node scripts/apply-stapxs-overlay.mjs",
+    "build:stapxs": "node scripts/build-stapxs-plugin.mjs",
+    "install:stapxs": "node scripts/install-stapxs-plugin.mjs",
+    "rebuild:im": "npm run build:stapxs && npm run install:stapxs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "http-proxy": "^1.18.1"
+  }
+}

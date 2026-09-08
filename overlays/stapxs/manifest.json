@@ -1,0 +1,50 @@
+{
+  "name": "chihiro-stapxs-overlay",
+  "version": "0.1.0",
+  "description": "千寻默认连接与品牌覆盖",
+  "replacements": [
+    {
+      "file": "src/renderer/index.html",
+      "from": "<title>Stapxs QQ Lite</title>",
+      "to": "<title>千寻</title>"
+    },
+    {
+      "file": "src/renderer/src/function/option.ts",
+      "from": "    address: '',\n    top_info: {},\n    save_password: '',\n    notice_group: {},\n    auto_connect: false,",
+      "to": "    address: (import.meta as any).env?.VITE_CHIHIRO_DEFAULT_ADDRESS || '127.0.0.1:5801',\n    top_info: {},\n    save_password: '',\n    notice_group: {},\n    auto_connect: String((import.meta as any).env?.VITE_CHIHIRO_AUTO_CONNECT ?? 'true') === 'true',"
+    },
+    {
+      "file": "src/renderer/src/function/connect.ts",
+      "from": "export const login: LoginCacheElem = reactive({\n    quickLogin: [],\n    status: false,\n    address: '',\n    token: '',\n    creating: false,\n    connectionHistory: [],\n})",
+      "to": "export const login: LoginCacheElem = reactive({\n    quickLogin: [],\n    status: false,\n    address: (import.meta as any).env?.VITE_CHIHIRO_DEFAULT_ADDRESS || '127.0.0.1:5801',\n    token: (import.meta as any).env?.VITE_CHIHIRO_DEFAULT_TOKEN || '',\n    creating: false,\n    connectionHistory: [],\n})"
+    },
+    {
+      "file": "package.json",
+      "from": "\"description\": \"一个兼容 OneBot 协议的非官方 QQ 全平台客户端实现。\"",
+      "to": "\"description\": \"千寻 · 基于 Stapxs QQ Lite 的 QQ IM 工作台\""
+    },
+    {
+      "file": "ssqq.napcat-plugin/index.ts",
+      "from": "title: \"Stapxs QQ Lite\"",
+      "to": "title: \"千寻\""
+    },
+    {
+      "file": "ssqq.napcat-plugin/index.ts",
+      "from": "description: \"Stapxs QQ Lite\"",
+      "to": "description: \"千寻 · Stapxs QQ Lite\""
+    }
+  ],
+  "snippetPatches": [
+    {
+      "file": "src/renderer/src/App.vue",
+      "anchor": "logger.error(null, 'Napcat 快速连接失败，状态码：' + response.status)",
+      "insertBefore": false,
+      "replaceAnchorWith": "logger.error(null, 'Napcat 快速连接失败，状态码：' + response.status)\n                        // Chihiro fallback: use configured OneBot WS\n                        const fallbackAddress = import.meta.env.VITE_CHIHIRO_DEFAULT_ADDRESS || '127.0.0.1:5801'\n                        const fallbackToken = import.meta.env.VITE_CHIHIRO_DEFAULT_TOKEN || ''\n                        loginInfo.address = fallbackAddress\n                        loginInfo.token = fallbackToken\n                        if (fallbackAddress) connect()"
+    },
+    {
+      "file": "src/renderer/src/App.vue",
+      "anchor": "logger.error(null, 'Napcat 快速连接请求失败：' + error)",
+      "replaceAnchorWith": "logger.error(null, 'Napcat 快速连接请求失败：' + error)\n                    const fallbackAddress = import.meta.env.VITE_CHIHIRO_DEFAULT_ADDRESS || '127.0.0.1:5801'\n                    const fallbackToken = import.meta.env.VITE_CHIHIRO_DEFAULT_TOKEN || ''\n                    loginInfo.address = fallbackAddress\n                    loginInfo.token = fallbackToken\n                    if (fallbackAddress) connect()"
+    }
+  ]
+}

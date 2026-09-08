@@ -1,0 +1,16 @@
+.DS_Store
+node_modules/
+.cache/
+dist/
+*.log
+.env
+.env.local
+config/chihiro.local.json
+**/__pycache__/
+.venv/
+*.db
+*.db-shm
+*.db-wal
+vendor/**/node_modules/
+vendor/**/dist/
+vendor/**/out/

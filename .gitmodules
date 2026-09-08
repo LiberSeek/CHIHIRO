@@ -1,0 +1,9 @@
+[submodule "vendor/stapxs"]
+	path = vendor/stapxs
+	url = https://github.com/Stapxs/Stapxs-QQ-Lite-2.0.git
+[submodule "vendor/napcat"]
+	path = vendor/napcat
+	url = https://github.com/NapNeko/NapCatQQ.git
+[submodule "vendor/astrbot"]
+	path = vendor/astrbot
+	url = https://github.com/AstrBotDevs/AstrBot.git

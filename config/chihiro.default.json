@@ -1,0 +1,32 @@
+{
+  "$schema": "./chihiro.config.schema.json",
+  "gateway": {
+    "host": "127.0.0.1",
+    "port": 3100
+  },
+  "napcat": {
+    "webui": "http://127.0.0.1:6099",
+    "onebotHttp": "http://127.0.0.1:5800",
+    "onebotWs": "ws://127.0.0.1:5801",
+    "webuiTokenEnv": "CHIHIRO_WEBUI_TOKEN",
+    "onebotHttpTokenEnv": "CHIHIRO_ONEBOT_HTTP_TOKEN",
+    "onebotWsTokenEnv": "CHIHIRO_ONEBOT_WS_TOKEN"
+  },
+  "stapxs": {
+    "path": "/im/",
+    "connect": {
+      "address": "127.0.0.1:5801",
+      "tokenEnv": "CHIHIRO_ONEBOT_WS_TOKEN"
+    },
+    "pluginPage": "/webui/plugin/napcat-plugin-ssqq/page/dashboard"
+  },
+  "astrbot": {
+    "url": "http://127.0.0.1:6185"
+  },
+  "pake": {
+    "name": "千寻",
+    "url": "http://127.0.0.1:3100/im/",
+    "width": 1200,
+    "height": 800
+  }
+}

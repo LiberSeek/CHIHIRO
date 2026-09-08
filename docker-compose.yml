@@ -1,0 +1,25 @@
+# Chihiro compose — partial stack
+#
+# Mac 日用现实约束：
+# - NapCat Shell 依赖本机 QQ.app，不能完整放进 Docker（至少在 macOS 上）
+# - Stapxs 当前以 NapCat 插件页形式运行，挂在本机 :6099
+# - AstrBot 可以容器化；Gateway 也可容器化，但要访问 host 上的 NapCat
+#
+# 因此默认 compose 只起 AstrBot（+ 可选 gateway 说明）。
+# 完整交互：本机 NapCat Shell + Stapxs + `npm run gateway` + 本 compose 的 AstrBot。
+
+services:
+  astrbot:
+    image: soulter/astrbot:latest
+    container_name: chihiro-astrbot
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6185:6185"
+    volumes:
+      - ./runtime/astrbot-docker:/AstrBot/data
+    environment:
+      - TZ=Asia/Shanghai
+    # AstrBot 若要连本机 NapCat OneBot，在 Dashboard 里填：
+    #   host.docker.internal:5801  (WS) / host.docker.internal:5800 (HTTP)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
