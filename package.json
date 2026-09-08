@@ -5,7 +5,7 @@
   "description": "\u5343\u5bfb Chihiro \u2014 QQ IM workbench shell over NapCat + Stapxs + AstrBot",
   "type": "module",
   "scripts": {
-    "dev": "npm run gateway",
+    "dev": "node apps/gateway/src/server.js",
     "gateway": "node apps/gateway/src/server.js",
     "dev:gateway": "node --watch apps/gateway/src/server.js",
     "status": "node scripts/status.mjs",

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>千寻</title>
+  <link rel="stylesheet" href="/app.css" />
+</head>
+<body>
+  <aside class="rail">
+    <div class="brand" title="千寻">寻</div>
+    <div id="account-list" class="account-list"></div>
+    <button id="btn-add" class="rail-btn add" title="添加账号">+</button>
+    <div class="rail-spacer"></div>
+    <a class="rail-btn ghost" href="/webui/" title="NapCat 设置" target="_blank" rel="noreferrer">设</a>
+  </aside>
+
+  <section id="stage" class="stage">
+    <div id="empty" class="panel">
+      <h1>千寻</h1>
+      <p>共用一套 IM。左侧切换账号，聊天为主，Bot 为辅。</p>
+      <p class="hint">点击左下角 <strong>+</strong> 选择客户端并登录。第一版请选 <strong>QQ</strong>。</p>
+    </div>
+
+    <div id="login" class="panel hidden">
+      <h1>登录 QQ</h1>
+      <p id="login-msg" class="hint">正在准备二维码…</p>
+      <img id="qr" class="qr hidden" alt="登录二维码" />
+      <p class="hint">请用手机 QQ 扫描。二维码约两分钟有效，过期会自动刷新。</p>
+    </div>
+
+    <iframe id="im" class="im hidden" title="千寻 IM"></iframe>
+  </section>
+
+  <div id="modal" class="modal hidden">
+    <div class="sheet">
+      <h2>添加账号</h2>
+      <label>
+        客户端
+        <select id="client-select"></select>
+      </label>
+      <p id="client-hint" class="hint"></p>
+      <div class="row">
+        <button id="modal-cancel" type="button" class="btn ghost">取消</button>
+        <button id="modal-ok" type="button" class="btn">开始登录</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

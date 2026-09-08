@@ -31,7 +31,7 @@ Vendor 分支见 [docs/git-workflow.md](docs/git-workflow.md)。
 cd /Users/raven/iWorking/RavenStudio/Products/PRODUCTION/LiberSeekAI/Chihiro/CHIHIRO-EE
 cp config/chihiro.local.example.json config/chihiro.local.json
 npm install
-npm run gateway          # http://127.0.0.1:3100/
+npm run dev              # 工作台 http://127.0.0.1:3100/  （点 + 选 QQ，页内扫码）
 npm run rebuild:im       # overlay + 安装到本机 NapCat 插件目录
 npm run open:im
 npm run pake:im          # Web 跑通后再打桌面壳

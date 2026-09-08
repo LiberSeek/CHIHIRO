@@ -1,0 +1,95 @@
+:root {
+  color-scheme: dark;
+  --rail: #1e1e1e;
+  --bg: #111111;
+  --card: #1c1c1e;
+  --line: #2c2c2e;
+  --text: #f2f2f7;
+  --muted: #8e8e93;
+  --accent: #07c160;
+  --qq: #12b7f5;
+  font-family: ui-sans-serif, system-ui, -apple-system, "PingFang SC", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); }
+body { display: flex; }
+
+.rail {
+  width: 68px;
+  background: var(--rail);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  gap: 10px;
+  border-right: 1px solid var(--line);
+}
+
+.brand {
+  width: 40px; height: 40px; border-radius: 12px;
+  display: grid; place-items: center;
+  background: #2b2b2b; font-weight: 700; letter-spacing: -0.04em;
+}
+
+.account-list { display: flex; flex-direction: column; gap: 8px; width: 100%; align-items: center; }
+
+.avatar {
+  width: 42px; height: 42px; border-radius: 12px; border: 2px solid transparent;
+  background: #333; overflow: hidden; cursor: pointer; position: relative;
+}
+.avatar.active { border-color: var(--qq); }
+.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.avatar .badge {
+  position: absolute; right: -2px; bottom: -2px;
+  font-size: 9px; background: var(--qq); color: #001018;
+  border-radius: 4px; padding: 0 3px; font-weight: 700;
+}
+
+.rail-btn {
+  width: 42px; height: 42px; border-radius: 12px; border: 1px dashed #555;
+  background: transparent; color: var(--text); font-size: 22px; cursor: pointer;
+  display: grid; place-items: center; text-decoration: none;
+}
+.rail-btn.add:hover { border-color: var(--accent); color: var(--accent); }
+.rail-btn.ghost { border-style: solid; border-color: var(--line); font-size: 14px; color: var(--muted); }
+.rail-spacer { flex: 1; }
+
+.stage { flex: 1; position: relative; min-width: 0; }
+.panel {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 32px; text-align: center; gap: 10px;
+}
+.panel h1 { margin: 0; font-size: 28px; }
+.hint { color: var(--muted); max-width: 420px; line-height: 1.55; margin: 0; }
+.hidden { display: none !important; }
+
+.qr {
+  width: 220px; height: 220px; background: #fff; border-radius: 12px; padding: 10px;
+}
+
+.im {
+  position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff;
+}
+
+.modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,.55);
+  display: grid; place-items: center; z-index: 20;
+}
+.sheet {
+  width: min(420px, 92vw); background: var(--card); border: 1px solid var(--line);
+  border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px;
+}
+.sheet h2 { margin: 0; font-size: 18px; }
+label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); text-align: left; }
+select {
+  appearance: none; background: #111; color: var(--text); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 12px; font-size: 15px;
+}
+.row { display: flex; justify-content: flex-end; gap: 8px; }
+.btn {
+  border: 0; border-radius: 10px; padding: 8px 14px; cursor: pointer;
+  background: var(--qq); color: #001018; font-weight: 650;
+}
+.btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
