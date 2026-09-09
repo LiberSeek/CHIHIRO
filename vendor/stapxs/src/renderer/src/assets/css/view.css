@@ -233,49 +233,6 @@ textarea:focus {
 .side-bar-space {
     flex: 1;
 }
-#bar-chihiro-menu {
-    position: relative;
-}
-.chihiro-menu {
-    position: absolute;
-    left: calc(100% + 8px);
-    bottom: 4px;
-    min-width: 168px;
-    margin: 0;
-    padding: 6px;
-    list-style: none;
-    background: var(--color-card);
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0,0,0,.35);
-    z-index: 50;
-}
-.chihiro-menu li {
-    display: block !important;
-    margin: 0 !important;
-    padding: 8px 12px !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    text-align: left;
-    border-radius: 8px;
-    color: var(--color-font);
-    font-size: 13px;
-}
-.chihiro-menu li:hover {
-    background: var(--color-card-2);
-}
-html.chihiro-settings-only #side-bar,
-html.chihiro-settings-only #load-view,
-html.chihiro-settings-only .top-bar,
-html.chihiro-settings-only .mac-controller {
-    display: none !important;
-}
-html.chihiro-settings-only .main-body {
-    height: 100% !important;
-}
-html.chihiro-settings-only .main-body > div {
-    width: 100% !important;
-}
-
 .main-body > ul > li {
     padding: 0 3px;
     display: flex;

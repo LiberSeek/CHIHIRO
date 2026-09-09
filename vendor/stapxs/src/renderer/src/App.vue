@@ -340,10 +340,10 @@ import {
     toBackgroundImageStyle,
 } from '@renderer/function/utils/backgroundUtil'
 
-import Options from '@renderer/pages/Options.vue'
-import Friends from '@renderer/pages/Friends.vue'
-import Messages from '@renderer/pages/Messages.vue'
-import Qzone from '@renderer/pages/Qzone.vue'
+import Options from '@renderer/pages/user/UserOptions.vue'
+import Friends from '@renderer/pages/user/UserFriends.vue'
+import Messages from '@renderer/pages/user/UserMessages.vue'
+import Qzone from '@renderer/pages/user/UserQzone.vue'
 import MusicPlayer, { getCurrentMusic } from './components/MusicPlayer.vue'
 import FileManager, { panelVisible, closePanel, getDownloadTasks, getUploadTasks } from './components/FileManager.vue'
 import GlobalSessionSearchBar from './components/GlobalSessionSearchBar.vue'

@@ -1,0 +1,508 @@
+/* Chihiro User UI — do not put product styles in chat.css / view.css */
+
+#bar-chihiro-menu {
+    position: relative;
+}
+.chihiro-menu {
+    position: absolute;
+    left: calc(100% + 8px);
+    bottom: 4px;
+    min-width: 168px;
+    margin: 0;
+    padding: 6px;
+    list-style: none;
+    background: var(--color-card);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.35);
+    z-index: 50;
+}
+.chihiro-menu li {
+    display: block !important;
+    margin: 0 !important;
+    padding: 8px 12px !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    text-align: left;
+    border-radius: 8px;
+    color: var(--color-font);
+    font-size: 13px;
+}
+.chihiro-menu li:hover {
+    background: var(--color-card-2);
+}
+html.chihiro-settings-only #side-bar,
+html.chihiro-settings-only #load-view,
+html.chihiro-settings-only .top-bar,
+html.chihiro-settings-only .mac-controller {
+    display: none !important;
+}
+html.chihiro-settings-only .main-body {
+    height: 100% !important;
+}
+html.chihiro-settings-only .main-body > div {
+    width: 100% !important;
+}
+
+.user-skin.chat-pan > div.more {
+    background: var(--color-card) !important;
+    transition: background 0.3s;
+    pointer-events: all;
+    position: absolute;
+    bottom: 0px;
+    width: 100%;
+    border-top: 1px solid var(--color-card-2) !important;
+    box-shadow: 0 -1px 0 var(--color-card-2);
+}
+.user-skin.chat-pan > div.more > div:nth-child(2) {
+    display: block !important;
+    padding: 0 !important;
+    align-items: stretch !important;
+    background: transparent !important;
+}
+.user-skin.chat-pan > div.more > div:nth-child(2) > div {
+    background: transparent !important;
+    border-radius: 0 !important;
+}
+.user-skin.chat-pan > div.more > div:nth-child(2) > div > form,
+.user-skin.chat-pan > div.more > div:nth-child(2) > form,
+.chihiro-composer-form {
+    width: 100% !important;
+    display: block !important;
+    align-items: stretch !important;
+    flex: none !important;
+}
+.user-skin.chat-pan > div.more > div:nth-child(2) > div > form > input,
+.user-skin.chat-pan > div.more > div:nth-child(2) > div > form > textarea,
+.user-skin.chat-pan > div.more > div:nth-child(2) > form > input,
+.user-skin.chat-pan > div.more > div:nth-child(2) > form > textarea,
+.chihiro-composer-form input,
+.chihiro-composer-form textarea {
+    width: 100% !important;
+    min-height: 112px !important;
+    height: auto !important;
+    max-height: 28vh !important;
+    margin: 0 0 8px 0 !important;
+    padding: 10px 20px 16px !important;
+    background: transparent !important;
+    border: 0 !important;
+    outline: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    color: var(--color-font) !important;
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+    resize: none !important;
+    overflow-y: auto;
+    caret-color: var(--color-font);
+}
+.user-skin.chat-pan > div.more > div:nth-child(2) > div > form > input:disabled,
+.user-skin.chat-pan > div.more > div:nth-child(2) > div > form > textarea:disabled,
+.chihiro-composer-form input:disabled,
+.chihiro-composer-form textarea:disabled {
+    background: transparent !important;
+    outline: none !important;
+    color: var(--color-font-2);
+    opacity: 0.7;
+    text-align: left;
+    font-size: 0.85rem;
+}
+.chihiro-composer {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    background: transparent;
+}
+.chihiro-composer-form textarea::placeholder,
+.chihiro-composer-form input::placeholder {
+    color: var(--color-font-2);
+    opacity: 0.65;
+}
+.chihiro-toolbar {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between;
+    width: 100% !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+    margin: 0 !important;
+    padding: 2px 10px 0 !important;
+    border-top: none !important;
+    border-bottom: none !important;
+    box-sizing: border-box;
+    background: transparent !important;
+    border-radius: 0 !important;
+}
+.chihiro-tools,
+.chihiro-tools-right {
+    display: flex !important;
+    align-items: center;
+    gap: 2px;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    background: transparent !important;
+}
+.chihiro-tools > div,
+.chihiro-tools-right > div {
+    width: 36px !important;
+    height: 36px !important;
+    margin: 0 !important;
+    border-radius: 6px !important;
+    display: grid !important;
+    place-items: center;
+    cursor: pointer;
+    background: transparent !important;
+    flex: 0 0 auto;
+    color: var(--color-font-1) !important;
+}
+.chihiro-tools > div:hover,
+.chihiro-tools-right > div:hover {
+    background: var(--color-card-1) !important;
+}
+.chihiro-composer svg,
+.user-skin.chat-pan > div.more > div:nth-child(2) svg {
+    width: 18px !important;
+    height: 18px !important;
+    margin: 0 !important;
+    color: var(--color-font-1) !important;
+    fill: currentColor;
+}
+.chihiro-feature-btn {
+    width: 36px !important;
+    height: 36px !important;
+    border: 0 !important;
+    border-radius: 6px !important;
+    background: transparent !important;
+}
+.chihiro-feature-btn:hover {
+    background: var(--color-card-1) !important;
+}
+.chihiro-feature-btn svg {
+    width: 14px !important;
+    height: 14px !important;
+    color: var(--color-font-1) !important;
+}
+
+.chihiro-tools > div.active,
+.chihiro-face-btn.active {
+    background: var(--color-card-1) !important;
+}
+.chihiro-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: all;
+    flex: 0 0 auto;
+}
+.chihiro-history-btn,
+.chihiro-head-actions .more {
+    background: var(--color-card-2);
+    border-radius: 50%;
+    cursor: pointer;
+    height: 45px;
+    width: 45px;
+    display: grid;
+    place-items: center;
+}
+.chihiro-history-btn svg,
+.chihiro-head-actions .more svg {
+    color: var(--color-main);
+    height: 22px !important;
+    width: 22px !important;
+    margin: 0 !important;
+}
+.chihiro-history-btn:hover,
+.chihiro-history-btn.active,
+.chihiro-head-actions .more:hover {
+    background: var(--color-card-1);
+}
+.chihiro-history-mask {
+    position: absolute;
+    inset: 0;
+    z-index: 25 !important;
+    background: rgba(0, 0, 0, 0.45);
+    pointer-events: all;
+    display: grid;
+    place-items: center;
+    padding: 28px 24px;
+    box-sizing: border-box;
+}
+.chihiro-history-win {
+    display: flex;
+    flex-direction: column;
+    width: min(780px, 100%);
+    height: min(680px, 100%);
+    min-height: 0;
+    padding: 0 20px 0;
+    background: var(--color-card);
+    border: 1px solid var(--color-card-2);
+    border-radius: 14px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    pointer-events: all;
+}
+.chihiro-history-head {
+    display: grid;
+    grid-template-columns: 36px 1fr 36px;
+    align-items: center;
+    padding: 12px 4px 12px;
+    margin: 0 -8px 10px;
+    color: var(--color-font);
+    border-bottom: 1px solid var(--color-card-2);
+}
+.chihiro-history-title {
+    grid-column: 2;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.chihiro-history-close {
+    grid-column: 3;
+    justify-self: end;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--color-font-1);
+}
+.chihiro-history-close:hover {
+    background: var(--color-card-2);
+}
+.chihiro-history-close svg {
+    width: 14px !important;
+    height: 14px !important;
+    margin: 0 !important;
+}
+.chihiro-history-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--color-main);
+    border-radius: 8px;
+    background: var(--color-card-1);
+}
+.chihiro-history-search svg {
+    width: 14px !important;
+    height: 14px !important;
+    margin: 0 !important;
+    color: var(--color-font-2) !important;
+    flex: 0 0 auto;
+}
+.chihiro-history-search input {
+    flex: 1;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--color-font);
+    font-size: 13px;
+    height: 100%;
+}
+.chihiro-history-tabs {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    padding: 14px 4px 0;
+    border-bottom: 1px solid var(--color-card-2);
+}
+.chihiro-history-tabs button {
+    appearance: none;
+    background: none;
+    border: 0;
+    color: var(--color-font-1);
+    font-size: 14px;
+    padding: 0 0 10px;
+    cursor: pointer;
+    position: relative;
+}
+.chihiro-history-tabs button.active {
+    color: var(--color-font);
+    font-weight: 600;
+}
+.chihiro-history-tabs button.active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--color-main);
+    border-radius: 2px;
+}
+.chihiro-history-list {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding: 4px 0 20px;
+}
+.chihiro-history-date {
+    color: var(--color-font-2);
+    font-size: 13px;
+    padding: 16px 4px 10px;
+    border-bottom: 1px solid var(--color-card-2);
+    margin-bottom: 2px;
+}
+.chihiro-history-item {
+    display: flex;
+    gap: 12px;
+    padding: 14px 4px;
+    border-bottom: 1px solid var(--color-card-2);
+    cursor: pointer;
+}
+.chihiro-history-item:hover {
+    background: var(--color-card-1);
+}
+.chihiro-history-item img {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex: 0 0 auto;
+    background: var(--color-card-2);
+}
+.chihiro-history-text {
+    color: var(--color-font);
+    font-size: 14px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-width: 0;
+}
+.chihiro-history-empty {
+    color: var(--color-font-2);
+    text-align: center;
+    padding: 56px 0;
+    font-size: 13px;
+}
+.user-skin .face-pan {
+    background: var(--color-card) !important;
+    transform: none !important;
+    position: absolute !important;
+    left: 12px !important;
+    bottom: 100% !important;
+    top: auto !important;
+    margin: 0 0 8px 0 !important;
+    height: min(372px, 55vh) !important;
+    width: min(520px, calc(100% - 24px)) !important;
+    padding: 0 !important;
+    border-radius: 12px !important;
+    border: 1px solid var(--color-card-2) !important;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.42) !important;
+    overflow: hidden !important;
+    z-index: 36 !important;
+    display: flex;
+    flex-direction: column !important;
+    pointer-events: all !important;
+}
+.user-skin .face-pan[style*="display: none"] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+    box-shadow: none !important;
+    border: 0 !important;
+}
+.user-skin .face-pan .tab-main {
+    display: flex !important;
+    flex-direction: column-reverse !important;
+    height: 100% !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+}
+.user-skin .face-pan .tab-main > div:first-child {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+}
+.user-skin .face-pan .tab-bar {
+    --bc-tab-margin: 0px;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 6px 10px !important;
+    justify-content: flex-start !important;
+    border-top: 1px solid var(--color-card-2);
+    background: var(--color-card);
+}
+.user-skin .face-pan .tab-bar > li {
+    width: 36px;
+    height: 36px;
+    margin: 0 4px !important;
+    padding: 0 !important;
+    border-radius: 8px;
+    display: grid !important;
+    place-items: center;
+    cursor: pointer;
+}
+.user-skin .face-pan .tab-bar > li.select {
+    background: var(--color-card-2);
+}
+.user-skin .face-pan .tab-bar > li > svg {
+    width: 18px !important;
+    height: 18px !important;
+    margin: 0 !important;
+    color: var(--color-font-1) !important;
+}
+.user-skin .face-pan .tab-bar > li > div {
+    display: none !important;
+}
+.user-skin .face-pan .tab-body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+.user-skin .face-pan .tab-body > div {
+    height: 100% !important;
+    overflow: hidden !important;
+}
+.user-skin .face-pan div.system-face-bar {
+    height: 100% !important;
+    overflow-y: auto !important;
+    width: 100% !important;
+    padding: 10px 12px 6px;
+    box-sizing: border-box;
+}
+.user-skin .face-pan div.title {
+    padding: 8px 6px 6px !important;
+}
+.user-skin .face-pan div.title > span {
+    font-size: 12px !important;
+    color: var(--color-font-2) !important;
+    font-weight: 400;
+}
+.user-skin .face-pan div.title > div {
+    display: none !important;
+}
+.user-skin .face-pan .face {
+    grid-template-columns: repeat(10, minmax(0, 1fr)) !important;
+    padding: 0 2px 8px;
+}
+.user-skin .face-pan .face > div {
+    background: transparent !important;
+    border-radius: 8px !important;
+    width: auto !important;
+    height: 36px !important;
+    margin: 1px !important;
+}
+.user-skin .face-pan .face > div:hover {
+    background: var(--color-card-2) !important;
+}
+.user-skin .face-pan .face > div > .emoji-face {
+    margin: 0 !important;
+    height: 24px !important;
+    width: 24px !important;
+}
+.user-skin .face-pan .custom-face-bar .face {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+}

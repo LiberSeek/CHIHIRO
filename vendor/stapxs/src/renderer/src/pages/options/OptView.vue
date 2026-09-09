@@ -818,12 +818,15 @@ function isMobile() {
 }
 
 function getAppendChatView() {
-    const chatView = import.meta.glob('@renderer/pages/chat-view/*.vue', { eager: true })
+    const chatView = {
+        ...import.meta.glob('@renderer/pages/user/User*.vue', { eager: true }),
+        ...import.meta.glob('@renderer/pages/chat-view/*.vue', { eager: true }),
+    }
     const chatViewList: string[] = []
     Object.keys(chatView).forEach((key: string) => {
         let name = key.split('/').pop()?.split('.')[0]
         name = name ? name.toString().replaceAll(/(^['"]|['"]$)/g, '').trim() : name
-        if (name && name.startsWith('Chat')) {
+        if (name && (name.startsWith('UserChat') || name.startsWith('Chat'))) {
             chatViewList.push(name)
         }
     })

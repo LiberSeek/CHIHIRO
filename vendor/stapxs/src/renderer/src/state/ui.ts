@@ -31,11 +31,11 @@ export const useUIStore = defineStore('ui', () => {
 
     const pageView = {
         chatView: markRaw(
-            defineAsyncComponent(() => import('@renderer/pages/Chat.vue')),
+            defineAsyncComponent(() => import('@renderer/pages/user/UserChat.vue')),
         ),
         msgView: markRaw(
             defineAsyncComponent(
-                () => import('@renderer/components/MsgBody.vue'),
+                () => import('@renderer/components/user/UserMsgBody.vue'),
             ),
         ),
     }

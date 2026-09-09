@@ -48,10 +48,10 @@
                 <span v-if="isDev && data._from_local_db" class="dev-local-tag">
                     {{ $t('本地') }}
                 </span>
-                <a v-if="data.sender.card || data.sender.nickname">
+                <a v-if="chatStore.chatInfo.show.type == 'group' && (data.sender.card || data.sender.nickname)">
                     {{ data.sender.card ? data.sender.card : data.sender.nickname }}
                 </a>
-                <a v-else>
+                <a v-else-if="chatStore.chatInfo.show.type == 'group'">
                     {{ isMe ? authStore.loginInfo.nickname : chatStore.chatInfo.show.name }}
                 </a>
                 <a v-if="selected" class="time">
@@ -422,19 +422,19 @@ const contactStore = useContactStore()
 const chatStore = useChatStore()
 const settingsStore = useSettingsStore()
 import Emoji from '@renderer/function/model/emoji'
-import EmojiFace from './EmojiFace.vue'
-import LazyLottie from './LazyLottie.vue'
+import EmojiFace from '@renderer/components/EmojiFace.vue'
+import LazyLottie from '@renderer/components/LazyLottie.vue'
 import { Img } from '@renderer/function/model/img'
 import { dbGetImage, hashUrl } from '@renderer/function/utils/localHistoryUtil'
-import JsonSegComp from './msg-component/JsonSegComp.vue'
-import XmlSegComp from './msg-component/XmlSegComp.vue'
-import VoiceMsg from './VoiceMsg.vue'
-import { addMusic, MusicInfo } from './MusicPlayer.vue'
+import JsonSegComp from '@renderer/components/msg-component/JsonSegComp.vue'
+import XmlSegComp from '@renderer/components/msg-component/XmlSegComp.vue'
+import VoiceMsg from '@renderer/components/VoiceMsg.vue'
+import { addMusic, MusicInfo } from '@renderer/components/MusicPlayer.vue'
 
 type Msg = any
 type IUser = any
 
-defineOptions({ name: 'MsgBody' })
+defineOptions({ name: 'UserMsgBody' })
 
 const $t = i18n.global.t
 

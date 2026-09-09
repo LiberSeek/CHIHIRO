@@ -142,7 +142,8 @@ const mime = {
   '.css': 'text/css; charset=utf-8',
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
-  '.json': 'application/json; charset=utf-8'
+  '.json': 'application/json; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8'
 }
 
 function serveStatic(url, res) {
@@ -151,7 +152,16 @@ function serveStatic(url, res) {
   const file = path.join(webDir, rel)
   if (!file.startsWith(webDir)) return false
   if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) return false
-  res.writeHead(200, { 'Content-Type': mime[path.extname(file)] || 'application/octet-stream' })
+  const ext = path.extname(file)
+  const headers = { 'Content-Type': mime[ext] || 'application/octet-stream' }
+  if (rel === '/sw.js') {
+    headers['Service-Worker-Allowed'] = '/'
+    headers['Cache-Control'] = 'no-cache'
+  }
+  if (rel === '/manifest.webmanifest') {
+    headers['Cache-Control'] = 'no-cache'
+  }
+  res.writeHead(200, headers)
   fs.createReadStream(file).pipe(res)
   return true
 }

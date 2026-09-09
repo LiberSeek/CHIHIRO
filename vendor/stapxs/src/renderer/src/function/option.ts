@@ -88,7 +88,7 @@ export const optDefault: { [key: string]: any } = {
     chat_background_blur: 0,
     chat_background_align: 'center',
     chat_background_fit: 'cover',
-    chatview_name: '',
+    chatview_name: 'UserChat',
     opt_fast_animation: false,
     chat_more_blur: false,
     glass_effect: false,
@@ -529,7 +529,13 @@ function changeTheme(id: number) {
 function changeChatView(name: string | undefined) {
     const uiStore = useUIStore()
     const safeName = (name || '').toString().replaceAll(/(^['"])|(['"]$)/g, '').trim()
-    if (safeName) {
+    if (safeName.startsWith('User')) {
+        uiStore.pageView.chatView = markRaw(
+            defineAsyncComponent(
+                () => import(`@renderer/pages/user/${safeName}.vue`),
+            ),
+        )
+    } else if (safeName) {
         uiStore.pageView.chatView = markRaw(
             defineAsyncComponent(
                 () => import(`@renderer/pages/chat-view/${safeName}.vue`),
@@ -537,7 +543,7 @@ function changeChatView(name: string | undefined) {
         )
     } else {
         uiStore.pageView.chatView = markRaw(
-            defineAsyncComponent(() => import('@renderer/pages/Chat.vue')),
+            defineAsyncComponent(() => import('@renderer/pages/user/UserChat.vue')),
         )
     }
 }

@@ -842,3 +842,7 @@ if (boot.phase !== 'ready' && !saved.some((a) => a.online)) {
   }
 }
 connectStream()
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {})
+}

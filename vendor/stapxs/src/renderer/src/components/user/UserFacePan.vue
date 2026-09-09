@@ -6,13 +6,13 @@
 -->
 
 <template>
-    <div class="ss-card face-pan">
+    <div class="ss-card face-pan" @click.stop>
         <BcTab>
             <div icon="fa-solid fa-face-laugh-squint">
                 <div class="system-face-bar">
                     <template v-if="recentEmojisList.length > 0">
                         <div class="title">
-                            <span>{{ $t('最近使用') }}</span>
+                            <span>{{ $t('最近表情') }}</span>
                         </div>
                         <div class="face">
                             <template
@@ -68,7 +68,7 @@
                 <div class="system-face-bar custom-face-bar" @scroll="stickersScroll">
                     <template v-if="recentCustomFacesList.length > 0">
                         <div class="title">
-                            <span>{{ $t('最近使用') }}</span>
+                            <span>{{ $t('最近表情') }}</span>
                         </div>
                         <div class="face">
                             <span
@@ -113,7 +113,7 @@
                 <div class="system-face-bar custom-face-bar">
                     <template v-if="recentLocalFacesList.length > 0">
                         <div class="title">
-                            <span>{{ $t('最近使用') }}</span>
+                            <span>{{ $t('最近表情') }}</span>
                         </div>
                         <div class="face">
                             <span v-for="(emoji, index) in recentLocalFacesList" :key="index">
@@ -178,9 +178,9 @@ import Option from '@renderer/function/option'
 import { PopInfo, PopType } from '@renderer/function/base'
 import BcTab from 'vue3-bcui/packages/bc-tab'
 import Emoji from '@renderer/function/model/emoji'
-import EmojiFace from './EmojiFace.vue'
+import EmojiFace from '@renderer/components/EmojiFace.vue'
 import { VueCompData } from '@renderer/function/elements/vueComp'
-import CustomFaceTooltip from './tooltip/CustomFaceTooltip.vue'
+import CustomFaceTooltip from '@renderer/components/tooltip/CustomFaceTooltip.vue'
 import { useLocalStorage, vTooltip } from '@renderer/function/utils/appUtil'
 import app from '@renderer/main'
 import { useStickerStore } from '@renderer/state/sticker'

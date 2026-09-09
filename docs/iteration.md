@@ -37,7 +37,7 @@ vendor/stapxs
   → dist/plugins/napcat-plugin-ssqq
 ```
 
-改 composer、历史、表情、菜单、默认连接，都在 `vendor/stapxs` 里改 Vue/CSS/TS。
+改 composer、历史、表情、菜单、默认连接，都在 `vendor/stapxs/src/renderer/src/pages/user` 与 `components/user` 的 `User*` 文件里改。上游 `Chat.vue` 等不要当产品 UI 改。默认聊天面板是 `UserChat`。
 
 ### NapCatQQ：协议对照
 

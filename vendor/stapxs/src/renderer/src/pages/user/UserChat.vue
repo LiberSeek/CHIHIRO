@@ -12,7 +12,7 @@
 <template>
     <div id="chat-pan"
         v-move="chatMoveOptions"
-        :class="'chat-pan' +
+        :class="'chat-pan user-skin' +
             (uiStore.openSideBar ? ' open' : '') +
             (['linux', 'win32'].includes(backend.platform ?? '') ? ' withBar' : '')"
         :style="{
@@ -57,8 +57,52 @@
                 </span>
             </div>
             <div class="space" />
-            <div class="more">
-                <font-awesome-icon :icon="['fas', 'ellipsis-vertical']" @click="openChatInfoPan" />
+            <div class="chihiro-head-actions">
+                <div class="chihiro-history-btn" :class="{ active: chihiroHistory.open }" :title="$t('搜索消息')" @click.stop="toggleChihiroHistory">
+                    <font-awesome-icon :icon="['fas', 'clock-rotate-left']" />
+                </div>
+                <div class="more">
+                    <font-awesome-icon :icon="['fas', 'ellipsis-vertical']" @click="openChatInfoPan" />
+                </div>
+            </div>
+        </div>
+        <div v-if="chihiroHistory.open" class="chihiro-history-mask" @click.self="closeChihiroHistory">
+            <div class="chihiro-history-win" @click.stop>
+                <div class="chihiro-history-head">
+                    <span class="chihiro-history-title">{{ chat.show.name }}</span>
+                    <div class="chihiro-history-close" title="关闭" @click="closeChihiroHistory">
+                        <font-awesome-icon :icon="['fas', 'xmark']" />
+                    </div>
+                </div>
+                <div class="chihiro-history-search">
+                    <font-awesome-icon :icon="['fas', 'search']" />
+                    <input v-model="chihiroHistory.query"
+                        :placeholder="$t('搜索')"
+                        @input="runChihiroHistorySearch"
+                        @keydown.esc.prevent="closeChihiroHistory">
+                </div>
+                <div class="chihiro-history-tabs">
+                    <button type="button" :class="{ active: chihiroHistory.tab === 'all' }" @click="setChihiroHistoryTab('all')">全部</button>
+                    <button type="button" :class="{ active: chihiroHistory.tab === 'media' }" @click="setChihiroHistoryTab('media')">图片/视频</button>
+                    <button type="button" :class="{ active: chihiroHistory.tab === 'face' }" @click="setChihiroHistoryTab('face')">表情</button>
+                    <button type="button" :class="{ active: chihiroHistory.tab === 'file' }" @click="setChihiroHistoryTab('file')">文件</button>
+                    <button type="button" :class="{ active: chihiroHistory.tab === 'link' }" @click="setChihiroHistoryTab('link')">链接</button>
+                </div>
+                <div class="chihiro-history-list">
+                    <template v-if="chihiroHistoryGroups().length">
+                        <template v-for="group in chihiroHistoryGroups()" :key="group.date">
+                            <div class="chihiro-history-date">{{ group.date }}</div>
+                            <div v-for="item in group.items"
+                                :key="item.message_id || item.fake_message_id"
+                                class="chihiro-history-item"
+                                @click="jumpChihiroHistory(item)">
+                                <img :src="chihiroMsgAvatar(item)">
+                                <div class="chihiro-history-text">{{ chihiroMsgPreview(item) }}</div>
+                            </div>
+                        </template>
+                    </template>
+                    <div v-else class="chihiro-history-empty">暂无相关记录</div>
+                </div>
             </div>
         </div>
         <!-- 加载中指示器 -->
@@ -159,8 +203,9 @@
                 <div>
                     <!-- 表情面板 -->
                     <Transition name="pan">
-                        <FacePan v-show="details[1].open"
-                            @add-special-msg="addSpecialMsg" @send-msg="sendMsg" />
+                        <FacePan v-if="details[1].open"
+                            @click.stop
+                            @add-special-msg="onChihiroFaceAdd" @send-msg="onChihiroFaceSend" />
                     </Transition>
                     <!-- 精华消息 -->
                     <Transition name="pan">
@@ -362,25 +407,37 @@
                 </div>
             </div>
             <!-- 消息发送框 -->
-            <div>
-                <div v-menu.prevent="_=>moreFunClick()"
-                    @click="moreFunClick(settingsStore.sysConfig.quick_send)">
-                    <font-awesome-icon v-if="tags.showMoreDetail || details.find(item => item.open)" :icon="['fas', 'minus']" />
-                    <font-awesome-icon v-else-if="settingsStore.sysConfig.quick_send == 'default'" :icon="['fas', 'plus']" />
-                    <font-awesome-icon v-else-if="settingsStore.sysConfig.quick_send == 'img'" :icon="['fas', 'image']" />
-                    <font-awesome-icon v-else-if="settingsStore.sysConfig.quick_send == 'file'" :icon="['fas', 'folder']" />
-                    <font-awesome-icon v-else-if="settingsStore.sysConfig.quick_send == 'face'" :icon="['fas', 'face-laugh']" />
+            <div class="chihiro-composer">
+                <div class="chihiro-toolbar">
+                    <div class="chihiro-tools">
+                        <div class="chihiro-face-btn" :class="{ active: details[1].open }" :title="$t('表情')"
+                            @click.stop="toggleChihiroFace">
+                            <font-awesome-icon :icon="['fas', 'face-laugh']" />
+                        </div>
+                        <div :title="$t('图片')" @click="runSelectImg">
+                            <font-awesome-icon :icon="['fas', 'image']" />
+                        </div>
+                        <div :title="$t('文件')" @click="runSelectFile">
+                            <font-awesome-icon :icon="['fas', 'folder']" />
+                        </div>
+                        <div v-if="chat.show.type === 'user'" :title="$t('戳一戳')" @click="sendPoke(chat.show.id)">
+                            <font-awesome-icon :icon="['fas', 'fa-hand-point-up']" />
+                        </div>
+                        <div v-if="chat.show.type === 'group'" :title="$t('精华消息')" @click="showJin">
+                            <font-awesome-icon :icon="['fas', 'star']" />
+                        </div>
+                    </div>
+                    <div class="chihiro-tools-right">
+                        <div title="功能区" class="chihiro-feature-btn" @click="toggleChihiroFeature">
+                            <font-awesome-icon :icon="['fas', 'table-columns']" />
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <form @submit="mainSubmit">
-                        <template v-if="!Option.get('use_breakline')">
-                            <label for="main-input" class="sr-only">{{ $t('消息输入框') }}</label>
-                            <input
-                                id="main-input"
+                <form class="chihiro-composer-form" @submit.prevent="mainSubmit">
+                            <label for="main-input-ex" class="sr-only">{{ $t('消息输入框') }}</label>
+                            <textarea id="main-input-ex"
                                 ref="mainInput"
                                 v-model="msg"
-                                type="text"
-                                autocomplete="off"
                                 :disabled="uiStore.openSideBar || chat.info.me_info.shut_up_timestamp > 0"
                                 :placeholder="
                                     chat.info.me_info.shut_up_timestamp > 0
@@ -392,33 +449,14 @@
                                             ).format(new Date(chat.info.me_info.shut_up_timestamp * 1000)),
                                         }) : ''"
                                 @paste="addImg"
-                                @keydown="mainAtKey"
-                                @keyup="mainKeyUp"
-                                @click="selectSQIn"
-                                @input="handleInput">
-                        </template>
-                        <template v-else>
-                            <label for="main-input-ex" class="sr-only">{{ $t('消息输入框') }}</label>
-                            <textarea id="main-input-ex"
-                                ref="mainInput"
-                                v-model="msg"
-                                type="text"
-                                :disabled="uiStore.openSideBar"
-                                @paste="addImg"
                                 @keydown="mainKey"
                                 @keyup="mainKeyUp"
                                 @click="selectSQIn"
                                 @input="handleInput"
                                 @compositionstart="handleCompositionStart"
                                 @compositionend="handleCompositionEnd" />
-                        </template>
                     </form>
                     <slot name="main-input-button" />
-                    <div @click="sendMsg('sendMsgBack')">
-                        <font-awesome-icon v-if="details[3].open" :icon="['fas', 'search']" />
-                        <font-awesome-icon v-else :icon="['fas', 'angle-right']" />
-                    </div>
-                </div>
             </div>
             <div />
         </div>
@@ -563,11 +601,11 @@ import app from '@renderer/main'
 import { i18n } from '@renderer/main'
 import SendUtil from '@renderer/function/sender'
 import Option, { get } from '@renderer/function/option'
-import Info from '@renderer/pages/Info.vue'
-import MsgBody from '@renderer/components/MsgBody.vue'
-import NoticeBody from '@renderer/components/NoticeBody.vue'
-import FacePan from '@renderer/components/FacePan.vue'
-import MergePan from '@renderer/components/MergePan.vue'
+import Info from '@renderer/pages/user/UserInfo.vue'
+import MsgBody from '@renderer/components/user/UserMsgBody.vue'
+import NoticeBody from '@renderer/components/user/UserNoticeBody.vue'
+import FacePan from '@renderer/components/user/UserFacePan.vue'
+import MergePan from '@renderer/components/user/UserMergePan.vue'
 import imageCompression from 'browser-image-compression'
 
 import {
@@ -633,7 +671,7 @@ import { useChatStore } from '@renderer/state/chat'
 import { useContactStore } from '@renderer/state/contact'
 import { addUploadTask, failUploadTask } from '@renderer/components/FileManager.vue'
 
-defineOptions({ name: 'ViewChat' })
+defineOptions({ name: 'UserChat' })
 
 const $t = i18n.global.t
 const { viewer: viewerRef } = inject<{ viewer: any }>('viewer', { viewer: null })
@@ -643,6 +681,168 @@ const { chat, list } = defineProps<{
     list: any[]
     imgView?: any
 }>()
+function toggleChihiroFeature() {
+    try { window.parent.postMessage({ source: 'chihiro-im', kind: 'toggle-feature' }, '*') } catch (e) {}
+}
+function toggleChihiroFace() {
+    details.value[1].open = !details.value[1].open
+    tags.value.showMoreDetail = false
+    if (details.value[1].open) chihiroHistory.open = false
+}
+function closeChihiroFace() {
+    details.value[1].open = false
+}
+function onChihiroFaceAdd(data: any) {
+    addSpecialMsg(data)
+    closeChihiroFace()
+}
+function onChihiroFaceSend(echo?: string) {
+    closeChihiroFace()
+    sendMsg(echo)
+}
+function closeChihiroHistory() {
+    chihiroHistory.open = false
+    chihiroHistory.query = ''
+    chihiroHistory.tab = 'all'
+    chihiroHistory.list = []
+}
+function toggleChihiroHistory() {
+    if (chihiroHistory.open) {
+        closeChihiroHistory()
+        return
+    }
+    details.value[1].open = false
+    tags.value.showMoreDetail = false
+    chihiroHistory.open = true
+    chihiroHistory.query = ''
+    chihiroHistory.tab = 'all'
+    runChihiroHistorySearch()
+}
+function chihiroMsgTypes(item: any): string[] {
+    return (item?.message || []).map((seg: any) => seg?.type).filter(Boolean)
+}
+function chihiroMatchTab(item: any, tab: string) {
+    const types = chihiroMsgTypes(item)
+    if (tab === 'media') return types.some((t: string) => t === 'image' || t === 'video')
+    if (tab === 'face') {
+        return types.some((t: string) => t === 'face' || t === 'bface' || t === 'mface') ||
+            (item?.message || []).some((seg: any) => seg?.type === 'image' && (seg.subType == 1 || seg.sub_type == 1))
+    }
+    if (tab === 'file') return types.includes('file')
+    if (tab === 'link') {
+        try { return /https?:\/\//i.test(getMsgRawTxt(item) || '') } catch { return false }
+    }
+    return true
+}
+function chihiroSourceList() {
+    return (list || []).filter((item: any) => item && (item.post_type === 'message' || item.post_type === 'message_sent' || !item.post_type))
+}
+async function runChihiroHistorySearch() {
+    const value = String(chihiroHistory.query || '').trim()
+    if (searchDebounceTimer.value) {
+        clearTimeout(searchDebounceTimer.value)
+        searchDebounceTimer.value = null
+    }
+    const apply = (items: any[]) => {
+        const filtered = items.filter((item: any) => chihiroMatchTab(item, chihiroHistory.tab))
+        filtered.sort((a: any, b: any) => (b?.time || 0) - (a?.time || 0))
+        chihiroHistory.list = filtered
+    }
+    if (!value) {
+        apply(chihiroSourceList())
+        return
+    }
+    if (settingsStore.sysConfig.enable_local_history) {
+        const requestId = ++searchRequestId.value
+        searchDebounceTimer.value = setTimeout(async () => {
+            let results: any[] = []
+            try {
+                results = await dbSearchMessages(authStore.loginInfo.uin, chat.show.id, value)
+            } catch (e) {
+                results = []
+            }
+            if (requestId !== searchRequestId.value || !chihiroHistory.open) return
+            if (!results || results.length === 0) {
+                results = chihiroSourceList().filter((item: any) => {
+                    try { return getMsgRawTxt(item).indexOf(value) !== -1 } catch { return false }
+                })
+            }
+            apply(results)
+        }, 180)
+        return
+    }
+    apply(chihiroSourceList().filter((item: any) => {
+        try { return getMsgRawTxt(item).indexOf(value) !== -1 } catch { return false }
+    }))
+}
+function setChihiroHistoryTab(tab: string) {
+    chihiroHistory.tab = tab
+    runChihiroHistorySearch()
+}
+function chihiroHistoryGroups() {
+    const groups: { date: string, items: any[] }[] = []
+    let current: { date: string, items: any[] } | null = null
+    for (const item of chihiroHistory.list || []) {
+        const d = new Date((item?.time || 0) * 1000)
+        if (Number.isNaN(d.getTime())) continue
+        const date = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+        if (!current || current.date !== date) {
+            current = { date, items: [] }
+            groups.push(current)
+        }
+        current.items.push(item)
+    }
+    return groups
+}
+function chihiroMsgPreview(item: any) {
+    try { return getMsgRawTxt(item) || '' } catch { return '' }
+}
+function chihiroMsgAvatar(item: any) {
+    const uin = item?.sender?.user_id ?? item?.user_id ?? ''
+    if (uin) return `https://q1.qlogo.cn/g?b=qq&s=100&nk=${uin}`
+    return chat.show?.avatar || ''
+}
+function jumpChihiroHistory(item: any) {
+    const id = item?.message_id || item?.fake_message_id
+    closeChihiroHistory()
+    if (!id) return
+    nextTick(() => {
+        if (!scrollToMsg(String(id), true)) {
+            new PopInfo().add(PopType.INFO, $t('无法定位上下文'))
+        }
+    })
+}
+function publishChihiroChat() {
+    try {
+        if (window.parent === window) return
+        const show = chat.show || {}
+        const info = chat.info || {}
+        const members = (info.group_members || []).slice(0, 300).map((m) => ({
+            user_id: m.user_id,
+            nickname: m.nickname,
+            card: m.card,
+            role: m.role
+        }))
+        const notices = (info.group_notices || []).slice(0, 8).map((n) => ({
+            cn: n.cn || n.message || n.content || n.text || '',
+            time: n.publish_time || n.time
+        }))
+        window.parent.postMessage({
+            source: 'chihiro-im',
+            kind: 'chat',
+            chat: {
+                type: show.type,
+                id: show.id,
+                name: show.name || '',
+                memberCount: (info.group_members || []).length,
+                members,
+                notices
+            }
+        }, '*')
+    } catch (e) {}
+}
+watch(() => [chat.show?.id, chat.show?.type, (chat.info?.group_members || []).length, (chat.info?.group_notices || []).length], publishChihiroChat)
+
 
 const connectionStore = useConnectionStore()
 const uiStore = useUIStore()
@@ -708,6 +908,27 @@ const details = ref([
     { open: false },
     { open: false },
 ])
+const chihiroHistory = reactive({
+    open: false,
+    query: '',
+    tab: 'all',
+    list: [] as any[],
+})
+function onChihiroDocClick(e: Event) {
+    const t = e.target as HTMLElement | null
+    if (t && typeof t.closest === 'function' && (t.closest('.face-pan') || t.closest('.chihiro-face-btn'))) return
+    if (details.value[1].open) details.value[1].open = false
+}
+function onChihiroDocKey(e: KeyboardEvent) {
+    if (e.key !== 'Escape') return
+    if (chihiroHistory.open) {
+        closeChihiroHistory()
+        return
+    }
+    if (details.value[1].open) details.value[1].open = false
+}
+document.addEventListener('click', onChihiroDocClick)
+document.addEventListener('keydown', onChihiroDocKey)
 const msgMenus = ref<any[]>([])
 const NewMsgNum = ref(0)
 const msg = ref('')
@@ -776,6 +997,10 @@ const chatMoveOptions: VMoveOptions<HTMLDivElement> = {
 //#endregion
 
 function resetState() {
+    chihiroHistory.open = false
+    chihiroHistory.query = ''
+    chihiroHistory.tab = 'all'
+    chihiroHistory.list = []
     tags.value = {
         sendTag: 'REFUSE',
         showBottomButton: true,
@@ -872,6 +1097,8 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+    document.removeEventListener('click', onChihiroDocClick)
+    document.removeEventListener('keydown', onChihiroDocKey)
     if (resizeMainInputFrame !== null) {
         cancelAnimationFrame(resizeMainInputFrame)
         resizeMainInputFrame = null
@@ -1190,6 +1417,14 @@ function mainKey(event: KeyboardEvent) {
 
     if(tags.value.onAtFind) return
     if (event.key !== 'Enter') return
+    // Chihiro: Enter 发送，Shift+Enter 换行
+    if (event.shiftKey) return
+    event.preventDefault()
+    if (msg.value !== '' && tags.value.sendTag != 'PASS') {
+        sendMsg()
+    }
+    tags.value.sendTag = 'REFUSE'
+    return
     let canSend = false
     switch (settingsStore.sysConfig.send_key) {
         case 'none':
@@ -1283,6 +1518,14 @@ function mainKeyUp(event: KeyboardEvent) {
     const logger = new Logger()
 
     if (event.keyCode === 27) {
+        if (chihiroHistory.open) {
+            closeChihiroHistory()
+            return
+        }
+        if (details.value[1].open) {
+            details.value[1].open = false
+            return
+        }
         return
     }
 

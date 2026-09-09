@@ -14,6 +14,7 @@ import { faSquare, faHeart } from '@fortawesome/free-regular-svg-icons'
 
 import './assets/css/view.css'
 import './assets/css/chat.css'
+import './assets/css/user.css'
 import './assets/css/msg.css'
 import './assets/css/options.css'
 import './assets/css/sys_notice.css'

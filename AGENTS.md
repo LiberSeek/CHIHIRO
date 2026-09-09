@@ -30,7 +30,7 @@ Mac QQ: Runtime clones `data/runtimes/QQ.app`. Do not launch `/Applications/QQ.a
 ## Where a change belongs
 
 1. Workbench / login / logout / account bar / feature panel → `apps/web`, `apps/runtime`, `apps/gateway`
-2. Chat composer, history window, emoji, Stapxs menus, IM CSS → **`vendor/stapxs` Vue/CSS/TS**
+2. Chat composer, history window, emoji, Stapxs menus, IM CSS → **`pages/user` / `components/user` (`User*`) and `assets/css/user.css`. Never edit upstream `Chat.vue`, `MsgBody.vue`, `FacePan.vue`, `chat.css`, `view.css`.**
 3. OneBot / NTQQ protocol questions → read `vendor/napcat`, change Runtime if needed
 4. Bot / Agent / plugins → AstrBot integration in `apps/`, not a rewrite of `vendor/astrbot`
 
@@ -64,6 +64,10 @@ npm run status
 ```
 
 `rebuild:im` rsyncs `vendor/stapxs` to `.cache/stapxs-build` (keeps `node_modules`) and runs `yarn build:napcat`. There is no overlay apply step. After IM edits, rebuild and hard-refresh the workbench iframe.
+
+Chihiro IM pages live under `vendor/stapxs/src/renderer/src/pages/user/` (`UserChat`, `UserMessages`, …). Upstream copies stay for merge. Default chat view is `UserChat`.
+
+Workbench PWA: `apps/web/manifest.webmanifest` + `sw.js`. Open `http://127.0.0.1:3100/` in Chrome/Edge and install to desktop (`display: standalone`). API / IM iframe / WebUI paths are not cached.
 
 Frontend in `apps/web` is static (no HMR). Hard-refresh after shell changes too.
 
