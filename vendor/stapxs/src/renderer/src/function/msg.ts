@@ -1713,7 +1713,11 @@ async function saveMsg(msg: any, append = undefined as undefined | string) {
         )
         if (infoList != undefined) {
             const info = infoList[0]
-            const id = info.group_id ?? info.private_id
+            // message_sent：user_id 是自己，对端在 target_id。用错 id 会把 Bot 代发丢掉。
+            const id = info.group_id
+                ?? (info.target_id != null && String(info.target_id) !== String(info.private_id)
+                    ? info.target_id
+                    : info.private_id)
             if (id != undefined && id != chatStore.chatInfo.show.id) {
                 return
             }
@@ -2151,9 +2155,13 @@ function newMsg(_: string, data: any) {
     if (infoList != undefined) {
         // 消息基础信息 ============================================
         const info = infoList[0]
-        const id = info.group_id ?? info.private_id
         const loginId = authStore.loginInfo.uin
         const showId = chatStore.chatInfo.show.id
+        // Bot / 其它客户端代发：message_sent.user_id 是自己，对端在 target_id。
+        const id = info.group_id
+            ?? (data.post_type === 'message_sent'
+                ? (info.target_id ?? info.private_id)
+                : info.private_id)
         const sender = info.sender
         // 在好友列表里找一下他
         const senderInfo = contactStore.userList.find((item) => {

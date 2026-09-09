@@ -105,7 +105,7 @@ function renderBotBar() {
   const err = state?.astrbot?.error || ''
   const map = {
     offline: { dot: 'off', text: '账号离线', action: '开启 Bot', disabled: true },
-    off: { dot: 'off', text: 'Bot 未开启', action: '开启 Bot', disabled: !acc?.online },
+    off: { dot: 'off', text: running ? 'AstrBot 已运行，未接管此账号' : 'Bot 未开启', action: '开启 Bot', disabled: !acc?.online },
     'pending-on': { dot: 'pending', text: running ? '正在接管…' : '正在启动 AstrBot…', action: '连接中', disabled: true },
     'pending-off': { dot: 'pending', text: '正在关闭 Bot…', action: '关闭中', disabled: true },
     on: { dot: 'on', text: 'Bot 已接管此账号', action: '关闭 Bot', disabled: false },
@@ -180,12 +180,13 @@ function openDrawer({ title, hint, src }) {
 
 function napcatSettingsUrl() {
   const acc = viewedAccount()
-  const token = acc?.webuiToken || state?.webuiToken
+  const token = acc?.webuiToken
   const inst = acc?.instanceId
-  if (!token) return ''
+  if (!token || !inst) return ''
+  // NapCat SPA basename is `/webui/`; a prefixed `/i/{inst}/webui` URL renders blank.
   const next = new URL('/webui/web_login', location.origin)
   next.searchParams.set('token', token)
-  if (inst) next.searchParams.set('chihiro_inst', inst)
+  next.searchParams.set('chihiro_inst', inst)
   return next.pathname + next.search
 }
 
@@ -285,6 +286,7 @@ function onImMessage(ev) {
         alert('请先登录一个 QQ 账号，再打开 NapCat 设置。')
         return
       }
+      if (ui.dashFrame) ui.dashFrame.dataset.loaded = ''
       openDrawer({ title: 'NapCat 设置', hint: '当前 QQ 实例的 OneBot / 网络配置', src })
     }
   }

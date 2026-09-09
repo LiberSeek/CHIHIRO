@@ -2,6 +2,10 @@ import { createHash } from 'node:crypto'
 import { log } from './log.mjs'
 
 const CLIENT_NAME = 'chihiro-astrbot'
+
+function clientName(uin) {
+  return uin ? `${CLIENT_NAME}-${uin}` : CLIENT_NAME
+}
 const credCache = new Map()
 
 function passwordHash(token) {
@@ -63,16 +67,18 @@ async function withAuth(webui, token, fn) {
   }
 }
 
-function clientMatches(entry, reverseUrl) {
+function clientMatches(entry, reverse, uin) {
   if (!entry) return false
-  if (entry.name === CLIENT_NAME) return true
+  const name = clientName(uin)
+  if (entry.name === name || entry.name === CLIENT_NAME) return true
   const url = String(entry.url || '').replace(/\/$/, '')
-  return url === reverseUrl || url === reverseUrl.replace(/\/ws$/, '') + '/ws'
+  const reverseUrl = String(reverse?.url || '').replace(/\/$/, '')
+  return reverseUrl && (url === reverseUrl || url === reverseUrl.replace(/\/ws$/, '') + '/ws')
 }
 
-function makeClient(reverse) {
+function makeClient(reverse, uin) {
   return {
-    name: CLIENT_NAME,
+    name: clientName(uin),
     enable: true,
     url: reverse.url,
     token: reverse.token || '',
@@ -104,20 +110,44 @@ export async function setOb11Config({ webui, token }, config) {
   })
 }
 
-export async function setAstrbotClient({ webui, token }, reverse, enabled) {
+function patchWsServersReportSelf(config) {
+  const servers = config?.network?.websocketServers
+  if (!Array.isArray(servers)) return false
+  let changed = false
+  for (const ws of servers) {
+    if (!ws || ws.reportSelfMessage === true) continue
+    ws.reportSelfMessage = true
+    changed = true
+  }
+  return changed
+}
+
+export async function ensureStapxsSelfEvents({ webui, token }) {
+  const config = await getOb11Config({ webui, token })
+  if (!config?.network) throw new Error('NapCat OneBot 配置为空')
+  if (!patchWsServersReportSelf(config)) return { changed: false, config }
+  await setOb11Config({ webui, token }, config)
+  log('bot', 'enable reportSelfMessage on chihiro-ws')
+  return { changed: true, config }
+}
+
+export async function setAstrbotClient({ webui, token }, reverse, enabled, uin) {
   const config = await getOb11Config({ webui, token })
   if (!config?.network) throw new Error('NapCat OneBot 配置为空')
   const list = Array.isArray(config.network.websocketClients)
     ? [...config.network.websocketClients]
     : []
-  const next = list.filter((c) => !clientMatches(c, reverse.url))
-  if (enabled) next.push(makeClient(reverse))
-  const before = JSON.stringify(list)
-  const after = JSON.stringify(next)
-  if (before === after) return { changed: false, config }
+  const next = list.filter((c) => !clientMatches(c, reverse, uin))
+  if (enabled) next.push(makeClient(reverse, uin))
+  const clientsChanged = JSON.stringify(list) !== JSON.stringify(next)
+  const selfEventsChanged = patchWsServersReportSelf(config)
+  if (!clientsChanged && !selfEventsChanged) return { changed: false, config }
   config.network.websocketClients = next
   await setOb11Config({ webui, token }, config)
-  log('bot', `${enabled ? 'wire' : 'unwire'} ${CLIENT_NAME} -> ${reverse.url}`)
+  if (clientsChanged) {
+    log('bot', `${enabled ? 'wire' : 'unwire'} ${clientName(uin)} -> ${reverse.url}`)
+  }
+  if (selfEventsChanged) log('bot', 'enable reportSelfMessage on chihiro-ws')
   return { changed: true, config }
 }
 

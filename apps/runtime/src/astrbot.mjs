@@ -96,48 +96,64 @@ export function createAstrbotRuntime({ root, cfg }) {
     if (!fs.existsSync(marker)) fs.writeFileSync(marker, '')
   }
 
-  function readLiveAdapter() {
+  function adapterId(uin) {
+    return `chihiro-qq-${uin}`
+  }
+
+  function readLiveAdapter(uin) {
     const conf = readJson(cmdConfigPath)
     const platforms = conf?.platform || []
-    const adapters = platforms.filter((p) => p && p.type === 'aiocqhttp' && p.enable !== false)
-    const named = adapters.find((p) => p.id === 'chihiro-qq')
-    const onPort = adapters.find((p) => Number(p.ws_reverse_port) === reversePort)
-    const pick = named || onPort || adapters[0] || null
+    const adapters = platforms.filter((p) => p && p.type === 'aiocqhttp')
+    const wanted = uin ? adapterId(uin) : ''
+    const named = wanted ? adapters.find((p) => p.id === wanted) : null
+    const chihiro = adapters.find((p) => String(p.id || '').startsWith('chihiro-qq'))
+    const pick = named || chihiro || null
     if (!pick) return null
     return {
       id: pick.id,
       host: pick.ws_reverse_host || reverseHost,
       port: Number(pick.ws_reverse_port || reversePort),
-      token: pick.ws_reverse_token || ''
+      token: pick.ws_reverse_token || '',
+      enable: pick.enable !== false
     }
   }
 
-  function writePlatformForSpawn() {
+  function upsertAdapter({ uin, reversePort: rport, enable = true }) {
     ensureRoot()
     const token = reverseToken()
     const conf = readJson(cmdConfigPath) || {}
-    const platforms = Array.isArray(conf.platform) ? conf.platform : []
+    const platforms = Array.isArray(conf.platform) ? conf.platform.slice() : []
+    const id = adapterId(uin)
     const wanted = {
-      id: 'chihiro-qq',
+      id,
       type: 'aiocqhttp',
-      enable: true,
-      ws_reverse_host: reverseHost,
-      ws_reverse_port: reversePort,
+      enable: Boolean(enable),
+      ws_reverse_host: '0.0.0.0',
+      ws_reverse_port: Number(rport),
       ws_reverse_token: token
     }
-    const idx = platforms.findIndex((p) => p?.type === 'aiocqhttp')
-    if (idx >= 0) {
-      const keepId = platforms[idx].id || 'chihiro-qq'
-      platforms[idx] = { ...platforms[idx], ...wanted, id: keepId }
-    } else {
-      platforms.push(wanted)
-    }
+    const idx = platforms.findIndex((p) => p?.id === id)
+    if (idx >= 0) platforms[idx] = { ...platforms[idx], ...wanted }
+    else platforms.push(wanted)
     conf.platform = platforms
     conf.dashboard = {
       ...(conf.dashboard || {}),
       host,
       port
     }
+    writeJson(cmdConfigPath, conf)
+    return wanted
+  }
+
+  function writePlatformForSpawn() {
+    ensureRoot()
+    const conf = readJson(cmdConfigPath) || {}
+    conf.dashboard = {
+      ...(conf.dashboard || {}),
+      host,
+      port
+    }
+    if (!Array.isArray(conf.platform)) conf.platform = []
     writeJson(cmdConfigPath, conf)
   }
 
@@ -232,26 +248,68 @@ export function createAstrbotRuntime({ root, cfg }) {
       lastError = `AstrBot Dashboard 未在 ${port} 起来`
       throw new Error(lastError)
     }
-    const reverseUp = await waitPort(reversePort, 20000)
-    if (!reverseUp) {
-      lastError = `AstrBot 反向 WS 未在 ${reversePort} 监听`
-      throw new Error(lastError)
-    }
     lastError = ''
     return refreshStatus()
   }
 
   async function ensure() {
     if (await adoptIfRunning()) {
-      const reverseUp = await portOpen(reversePort, '127.0.0.1')
-      if (!reverseUp) {
-        lastError = `AstrBot 已在 ${port} 运行，但反向 WS ${reversePort} 未监听`
-        throw new Error(lastError)
-      }
       lastError = ''
       return refreshStatus()
     }
     return spawnProcess()
+  }
+
+  async function restartOwned() {
+    const pid = ownedPid
+    if (pid) {
+      log('astrbot', `restart pid=${pid}`)
+      try { process.kill(pid, 'SIGTERM') } catch { /* gone */ }
+      const start = Date.now()
+      while (Date.now() - start < 4000) {
+        try {
+          process.kill(pid, 0)
+          await sleep(200)
+        } catch {
+          break
+        }
+      }
+      try { process.kill(pid, 'SIGKILL') } catch { /* gone */ }
+    }
+    child = null
+    ownedPid = null
+    return spawnProcess()
+  }
+
+  async function ensureAdapter({ uin, reversePort: rport, enable = true }) {
+    if (!uin) throw new Error('缺少账号 UIN')
+    const portUse = Number(rport)
+    if (!portUse) throw new Error('缺少 AstrBot 反向端口')
+    const before = JSON.stringify(readLiveAdapter(uin))
+    const wanted = upsertAdapter({ uin, reversePort: portUse, enable })
+    const after = JSON.stringify(readLiveAdapter(uin))
+    await ensure()
+    const changed = before !== after
+    const listening = await portOpen(portUse, '127.0.0.1')
+    if (enable && (changed || !listening)) {
+      log('astrbot', `reload adapter ${wanted.id} :${portUse}`)
+      await restartOwned()
+    }
+    if (enable) {
+      const up = await waitPort(portUse, 20000)
+      if (!up) {
+        lastError = `AstrBot 反向 WS ${portUse} 未监听（${wanted.id}）`
+        throw new Error(lastError)
+      }
+    }
+    lastError = ''
+    return {
+      host: '127.0.0.1',
+      port: portUse,
+      token: wanted.ws_reverse_token,
+      url: `ws://127.0.0.1:${portUse}/ws`,
+      id: wanted.id
+    }
   }
 
   async function stopIfOwned() {
@@ -279,28 +337,22 @@ export function createAstrbotRuntime({ root, cfg }) {
     return refreshStatus()
   }
 
-  async function reverseEndpoint() {
-    const live = readLiveAdapter()
-    const reverseUp = await portOpen(reversePort, '127.0.0.1')
-    if (reverseUp && live?.token) {
-      return {
-        host: '127.0.0.1',
-        port: live.port || reversePort,
-        token: live.token,
-        url: `ws://127.0.0.1:${live.port || reversePort}/ws`
-      }
-    }
-    const token = reverseToken()
+  async function reverseEndpoint(uin, rport) {
+    const live = uin ? readLiveAdapter(uin) : null
+    const portUse = Number(rport || live?.port || reversePort)
+    const token = live?.token || reverseToken()
     return {
-      host: reverseHost,
-      port: reversePort,
+      host: '127.0.0.1',
+      port: portUse,
       token,
-      url: `ws://127.0.0.1:${reversePort}/ws`
+      url: `ws://127.0.0.1:${portUse}/ws`,
+      id: live?.id || (uin ? adapterId(uin) : 'chihiro-qq')
     }
   }
 
   return {
     ensure,
+    ensureAdapter,
     stopIfOwned,
     refreshStatus,
     status,

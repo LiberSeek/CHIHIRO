@@ -3,7 +3,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { liveNapcatSecrets, napcatPaths } from './napcat-secrets.mjs'
-import { portOpen, portsForSlot, allocateIsolatedPorts } from './qq-ports.mjs'
+import { ensureStapxsSelfEvents } from './napcat-ob11.mjs'
+import { portOpen, portsForSlot, allocateIsolatedPorts, astrbotReversePort } from './qq-ports.mjs'
 import { ensureQqClone } from './qq-clone.mjs'
 import { log, logError } from './log.mjs'
 
@@ -145,7 +146,7 @@ function seedNapcatDir(root, napcatDir, ports, tokens) {
         host: '127.0.0.1',
         port: ports.ws,
         messagePostFormat: 'array',
-        reportSelfMessage: false,
+        reportSelfMessage: true,
         token: tokens.ws,
         enableForcePushEvent: true,
         debug: false,
@@ -183,6 +184,7 @@ function patchOnebotPorts(napcatDir, uin, ports, tokens) {
     ws.port = ports.ws
     ws.host = ws.host || '127.0.0.1'
     ws.enable = true
+    ws.reportSelfMessage = true
     if (!ws.token) ws.token = tokens.ws
   }
   writeJson(file, cur)
@@ -247,6 +249,7 @@ export function createQqRuntime({ store, logDir, root }) {
       const inst = a.instanceId ? instances.get(a.instanceId) : [...instances.values()].find((i) => i.uin && String(i.uin) === String(a.uin))
       const ports = inst?.ports || a.ports
       const tokens = inst?.tokens || a.tokens
+      if (ports && !ports.astrbotReverse) ports.astrbotReverse = astrbotReversePort(ports)
       return {
         ...a,
         online: inst?.phase === 'ready',
@@ -313,12 +316,19 @@ export function createQqRuntime({ store, logDir, root }) {
         httpToken: inst.tokens.http
       })
       if (info) {
+        const becameReady = inst.phase !== 'ready'
         inst.phase = 'ready'
         inst.uin = String(info.user_id)
         inst.nickname = info.nickname || inst.nickname || ''
         inst.message = `已登录 ${inst.nickname} (${inst.uin})`
         setProgress(inst, LOGIN_STEPS.length + 1, inst.message)
         persistInstance(inst)
+        if (becameReady && inst.tokens?.webui) {
+          ensureStapxsSelfEvents({
+            webui: `http://127.0.0.1:${inst.ports.webui}`,
+            token: inst.tokens.webui
+          }).catch((e) => logError('qq', 'reportSelfMessage', e))
+        }
         if (pendingId === inst.id) {
           log('qq', `login ready ${inst.id} uin=${inst.uin} ${inst.nickname}`)
           pendingId = null
@@ -728,7 +738,8 @@ export function createQqRuntime({ store, logDir, root }) {
       obToken: inst.tokens.ws,
       wsPort: inst.ports.ws,
       httpPort: inst.ports.http,
-      httpToken: inst.tokens.http
+      httpToken: inst.tokens.http,
+      astrbotReverse: astrbotReversePort(inst.ports)
     }
   }
 
@@ -779,6 +790,7 @@ export function createQqRuntime({ store, logDir, root }) {
       if (acc.kind === 'official' || acc.instanceId === 'legacy') continue
       if (acc.kind !== 'isolated' && !acc.napcatDir) continue
       const ports = acc.ports || await allocateIsolatedPorts([...instances.values()].map((i) => i.ports))
+      if (!ports.astrbotReverse) ports.astrbotReverse = astrbotReversePort(ports)
       const tokens = acc.tokens || { webui: token(6), http: `chihiro-http-${token(4)}`, ws: `chihiro-ws-${token(4)}` }
       const inst = {
         id: acc.instanceId || `inst-${token(4)}`,

@@ -78,11 +78,18 @@ function astrbotTarget() {
   return cfg.astrbot?.url || 'http://127.0.0.1:6185'
 }
 
-function instanceIdFromReq(req, url) {
-  const fromPath = url.pathname.match(INST_PREFIX)
-  if (fromPath) return decodeURIComponent(fromPath[1])
-  const fromQuery = url.searchParams.get('chihiro_inst')
-  if (fromQuery) return fromQuery
+function cookieValue(req, name) {
+  const raw = String(req.headers.cookie || '')
+  for (const part of raw.split(';')) {
+    const i = part.indexOf('=')
+    if (i < 0) continue
+    if (part.slice(0, i).trim() !== name) continue
+    try { return decodeURIComponent(part.slice(i + 1).trim()) } catch { return part.slice(i + 1).trim() }
+  }
+  return null
+}
+
+function instanceIdFromReferer(req) {
   const ref = req.headers.referer || ''
   if (!ref) return null
   try {
@@ -93,6 +100,30 @@ function instanceIdFromReq(req, url) {
   } catch {
     return null
   }
+}
+
+function instanceIdFromReq(req, url) {
+  const fromPath = url.pathname.match(INST_PREFIX)
+  if (fromPath) return decodeURIComponent(fromPath[1])
+  const fromQuery = url.searchParams.get('chihiro_inst')
+  if (fromQuery) return fromQuery
+  // Referer before cookie: chihiro_inst cookie is last-writer on Path=/ and
+  // would otherwise send a hidden IM iframe's /api to the other instance.
+  const fromRef = instanceIdFromReferer(req)
+  if (fromRef) return fromRef
+  return cookieValue(req, 'chihiro_inst')
+}
+
+function isWebuiSpaRoute(pathname) {
+  if (!pathname.startsWith('/webui')) return false
+  const last = pathname.split('/').pop() || ''
+  if (!last) return true
+  return !/\.[a-zA-Z0-9]+$/.test(last) || last.endsWith('.html')
+}
+
+function instCookieHeader(inst) {
+  if (!inst) return null
+  return `chihiro_inst=${encodeURIComponent(inst)}; Path=/; SameSite=Lax`
 }
 
 function stripInstancePrefix(pathname) {
@@ -213,7 +244,12 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (routedPath.startsWith('/api/') && routedPath !== '/api/status') {
-    const napcat = resolveNapcat(instanceId, { preferReady: !instanceId })
+    const napcat = resolveNapcat(instanceId, { preferReady: false })
+    if (!napcat?.webui) {
+      res.writeHead(503, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'napcat_instance_missing' }))
+      return
+    }
     req.url = routedPath + url.search
     proxy.web(req, res, { target: napcat.webui })
     return
@@ -239,26 +275,36 @@ const server = http.createServer(async (req, res) => {
   if (
     routedPath === '/webui' ||
     routedPath === '/webui/' ||
-    routedPath === '/webui/web_login'
+    routedPath === '/webui/web_login' ||
+    (INST_PREFIX.test(url.pathname) && isWebuiSpaRoute(routedPath))
   ) {
     const napcat = resolveNapcat(instanceId)
-    const token = napcat.token || liveWebuiToken()
-    if (!token) {
+    const token = napcat.token || (instanceId ? '' : liveWebuiToken())
+    if (!token || !napcat.webui) {
       emptyWebuiPage(res)
       return
     }
     const inst = instanceId || napcat.id
+    const cookie = instCookieHeader(inst)
+    const prefixed = INST_PREFIX.test(url.pathname)
     const needsToken = !url.searchParams.get('token')
     const needsInst = inst && !url.searchParams.get('chihiro_inst')
-    const onPrefixedPath = INST_PREFIX.test(url.pathname)
-    if (needsToken || needsInst || onPrefixedPath) {
-      const next = new URL('/webui/web_login', `http://${host}:${port}`)
-      next.searchParams.set('token', url.searchParams.get('token') || token)
-      if (inst) next.searchParams.set('chihiro_inst', inst)
-      res.writeHead(302, { Location: next.pathname + next.search })
+    // Prefixed `/i/{inst}/webui` must 302: NapCat React Router basename is `/webui/`.
+    if (needsToken || needsInst || prefixed) {
+      const destPath = prefixed
+        ? (routedPath === '/webui' ? '/webui/' : routedPath)
+        : '/webui/web_login'
+      const next = new URL(destPath, `http://${host}:${port}`)
+      for (const [k, v] of url.searchParams) next.searchParams.set(k, v)
+      if (!next.searchParams.get('token')) next.searchParams.set('token', token)
+      if (inst && !next.searchParams.get('chihiro_inst')) next.searchParams.set('chihiro_inst', inst)
+      const headers = { Location: next.pathname + next.search }
+      if (cookie) headers['Set-Cookie'] = cookie
+      res.writeHead(302, headers)
       res.end()
       return
     }
+    if (cookie) res.setHeader('Set-Cookie', cookie)
   }
 
   if (url.pathname.startsWith('/files/') || routedPath.startsWith('/files/')) {
@@ -271,7 +317,13 @@ const server = http.createServer(async (req, res) => {
   if (servePluginStatic(url.pathname, res)) return
 
   if (routedPath.startsWith('/webui') || routedPath.startsWith('/plugin')) {
-    const napcat = resolveNapcat(instanceId, { preferReady: routedPath.startsWith('/plugin') })
+    const napcat = resolveNapcat(instanceId, {
+      preferReady: routedPath.startsWith('/plugin') && !instanceId
+    })
+    if (routedPath.startsWith('/webui') && !napcat?.webui) {
+      emptyWebuiPage(res)
+      return
+    }
     proxyWebui(req, res, url, napcat)
     return
   }
@@ -315,7 +367,9 @@ server.on('upgrade', (req, socket, head) => {
     return
   }
   if (routedPath.startsWith('/webui') || routedPath.startsWith('/plugin') || routedPath.startsWith('/api/')) {
-    const napcat = resolveNapcat(instanceId, { preferReady: routedPath.startsWith('/plugin') })
+    const napcat = resolveNapcat(instanceId, {
+      preferReady: routedPath.startsWith('/plugin') && !instanceId
+    })
     req.url = routedPath + url.search
     proxy.ws(req, socket, head, { target: napcat.webui })
     return

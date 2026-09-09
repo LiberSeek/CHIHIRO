@@ -1,5 +1,6 @@
 import { log, logError } from './log.mjs'
 import { setAstrbotClient } from './napcat-ob11.mjs'
+import { astrbotReversePort } from './qq-ports.mjs'
 
 export function createBotController({ store, qq, astrbot }) {
   const wired = new Set()
@@ -28,9 +29,12 @@ export function createBotController({ store, qq, astrbot }) {
     }
     const target = webuiTarget(inst)
     if (!target) throw new Error('缺少该账号的 NapCat WebUI')
-    await astrbot.ensure()
-    const reverse = await astrbot.reverseEndpoint()
-    await setAstrbotClient(target, reverse, true)
+    const reverse = await astrbot.ensureAdapter({
+      uin: inst.uin,
+      reversePort: astrbotReversePort(inst.ports),
+      enable: true
+    })
+    await setAstrbotClient(target, reverse, true, inst.uin)
     wired.add(id)
     failedAt.delete(id)
     log('bot', `enabled ${id}`)
@@ -41,8 +45,8 @@ export function createBotController({ store, qq, astrbot }) {
     const target = inst ? webuiTarget(inst) : null
     if (target) {
       try {
-        const reverse = await astrbot.reverseEndpoint()
-        await setAstrbotClient(target, reverse, false)
+        const reverse = await astrbot.reverseEndpoint(inst.uin, astrbotReversePort(inst.ports))
+        await setAstrbotClient(target, reverse, false, inst.uin)
       } catch (e) {
         logError('bot', `unwire ${id}`, e)
       }
@@ -64,7 +68,10 @@ export function createBotController({ store, qq, astrbot }) {
     }
     if (enabled) {
       await wireAccount(id)
-      store.patch(id, { botEnabled: true })
+      const inst = instOf(id)
+      const patch = { botEnabled: true }
+      if (inst?.ports) patch.ports = { ...inst.ports, astrbotReverse: astrbotReversePort(inst.ports) }
+      store.patch(id, patch)
     } else {
       await unwireAccount(id)
       store.patch(id, { botEnabled: false })
