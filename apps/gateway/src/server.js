@@ -182,7 +182,7 @@ function proxyWebui(req, res, url, napcat) {
 
 function emptyWebuiPage(res) {
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
-  res.end(`<!doctype html><meta charset="utf-8"><title>千寻</title>
+  res.end(`<!doctype html><meta charset="utf-8"><title>千寻IM - 千人千面, 千与千寻</title>
 <body style="font-family:system-ui;background:#111;color:#f2f2f7;display:grid;place-items:center;height:100vh;margin:0">
 <p>请先在千寻登录一个 QQ 账号，再打开设置。</p>
 <p><a href="/" style="color:#12b7f5">返回工作台</a></p>

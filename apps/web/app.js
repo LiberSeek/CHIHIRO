@@ -17,16 +17,13 @@ const ui = {
   loginSteps: $('login-steps'),
   qrHint: $('qr-hint'),
   menu: $('account-menu'),
-  menuBot: $('menu-bot'),
   menuRemove: $('menu-remove'),
-  settings: $('btn-settings'),
   launch: $('btn-launch'),
   drop: $('client-dropdown'),
   dropBtn: $('client-drop-btn'),
   dropIcon: $('client-drop-icon'),
   dropLabel: $('client-drop-label'),
   dropMenu: $('client-drop-menu'),
-  botBar: $('bot-bar'),
   botDot: $('bot-dot'),
   botStatus: $('bot-status'),
   botToggle: $('btn-bot-toggle'),
@@ -34,7 +31,24 @@ const ui = {
   dashDrawer: $('dash-drawer'),
   dashFrame: $('dash-frame'),
   dashClose: $('btn-dash-close'),
-  stage: $('stage')
+  dashTitle: $('dash-title'),
+  dashHint: $('dash-hint'),
+  confirm: $('confirm-dialog'),
+  confirmTitle: $('confirm-title'),
+  confirmBody: $('confirm-body'),
+  confirmOk: $('confirm-ok'),
+  confirmCancel: $('confirm-cancel'),
+  stage: $('stage'),
+  workspace: $('workspace'),
+  feature: $('feature'),
+  featureTabs: $('feature-tabs'),
+  paneGroup: $('pane-group'),
+  paneAgent: $('pane-agent'),
+  paneBot: $('pane-bot'),
+  groupNotices: $('group-notices'),
+  groupMembers: $('group-members'),
+  groupMemberTitle: $('group-member-title'),
+  leaving: $('leaving')
 }
 
 let clients = []
@@ -46,7 +60,10 @@ let accountsWhenAdding = new Set()
 const imFrames = new Map()
 let botBusyId = null
 let botBusyOn = false
-let dashOpen = false
+let featureOpen = false
+let featureTab = 'bot'
+let imChat = null
+let leavingId = null
 
 function setAdding(on, accountIds) {
   localAdding = on
@@ -62,9 +79,13 @@ function show(mode) {
   ui.empty.classList.toggle('hidden', mode !== 'empty')
   ui.login.classList.toggle('hidden', mode !== 'login')
   ui.im.classList.toggle('hidden', mode !== 'im')
-  ui.botBar?.classList.toggle('hidden', mode !== 'im')
-  ui.stage?.classList.toggle('has-bot-bar', mode === 'im')
-  if (mode === 'im') renderBotBar()
+  ui.leaving?.classList.toggle('hidden', mode !== 'leaving')
+  if (mode === 'im') {
+    renderBotBar()
+    renderFeature()
+  } else {
+    setFeatureOpen(false)
+  }
 }
 
 function botPhase(acc) {
@@ -77,7 +98,7 @@ function botPhase(acc) {
 }
 
 function renderBotBar() {
-  if (!ui.botBar) return
+  if (!ui.botToggle && !ui.botStatus) return
   const acc = viewedAccount()
   const phase = botPhase(acc)
   const running = Boolean(state?.astrbot?.running)
@@ -91,13 +112,11 @@ function renderBotBar() {
     err: { dot: 'err', text: err || 'Bot 连接失败', action: '重试', disabled: false }
   }
   const view = map[phase] || map.off
-  ui.botDot.className = `bot-dot ${view.dot}`
-  ui.botStatus.textContent = view.text
-  ui.botToggle.textContent = view.action
-  ui.botToggle.disabled = view.disabled
-  if (ui.menuBot && acc && menuAccountId === acc.id) {
-    ui.menuBot.textContent = acc.botEnabled ? '关闭 Bot' : '开启 Bot'
-    ui.menuBot.disabled = !acc.online || botBusyId === acc.id
+  if (ui.botDot) ui.botDot.className = `bot-dot ${view.dot}`
+  if (ui.botStatus) ui.botStatus.textContent = view.text
+  if (ui.botToggle) {
+    ui.botToggle.textContent = view.action
+    ui.botToggle.disabled = view.disabled
   }
 }
 
@@ -126,9 +145,6 @@ function dashSrc() {
 }
 
 async function openDashboard() {
-  dashOpen = true
-  ui.dashDrawer?.classList.remove('hidden')
-  ui.dashDrawer?.setAttribute('aria-hidden', 'false')
   if (!state?.astrbot?.running) {
     const res = await fetch('/api/runtime/bot/ensure', { method: 'POST' })
     const snap = await res.json()
@@ -139,16 +155,139 @@ async function openDashboard() {
     }
     applyState(snap)
   }
-  if (ui.dashFrame && ui.dashFrame.dataset.loaded !== dashSrc()) {
-    ui.dashFrame.src = dashSrc()
-    ui.dashFrame.dataset.loaded = dashSrc()
-  }
+  openDrawer({
+    title: 'AstrBot 设置',
+    hint: '模型、白名单和插件在这里配置',
+    src: dashSrc()
+  })
 }
 
 function closeDashboard() {
-  dashOpen = false
   ui.dashDrawer?.classList.add('hidden')
   ui.dashDrawer?.setAttribute('aria-hidden', 'true')
+}
+
+function openDrawer({ title, hint, src }) {
+  if (ui.dashTitle) ui.dashTitle.textContent = title
+  if (ui.dashHint) ui.dashHint.textContent = hint || ''
+  ui.dashDrawer?.classList.remove('hidden')
+  ui.dashDrawer?.setAttribute('aria-hidden', 'false')
+  if (ui.dashFrame && src && ui.dashFrame.dataset.loaded !== src) {
+    ui.dashFrame.src = src
+    ui.dashFrame.dataset.loaded = src
+  }
+}
+
+function napcatSettingsUrl() {
+  const acc = viewedAccount()
+  const token = acc?.webuiToken || state?.webuiToken
+  const inst = acc?.instanceId
+  if (!token) return ''
+  const next = new URL('/webui/web_login', location.origin)
+  next.searchParams.set('token', token)
+  if (inst) next.searchParams.set('chihiro_inst', inst)
+  return next.pathname + next.search
+}
+
+function setFeatureOpen(on) {
+  featureOpen = Boolean(on)
+  ui.feature?.classList.toggle('hidden', !featureOpen)
+  ui.feature?.setAttribute('aria-hidden', featureOpen ? 'false' : 'true')
+  if (featureOpen) renderFeature()
+}
+
+function setFeatureTab(tab) {
+  featureTab = tab
+  const buttons = ui.featureTabs?.querySelectorAll('button') || []
+  for (const btn of buttons) {
+    btn.classList.toggle('is-on', btn.dataset.tab === tab)
+    if (tab === 'group') {
+      const isGroup = imChat?.type === 'group'
+      if (btn.dataset.tab === 'group') btn.classList.toggle('hidden', !isGroup)
+    }
+  }
+  const groupBtn = ui.featureTabs?.querySelector('[data-tab="group"]')
+  if (groupBtn) groupBtn.classList.toggle('hidden', imChat?.type !== 'group')
+  ui.paneGroup?.classList.toggle('hidden', tab !== 'group')
+  ui.paneAgent?.classList.toggle('hidden', tab !== 'agent')
+  ui.paneBot?.classList.toggle('hidden', tab !== 'bot')
+}
+
+function noticeText(n) {
+  return n.cn || n.message || n.content || n.text || n.notice || ''
+}
+
+function renderFeature() {
+  renderBotBar()
+  const isGroup = imChat?.type === 'group'
+  const groupBtn = ui.featureTabs?.querySelector('[data-tab="group"]')
+  if (groupBtn) groupBtn.classList.toggle('hidden', !isGroup)
+  if (!isGroup && featureTab === 'group') setFeatureTab('bot')
+  else setFeatureTab(featureTab)
+
+  if (ui.groupMemberTitle) {
+    const n = imChat?.memberCount || (imChat?.members || []).length
+    ui.groupMemberTitle.textContent = isGroup ? `群聊成员 ${n || ''}`.trim() : '群聊成员'
+  }
+  if (ui.groupNotices) {
+    const notices = imChat?.notices || []
+    if (!isGroup) ui.groupNotices.innerHTML = '<p class="hint">打开一个群聊后显示公告。</p>'
+    else if (!notices.length) ui.groupNotices.innerHTML = '<p class="hint">这里还没有公告。</p>'
+    else {
+      ui.groupNotices.innerHTML = notices.map((n) => {
+        const text = noticeText(n)
+        return `<div class="notice-item">${escapeHtml(text || '【图片公告】')}</div>`
+      }).join('')
+    }
+  }
+  if (ui.groupMembers) {
+    const members = imChat?.members || []
+    if (!isGroup) ui.groupMembers.innerHTML = ''
+    else {
+      ui.groupMembers.innerHTML = members.map((m) => {
+        const name = m.card || m.nickname || m.user_id
+        const role = m.role === 'owner' ? '群主' : m.role === 'admin' ? '管理员' : ''
+        const roleClass = m.role === 'owner' ? 'owner' : m.role === 'admin' ? 'admin' : ''
+        const avatar = `https://q1.qlogo.cn/g?b=qq&s=100&nk=${encodeURIComponent(m.user_id || '')}`
+        return `<div class="member-item"><img alt="" src="${avatar}" /><span class="name">${escapeHtml(String(name))}</span>${role ? `<span class="role ${roleClass}">${role}</span>` : ''}</div>`
+      }).join('')
+    }
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]))
+}
+
+function onImMessage(ev) {
+  const data = ev.data
+  if (!data || data.source !== 'chihiro-im') return
+  if (data.kind === 'toggle-feature') {
+    setFeatureOpen(!featureOpen)
+    return
+  }
+  if (data.kind === 'chat') {
+    imChat = data.chat || null
+    if (imChat?.type === 'group' && featureOpen) setFeatureTab('group')
+    renderFeature()
+    return
+  }
+  if (data.kind === 'open-settings') {
+    if (data.target === 'astrbot') {
+      openDashboard()
+      return
+    }
+    if (data.target === 'napcat') {
+      const src = napcatSettingsUrl()
+      if (!src) {
+        alert('请先登录一个 QQ 账号，再打开 NapCat 设置。')
+        return
+      }
+      openDrawer({ title: 'NapCat 设置', hint: '当前 QQ 实例的 OneBot / 网络配置', src })
+    }
+  }
 }
 
 function accountsOf(data = state) {
@@ -175,10 +314,13 @@ function renderAccounts(data) {
     const img = document.createElement('img')
     img.alt = a.nickname || a.uin
     img.src = a.avatar || `https://q1.qlogo.cn/g?b=qq&s=100&nk=${a.uin || ''}`
-    const badge = document.createElement('span')
-    badge.className = 'badge' + (a.botEnabled ? ' bot' : '')
-    badge.textContent = a.botEnabled ? 'BOT' : (a.online ? 'ON' : (a.client || 'qq').slice(0, 2).toUpperCase())
-    btn.append(img, badge)
+    btn.append(img)
+    if (a.botEnabled) {
+      const badge = document.createElement('span')
+      badge.className = 'badge'
+      badge.textContent = 'BOT'
+      btn.append(badge)
+    }
     btn.addEventListener('click', () => selectAccount(a.id))
     btn.addEventListener('contextmenu', (ev) => openAccountMenu(ev, a))
     ui.list.appendChild(btn)
@@ -211,9 +353,29 @@ function pruneImFrames(accounts) {
   }
 }
 
+function discardImFrame(inst) {
+  if (!inst || !imFrames.has(inst)) return
+  const frame = imFrames.get(inst)
+  frame.classList.add('hidden')
+  try { frame.src = 'about:blank' } catch { /* ignore */ }
+  frame.remove()
+  imFrames.delete(inst)
+}
+
+function neighborAccount(id, accounts = accountsOf()) {
+  const idx = accounts.findIndex((a) => a.id === id)
+  const usable = (a) => a && a.id !== id && a.online && a.instanceId
+  if (idx >= 0) {
+    for (let i = idx + 1; i < accounts.length; i++) if (usable(accounts[i])) return accounts[i]
+    for (let i = idx - 1; i >= 0; i--) if (usable(accounts[i])) return accounts[i]
+  }
+  return accounts.find(usable) || null
+}
+
 function ensureImFrame(acc) {
   const inst = acc.instanceId
   if (!inst || !ui.im) return null
+  if (leavingId && acc.id === leavingId) return null
   let frame = imFrames.get(inst)
   if (!frame) {
     frame = document.createElement('iframe')
@@ -314,6 +476,18 @@ function applyState(snap) {
   if (viewingId && !accounts.some((a) => a.id === viewingId)) viewingId = null
   pruneImFrames(accounts)
 
+  if (leavingId) {
+    renderAccounts(snap)
+    const chosen = viewingId ? accounts.find((a) => a.id === viewingId) : null
+    if (chosen?.online && chosen.instanceId && chosen.id !== leavingId) {
+      show('im')
+      showIm(chosen)
+      return
+    }
+    show('leaving')
+    return
+  }
+
   if (localAdding) {
     renderAccounts(snap)
     const newborn = accounts.find((a) => a.online && !accountsWhenAdding.has(a.id))
@@ -370,11 +544,6 @@ let menuAccountId = null
 function openAccountMenu(ev, account) {
   ev.preventDefault()
   menuAccountId = account.id
-  if (ui.menuBot) {
-    ui.menuBot.textContent = account.botEnabled ? '关闭 Bot' : '开启 Bot'
-    ui.menuBot.disabled = !account.online
-    ui.menuBot.title = account.online ? '' : '账号在线后才能开关 Bot'
-  }
   ui.menu.classList.remove('hidden')
   const x = Math.min(ev.clientX, window.innerWidth - 190)
   const y = Math.min(ev.clientY, window.innerHeight - 80)
@@ -387,20 +556,83 @@ function hideAccountMenu() {
   menuAccountId = null
 }
 
+function askConfirm({ title, body, okText = '确定' }) {
+  return new Promise((resolve) => {
+    if (!ui.confirm) {
+      resolve(window.confirm(body || title))
+      return
+    }
+    ui.confirmTitle.textContent = title || '确认'
+    ui.confirmBody.textContent = body || ''
+    ui.confirmOk.textContent = okText
+    ui.confirm.classList.remove('hidden')
+    ui.confirm.setAttribute('aria-hidden', 'false')
+    const finish = (ok) => {
+      ui.confirm.classList.add('hidden')
+      ui.confirm.setAttribute('aria-hidden', 'true')
+      ui.confirmOk.removeEventListener('click', onOk)
+      ui.confirmCancel.removeEventListener('click', onCancel)
+      ui.confirm.removeEventListener('click', onBackdrop)
+      document.removeEventListener('keydown', onKey)
+      resolve(ok)
+    }
+    const onOk = () => finish(true)
+    const onCancel = () => finish(false)
+    const onBackdrop = (ev) => { if (ev.target === ui.confirm) finish(false) }
+    const onKey = (ev) => { if (ev.key === 'Escape') finish(false) }
+    ui.confirmOk.addEventListener('click', onOk)
+    ui.confirmCancel.addEventListener('click', onCancel)
+    ui.confirm.addEventListener('click', onBackdrop)
+    document.addEventListener('keydown', onKey)
+    ui.confirmOk.focus()
+  })
+}
+
 async function removeAccount(id) {
-  const acc = accountsOf().find((a) => a.id === id)
+  const accounts = accountsOf()
+  const acc = accounts.find((a) => a.id === id)
   const name = acc?.nickname || acc?.uin || '该账号'
-  if (!confirm(`退出「${name}」并删除此号的独立运行数据？\n其他在线账号不受影响。共用 QQ 副本会保留。`)) return
-  const snap = await (await fetch('/api/runtime/accounts/remove', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id })
-  })).json()
-  if (acc?.instanceId && imFrames.has(acc.instanceId)) {
-    imFrames.get(acc.instanceId).remove()
-    imFrames.delete(acc.instanceId)
+  const ok = await askConfirm({
+    title: '退出账号',
+    body: `确定退出「${name}」吗？其他在线账号不受影响。共用 QQ 副本会保留。`,
+    okText: '退出账号'
+  })
+  if (!ok) return
+
+  const next = neighborAccount(id, accounts)
+  leavingId = id
+  if (next?.online && next.instanceId) {
+    viewingId = next.id
+    show('im')
+    showIm(next)
+  } else {
+    viewingId = null
+    show('leaving')
   }
-  if (viewingId === id) viewingId = null
+  discardImFrame(acc?.instanceId)
+
+  let snap
+  try {
+    const res = await fetch('/api/runtime/accounts/remove', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    })
+    snap = await res.json()
+    if (!res.ok) {
+      leavingId = null
+      alert(snap.message || snap.error || '退出账号失败')
+      applyState(snap)
+      return
+    }
+  } catch (err) {
+    leavingId = null
+    alert(err?.message || '退出账号失败')
+    return
+  }
+
+  leavingId = null
+  if (viewingId === id) viewingId = next?.id || null
   applyState(snap)
 }
 
@@ -518,6 +750,7 @@ async function startClient(clientId) {
 }
 
 async function selectAccount(id) {
+  if (leavingId && id === leavingId) return
   viewingId = id
   const acc = accountsOf().find((a) => a.id === id)
   renderAccounts(state)
@@ -547,23 +780,6 @@ function connectStream() {
   }
 }
 
-function openSettings(ev) {
-  ev.preventDefault()
-  const acc = viewedAccount()
-  const token = acc?.webuiToken || state?.webuiToken
-  const inst = acc?.instanceId
-  const online = acc?.online || state?.phase === 'ready'
-  if (!token || !online) {
-    alert('请先登录一个 QQ 账号，再打开该账号的设置。')
-    return
-  }
-  const next = new URL('/webui/web_login', location.origin)
-  next.searchParams.set('token', token)
-  if (inst) next.searchParams.set('chihiro_inst', inst)
-  window.open(next.pathname + next.search, '_blank', 'noopener,noreferrer')
-}
-
-ui.settings.addEventListener('click', openSettings)
 ui.add.addEventListener('click', () => ui.modal.classList.remove('hidden'))
 ui.cancel.addEventListener('click', () => ui.modal.classList.add('hidden'))
 ui.ok.addEventListener('click', () => startClient(ui.select.value))
@@ -581,13 +797,14 @@ ui.botToggle?.addEventListener('click', () => {
 })
 ui.botDash?.addEventListener('click', () => openDashboard())
 ui.dashClose?.addEventListener('click', () => closeDashboard())
-ui.menuBot?.addEventListener('click', async () => {
-  const id = menuAccountId
-  const acc = accountsOf().find((a) => a.id === id)
-  hideAccountMenu()
-  if (!id || !acc) return
-  toggleBot(id, !acc.botEnabled)
+ui.dashDrawer?.addEventListener('click', (ev) => {
+  if (ev.target === ui.dashDrawer) closeDashboard()
 })
+ui.featureTabs?.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('button[data-tab]')
+  if (btn?.dataset.tab) setFeatureTab(btn.dataset.tab)
+})
+window.addEventListener('message', onImMessage)
 ui.menuRemove.addEventListener('click', async () => {
   const id = menuAccountId
   hideAccountMenu()
