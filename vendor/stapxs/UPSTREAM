@@ -1,0 +1,4 @@
+repo=https://github.com/Stapxs/Stapxs-QQ-Lite-2.0.git
+branch=next
+commit=7a895b964a67faf72f912370eb769adce16e37cc
+note=Chihiro IM is this tree. Edit files here directly. Sync upstream on the product-repo main branch, then merge into develop.

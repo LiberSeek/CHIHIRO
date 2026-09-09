@@ -22,8 +22,11 @@ function fail(message) {
 }
 
 const gitmodules = read('.gitmodules') || ''
+if (gitmodules.includes('path = vendor/stapxs')) {
+  fail('vendor/stapxs must not be a submodule; IM source lives in-tree')
+}
+
 const submodules = [
-  ['vendor/stapxs', 'https://github.com/Stapxs/Stapxs-QQ-Lite-2.0.git'],
   ['vendor/napcat', 'https://github.com/NapNeko/NapCatQQ.git'],
   ['vendor/astrbot', 'https://github.com/AstrBotDevs/AstrBot.git']
 ]
@@ -35,36 +38,28 @@ for (const [dir, url] of submodules) {
   if (!exists(`${dir}/.git`)) fail(`${dir} 不是已初始化的 submodule`)
 }
 
-const manifestPath = 'overlays/stapxs/manifest.json'
-let manifest = null
-try {
-  manifest = JSON.parse(read(manifestPath) || '')
-} catch (error) {
-  fail(`${manifestPath} 不是有效 JSON: ${error.message}`)
+if (exists('overlays/stapxs/manifest.json')) {
+  fail('overlays/stapxs 已废弃：请直接改 vendor/stapxs，不要恢复 overlay')
 }
 
-for (const item of [...(manifest?.replacements || []), ...(manifest?.snippetPatches || [])]) {
-  if (!item.file) {
-    fail('overlay 项缺少 file')
-    continue
-  }
-  const source = read(`vendor/stapxs/${item.file}`)
-  if (source === null) {
-    fail(`overlay 目标文件不存在: vendor/stapxs/${item.file}`)
-    continue
-  }
-  const anchor = item.from || item.anchor
-  const applied = item.to || item.replaceAnchorWith
-  if (anchor && !source.includes(anchor) && !(applied && source.includes(applied))) {
-    fail(`overlay 锚点已漂移: vendor/stapxs/${item.file}`)
-  }
+if (!exists('vendor/stapxs/src/renderer/src/pages/Chat.vue')) {
+  fail('缺少 IM 源码 vendor/stapxs')
+}
+if (!exists('vendor/stapxs/UPSTREAM')) {
+  fail('缺少 vendor/stapxs/UPSTREAM（上游钉住信息）')
+}
+if (!exists('vendor/stapxs/src/renderer/public/bcui')) {
+  fail('缺少 vendor/stapxs bcui 资源')
+}
+if (!exists('vendor/stapxs/src/renderer/src/assets/img/qq-face')) {
+  fail('缺少 vendor/stapxs qq-face 资源')
 }
 
 for (const rel of [
+  'AGENTS.md',
   'apps/gateway/src/server.js',
   'apps/runtime/src/api.mjs',
   'apps/web/index.html',
-  'scripts/apply-stapxs-overlay.mjs',
   'scripts/build-stapxs-plugin.mjs'
 ]) {
   if (!exists(rel)) fail(`缺少产品入口 ${rel}`)
@@ -77,6 +72,6 @@ if (errors.length) {
 }
 
 console.log('layout check passed')
-console.log(`- submodules: ${submodules.length}`)
-console.log(`- overlay entries: ${(manifest.replacements || []).length + (manifest.snippetPatches || []).length}`)
-console.log('- product entrypoints: gateway, runtime, web, overlay build')
+console.log(`- reference submodules: ${submodules.length} (napcat, astrbot)`)
+console.log('- IM source: vendor/stapxs (in-tree, not overlay)')
+console.log('- product entrypoints: gateway, runtime, web, stapxs build')

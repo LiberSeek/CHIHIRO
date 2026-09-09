@@ -1,43 +1,50 @@
-# 千寻 CHIHIRO-EE（产品仓）
+# 千寻 Chihiro
 
-QQ 工作台产品代码。工作区在上一级 `Chihiro/`。
+QQ IM 工作台。产品仓：[LiberSeek/CHIHIRO](https://github.com/LiberSeek/CHIHIRO)。
+
+一套 IM 前端，多账号；聊天是主路径，Bot 按需开启。Agent 先读 [AGENTS.md](AGENTS.md)。
 
 ## 目录
 
 ```text
-CHIHIRO-EE/
-├── apps/gateway          统一入口（npm run gateway）
-├── apps/runtime          账号会话、QQ/NapCat 进程与二维码生命周期
-├── apps/web              多账号工作台壳
-├── apps/desktop          Pake 桌面壳脚本
-├── overlays/stapxs       UI / 默认连接补丁
+CHIHIRO/
+├── AGENTS.md             给编码 Agent 的框架说明（先读）
+├── apps/gateway          统一入口 :3100
+├── apps/runtime          账号、QQ/NapCat 进程、二维码
+├── apps/web              工作台壳
+├── apps/desktop          Pake 桌面壳
 ├── vendor/
-│   ├── stapxs/           Stapxs 源码（构建 IM 插件）
-│   ├── napcat/           NapCat 源码（协议对照）
-│   └── astrbot/          AstrBot 源码（自动化对照）
+│   ├── stapxs/           IM 主源码（直接改这里，已不是 overlay）
+│   ├── napcat/           NapCat 对照（submodule，不要当产品代码改）
+│   └── astrbot/          AstrBot 对照（submodule）
 ├── config/
 ├── scripts/
-├── docs/
-└── docker-compose.yml
+└── docs/
 ```
 
-三份上游不是同一层的代码：Stapxs 提供 IM 视图，NapCat 提供 QQ/OneBot 运行时，AstrBot 提供自动化和插件生态。千寻自己的产品代码在 `apps/`，Stapxs 的差异在 `overlays/`，详细迭代规则见 [docs/iteration.md](docs/iteration.md)。
+Stapxs 是 IM 视图；NapCat 是本机 QQ/OneBot 运行时；AstrBot 是按需自动化。产品壳在 `apps/`。迭代规则见 [docs/iteration.md](docs/iteration.md)。
+
+## 分支
+
+| 分支 | 用途 |
+|---|---|
+| `develop` | 日常开发（默认在这工作） |
+| `release` | 发版 |
+| `master` | 冻结的稳定快照 |
+| `main` | 只用来把 Stapxs 上游合进 `vendor/stapxs`，再并入 `develop` |
 
 ## 运行
 
-产品模型见 [docs/product.md](docs/product.md)。  
-Vendor 分支见 [docs/git-workflow.md](docs/git-workflow.md)。  
-当前脚手架启动见 [docs/START.md](docs/START.md)（开发用；目标是千寻自己拉起 NapCat 并展示二维码）。
-
-需本机 NapCat Shell 已登录（`QQ --no-sandbox`）。
+产品模型：[docs/product.md](docs/product.md)。  
+Git：[docs/git-workflow.md](docs/git-workflow.md)。  
+启动：[docs/START.md](docs/START.md)。
 
 ```bash
-cd /Users/raven/iWorking/RavenStudio/Products/PRODUCTION/LiberSeekAI/Chihiro/CHIHIRO-EE
 cp config/chihiro.local.example.json config/chihiro.local.json
 npm install
-npm run check:layout   # 子模块、overlay 锚点和产品入口校验
-npm run dev              # 工作台 http://127.0.0.1:3100/  （点 + 选 QQ，页内扫码）
-npm run rebuild:im       # overlay + 安装到本机 NapCat 插件目录
-npm run open:im
-npm run pake:im          # Web 跑通后再打桌面壳
+npm run check:layout
+npm run dev              # http://127.0.0.1:3100/
+npm run rebuild:im       # 构建 vendor/stapxs 并安装到本机 NapCat 插件目录
 ```
+
+改 IM（输入框、历史窗口、表情等）直接编辑 `vendor/stapxs`，然后 `npm run rebuild:im`，工作台硬刷新。不要再增加 overlay。

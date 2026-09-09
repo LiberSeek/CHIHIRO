@@ -1,96 +1,83 @@
 # 千寻迭代契约
 
-这份文档定义千寻如何吸收 AstrBot、NapCatQQ 和 Stapxs QQ Lite 的能力。它是产品仓的开发约定，不替代三个上游项目各自的开发文档。
+给产品仓用的开发约定。上游项目各自的文档仍然有效，这里只定义千寻怎么用它们。
 
 ## 1. 四层边界
 
-| 层 | 产品仓位置 | 负责什么 | 千寻是否直接修改 |
+| 层 | 位置 | 负责什么 | 怎么改 |
 |---|---|---|---|
-| 产品壳 | `apps/web`、`apps/runtime`、`apps/gateway`、`apps/desktop` | 工作台、账号会话、进程生命周期、统一入口和桌面打包 | 是 |
-| IM 视图 | `vendor/stapxs` + `overlays/stapxs` | OneBot IM 页面和 NapCat 插件静态资源 | 只改 overlay，不改 vendor |
-| QQ 协议运行时 | 本机 NapCat Shell；`vendor/napcat` | NTQQ 注入、OneBot API/WebSocket、NapCat WebUI 和插件协议 | 不把本机运行态提交进仓库 |
-| 自动化运行时 | AstrBot 镜像/源码；`vendor/astrbot` | 多平台适配、事件管线、Agent、插件和 Bot 托管 | 通过 API/OneBot/插件集成 |
-
-核心原则是“产品代码组合上游能力”，而不是把三份上游代码拷贝成一个巨石：
+| 产品壳 | `apps/web`、`apps/runtime`、`apps/gateway`、`apps/desktop` | 工作台、账号、进程、入口 | 直接改 |
+| IM | `vendor/stapxs` | 会话、消息、输入框、历史窗口、表情 | **直接改这些文件** |
+| QQ 协议运行时 | 本机 NapCat Shell；`vendor/napcat` 只读对照 | NTQQ、OneBot、WebUI、插件协议 | 不把运行态提交进仓 |
+| 自动化 | 本机/容器 AstrBot；`vendor/astrbot` 只读对照 | 事件管线、Agent、插件 | 经 API / OneBot 接入 |
 
 ```text
 千寻 Gateway :3100
-  ├─ /                    apps/web 工作台
-  ├─ /i/:instance/plugin  Stapxs 构建出的 IM 页面
+  ├─ /                    apps/web
+  ├─ /i/:instance/plugin  vendor/stapxs 构建出的 IM
   ├─ /i/:instance/api     NapCat WebUI/API
-  ├─ /i/:instance/onebot-ws  OneBot WebSocket
-  └─ /astrbot             AstrBot Dashboard/API
-
-apps/runtime
-  └─ NTQQ --no-sandbox + NapCat Shell → OneBot v11
+  ├─ /i/:instance/onebot-ws
+  └─ /astrbot             AstrBot Dashboard
 ```
 
-## 2. 三个上游分别怎么“学”
+已经废弃：`overlays/stapxs`、运行时字符串替换、把 Stapxs 当只读 submodule。
 
-### Stapxs QQ Lite：学习前端和插件交付
+## 2. 三个上游
 
-Stapxs 自己支持 Web、Electron、Tauri、Capacitor 和 NapCat 插件。千寻选择它的 `build:napcat` 路径，因为这样能复用 QQ 会话、消息渲染和 OneBot 兼容层，同时让 Gateway 按账号实例隔离 iframe。
+### Stapxs：IM 主项目
 
-Stapxs 的产品差异只能进入 `overlays/stapxs/manifest.json`，例如：默认 OneBot 地址、千寻标题、独立 iframe 的存储前缀、关闭不需要的统计/引导。构建链是：
+千寻吃它的 `build:napcat` 路径。源码在 `vendor/stapxs`，是本仓普通目录。钉住信息在 `vendor/stapxs/UPSTREAM`。
+
+构建：
 
 ```text
 vendor/stapxs
-  → .cache/stapxs-build（复制，不污染上游）
-  → apply-stapxs-overlay.mjs
+  → .cache/stapxs-build（复制，保留 node_modules）
   → yarn build:napcat
   → dist/plugins/napcat-plugin-ssqq
 ```
 
-### NapCatQQ：学习协议边界和插件契约
+改 composer、历史、表情、菜单、默认连接，都在 `vendor/stapxs` 里改 Vue/CSS/TS。
 
-NapCat 的 `packages/` 展示了 shell、framework、onebot、webui、plugin 等边界。千寻运行时依赖的是已安装的 NapCat Shell：读取其 live config/token，拉起 QQ 副本，分配 WebUI/OneBot 端口，然后通过 Gateway 代理。
+### NapCatQQ：协议对照
 
-`vendor/napcat` 只用于对照 API、配置格式和插件协议。不要把 `QQ.app`、二维码、token、数据库或 `data/` 运行态复制到仓库。
+运行时用已安装的 NapCat Shell。`vendor/napcat` 用来读 API 和配置格式。不要把 `QQ.app`、二维码、token、`data/` 提交进仓。不要为了改 UI 去 fork NapCat。
 
-### AstrBot：学习适配器、事件管线和插件生态
+### AstrBot：按需 Bot
 
-AstrBot 的核心分为 `core/platform`、`core/pipeline`、`core/provider`、`core/star` 等模块，Dashboard 是独立前端。千寻把它视为可按需启用的自动化应用：通过同一个 OneBot/平台适配器接入当前账号，负责 Bot/Agent/插件任务，不取代 Stapxs 的日常聊天 UI。
+Dashboard 和事件管线是对照源。产品里 Bot 是开关，不是常驻守护进程。不要把千寻功能写进 `vendor/astrbot`。
 
-## 3. 一次功能迭代怎么走
+## 3. 一次功能怎么走
 
-1. **先定位归属层。** 工作台/账号/进程改 `apps/`；IM 外观或默认连接改 overlay；QQ 协议问题先查 NapCat；自动回复、平台适配和插件能力先查 AstrBot。
-2. **先写产品侧契约。** 明确输入、状态和对外路径。例如账号登录必须能从 `GET /api/runtime/stream` 观察到阶段，IM 必须使用实例前缀 `/i/:instance`。
-3. **实现最小改动。** 不把上游文件复制到 `apps/`，不在 `vendor/*` 直接提交千寻功能。
-4. **通过校验和构建。**
+1. 先定位层：壳 → `apps/`；IM → `vendor/stapxs`；协议 → NapCat；Bot → AstrBot 集成。
+2. 直接改对应文件。不要新增 overlay JSON。
+3. 校验：
 
    ```bash
    npm run check:layout
-   npm run build:stapxs
+   npm run rebuild:im    # 仅当动了 vendor/stapxs
    npm run status
    ```
 
-5. **运行验证。** 启动 `npm run dev`，验证添加 QQ、二维码、账号切换、IM iframe、设置入口；涉及 AstrBot 时再运行 `npm run compose:up` 并检查 `/astrbot`。
-6. **提交边界清楚的变更。** 产品仓提交应用、文档、overlay 和更新后的 submodule 指针；上游自身的修复应回到上游仓库或独立分支，不在产品仓里伪装成 vendor 改动。
+4. `npm run dev` 验证登录、切账号、IM iframe、设置窗。IM 变更后硬刷新 iframe。
+5. 提交打在 `develop`。
 
-## 4. 吸收上游更新
+## 4. 吸收 Stapxs 上游
 
-先记录当前状态，再逐个更新，不要一次同时升级三套运行时：
+在 **`main`** 上把 [Stapxs-QQ-Lite-2.0](https://github.com/Stapxs/Stapxs-QQ-Lite-2.0) 的 `next` 合进 `vendor/stapxs`，再把 `main` 并入 `develop`。冲突会出现在千寻改过的文件上，这是预期的。
+
+NapCat / AstrBot 仍用 submodule 指针升级，且不要和 Stapxs 同一次乱升。
 
 ```bash
 npm run upstream:status
-
-git -C vendor/stapxs fetch origin next
-git -C vendor/stapxs checkout main
-git -C vendor/stapxs merge --ff-only origin/next
-git -C vendor/stapxs checkout develop
-git -C vendor/stapxs merge main
-
-# NapCat 使用 origin/main；AstrBot 使用 origin/master
 npm run check:layout
-npm run rebuild:im
 ```
-
-如果 overlay 锚点不存在，先停止升级并查看上游变更；不要为了让构建通过而把 overlay 直接改成整文件复制。升级完成后提交产品仓的 submodule 指针，并在 PR 中记录三个上游的 commit/tag。
 
 ## 5. 不变量
 
-- `vendor/stapxs`、`vendor/napcat`、`vendor/astrbot` 必须是 `.gitmodules` 声明的 submodule。
-- `vendor/stapxs` 保持可从上游重新复制；千寻差异全部可在 `overlays/stapxs/manifest.json` 中审阅。
-- token、二维码、账号数据库和 NapCat 本机配置只出现在 `config/chihiro.local.json`、环境变量或 `data/`，不进入 Git。
-- Gateway 是唯一对工作台暴露的入口；前端不要硬编码另一个账号的 WebUI/OneBot 凭据。
-- `dist/` 和 `.cache/` 是可重建产物，不是源码真相。
+- `vendor/stapxs` 是本仓源码，不是 submodule。
+- `vendor/napcat`、`vendor/astrbot` 是 `.gitmodules` 里的对照 submodule。
+- 不存在、也不要恢复 overlay 构建链。
+- token、二维码、账号库只出现在 `config/chihiro.local.json`、环境变量或 `data/`。
+- Gateway 是工作台唯一入口。
+- `dist/`、`.cache/` 可重建，不是源码真相。

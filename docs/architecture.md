@@ -45,45 +45,32 @@ NapCat 发消息
 目标不是把三份源码糊成不可拆的巨石，而是：
 
 1. **一个产品入口**（千寻）：启动、配置、桌面壳、文档  
-2. **可持续吸收上游**：Stapxs / AstrBot / NapCat / Pake  
-3. **UI 交互可改**：主要改 Stapxs 外观与默认连接，而不是重写协议  
-
-推荐策略：**Git Submodule（或 subtree）+ overlays 覆盖层**。
+2. **可持续吸收上游**：Stapxs 合入 `vendor/stapxs`；NapCat / AstrBot 用 submodule 对照  
+3. **IM 可改**：直接改 `vendor/stapxs`，不是 overlay，也不是重写 QQ 协议  
 
 ```text
-Chihiro/                          # 本仓库（产品）
-├── apps/gateway                  # 统一入口反代（npm run）
-├── apps/desktop                  # Pake 打包输出/配置
-├── overlays/stapxs               # 你的 UI 补丁 / 默认主题 / 预填连接
-├── upstream/                     # submodule：上游只读跟踪
-│   ├── stapxs/                   # Stapxs-QQ-Lite-2.0
-│   ├── astrbot/
-│   ├── napcat/                   # 参考；Mac 日用不替代本机 Shell
-│   └── pake/
-├── config/                       # 端口与入口约定
-├── scripts/                      # status / open / pake
-├── docker-compose.yml            # 先容器化 AstrBot
-├── XRefs/                        # 本地参考克隆（可不同步到远端）
-└── runtime/                      # 本机运行态（gitignore 敏感数据）
-```
-
-### 吸收上游的工作流
-
-```bash
-# 跟踪 Stapxs 新版本
-cd vendor/stapxs && git fetch && git checkout <tag>
-
-# 你的改动放 overlays/stapxs，用脚本打到工作副本
-npm run overlay:apply   # （下一步实现）
-
-# 冲突只发生在 overlay 触及的文件，而不是整仓 rebase 地狱
+CHIHIRO/                          # LiberSeek/CHIHIRO
+├── apps/gateway                  # 统一入口
+├── apps/runtime                  # NTQQ / 账号生命周期
+├── apps/web                      # 工作台壳
+├── apps/desktop                  # Pake
+├── vendor/
+│   ├── stapxs/                   # IM 主源码（直接改）
+│   ├── napcat/                   # submodule 对照
+│   └── astrbot/                  # submodule 对照
+├── config/
+├── scripts/
+└── docs/
 ```
 
 **原则：**
 
-- 上游目录尽量干净，便于 `git pull`  
-- 产品差异进 `overlays/` 与 `apps/`  
-- NapCat 在 Mac 上继续用 **本机 Shell 发行包**；源码 submodule 用于对照 API / 插件协议  
+- IM 差异就在 `vendor/stapxs` 文件里  
+- 工作台差异在 `apps/`  
+- NapCat 在 Mac 上继续用 **本机 Shell**；`vendor/napcat` 只对照 API  
+- 不要恢复 overlay  
+
+吸收 Stapxs：在产品仓 `main` 上合官方 `next`，再并入 `develop`。细节见 [git-workflow.md](git-workflow.md)。
 
 ---
 

@@ -30,7 +30,7 @@ function rimraf(p) {
 }
 
 if (!fs.existsSync(src)) {
-  console.error('missing vendor/stapxs — run git submodule update --init')
+  console.error('missing vendor/stapxs — Chihiro IM source should live in this tree, not as a submodule')
   process.exit(1)
 }
 
@@ -39,16 +39,14 @@ const nestedAssets = [
   path.join(src, 'src/renderer/src/assets/img/qq-face'),
 ]
 const nestedReady = nestedAssets.every((p) => fs.existsSync(p) && fs.readdirSync(p).length > 0)
-if (nestedReady) {
-  console.log('nested assets already present (qq-face / bcui), skip submodule update')
-} else {
-  console.log('ensuring nested assets (qq-face / bcui)')
-  run('git', ['submodule', 'update', '--init', '--recursive'], { cwd: src })
+if (!nestedReady) {
+  console.error('missing qq-face or bcui assets under vendor/stapxs')
+  process.exit(1)
 }
 
 console.log('syncing vendor/stapxs -> .cache/stapxs-build')
 fs.mkdirSync(path.dirname(build), { recursive: true })
-// Keep cache node_modules for faster rebuilds.
+// Keep cache node_modules for faster rebuilds. IM source is already Chihiro-adapted.
 run('rsync', [
   '-a',
   '--delete',
@@ -58,7 +56,6 @@ run('rsync', [
   `${src}/`,
   `${build}/`
 ])
-run('node', [path.join(root, 'scripts/apply-stapxs-overlay.mjs'), build])
 
 const env = {
   ...process.env,

@@ -1,46 +1,64 @@
-# 千寻与上游的 Git 约定
+# Git 约定
 
-三个 submodule 都在 `vendor/`：`stapxs`、`napcat`、`astrbot`。产品仓自己的分支和 submodule 内部的分支是两层不同的事情：根仓只提交 submodule 指针，功能代码放在 `apps/` 和 `overlays/`。
+产品仓 origin：`https://github.com/LiberSeek/CHIHIRO.git`
 
-## Submodule 分支
+## 产品仓分支
 
-各上游目录保留 `origin`，并使用以下本地分支角色：
-
-| 本地分支 | 用途 |
+| 分支 | 用途 |
 |---|---|
-| **main** | **只接收上游更新**（跟踪上游默认分支，不在这写千寻功能） |
-| **master** | 可选稳定线；需要固定基线或发版时使用 |
-| **develop** | 千寻日常二次开发和验证 |
-
-上游默认分支名并不统一，本地 `main` 这样跟踪：
-
-| 仓库 | 上游默认分支 | 本地 `main` 跟踪 |
-|---|---|---|
-| stapxs | `origin/next` | `origin/next` |
-| napcat | `origin/main` | `origin/main` |
-| astrbot | `origin/master` | `origin/master` |
-
-日常在 **develop** 上改；稳定了再并进 **master**。当前三个 submodule 的 `develop`、`main`、`master` 可能暂时指向同一个上游 commit，这是正常的；不要因为分支名相同就把产品代码写进 `main`。
-
-吸收上游：`main` 快进上游 → 再把需要的提交合入 `develop`。
+| **develop** | 日常开发。Agent 和新功能都在这。 |
+| **release** | 发版、打 tag。 |
+| **master** | 冻结的稳定快照。 |
+| **main** | **只接收 Stapxs 上游**。把官方 `next` 合进 `vendor/stapxs`，再 merge 到 `develop`。不要在 main 上做工作台或 IM 功能。 |
 
 ```bash
-# 吸收上游（以 Stapxs 为例）
-cd vendor/stapxs
-git checkout main
-git fetch origin
-git merge --ff-only origin/next   # 或对应上游默认分支
-
+git clone https://github.com/LiberSeek/CHIHIRO.git
+cd CHIHIRO
 git checkout develop
-git merge main                    # 或挑选提交
+git submodule update --init vendor/napcat vendor/astrbot
+```
 
-cd ../..
+## vendor 怎么管
+
+| 目录 | 形态 | 远程 |
+|---|---|---|
+| `vendor/stapxs` | 本仓普通目录（IM 主源码） | 上游记录在 `vendor/stapxs/UPSTREAM` |
+| `vendor/napcat` | submodule | `https://github.com/NapNeko/NapCatQQ.git`（默认 `main`） |
+| `vendor/astrbot` | submodule | `https://github.com/AstrBotDevs/AstrBot.git`（默认 `master`） |
+
+NapCat、AstrBot 更新慢，也几乎不改源码，继续 submodule。Stapxs 是 IM 本体，直接改文件，用 `main` 分支吸收上游。
+
+### 吸收 Stapxs
+
+在干净的 `main` 上操作（示例，按当时仓库状态选 subtree 或 checkout 合并）：
+
+```bash
+git checkout main
+git pull origin main
+# 将 Stapxs-QQ-Lite-2.0 的 next 合入 vendor/stapxs
+# 更新 vendor/stapxs/UPSTREAM 里的 commit
+git checkout develop
+git merge main
 npm run check:layout
 npm run rebuild:im
 ```
 
-NapCat 使用 `origin/main`，AstrBot 使用 `origin/master`。如果 `check:layout` 报 overlay 锚点漂移，先阅读上游变更并更新 manifest；不要把整个上游文件复制到 `overlays/`。
+冲突只解决 `vendor/stapxs` 里千寻改过的文件，不要为了「干净」把千寻 UI 改回去。
 
-## 产品仓提交
+### 升级 NapCat / AstrBot
 
-根仓的一个上游升级提交应包含：submodule 指针、必要的 overlay/产品代码、校验和构建结果。不要提交 `data/`、`.cache/`、`dist/`、token、二维码或本机 NapCat 配置。
+```bash
+git -C vendor/napcat fetch origin
+git -C vendor/napcat checkout main
+git -C vendor/napcat merge --ff-only origin/main
+
+git -C vendor/astrbot fetch origin
+git -C vendor/astrbot checkout master
+git -C vendor/astrbot merge --ff-only origin/master
+```
+
+根仓提交的是 **submodule 指针**，不要把这两个目录变成普通文件夹。
+
+## 不要提交
+
+`data/`、`.cache/`、`dist/`、token、二维码、`config/chihiro.local.json`、本机 NapCat 配置。

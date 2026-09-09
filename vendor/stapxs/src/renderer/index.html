@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh">
+    <head>
+
+        <meta charset="utf-8">
+        <meta name="viewport" id="viewport" content="width=device-width, initial-scale=0.86, maximum-scale=5, user-scalable=0">
+        <meta name="referrer" content="same-origin" id="referrer">
+        <script>
+        (function () {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function (regs) {
+              regs.forEach(function (r) { r.unregister(); });
+            });
+            if (window.caches) caches.keys().then(function (keys) {
+              keys.forEach(function (k) { caches.delete(k); });
+            });
+          }
+          var inst = new URLSearchParams(location.search).get('chihiro_inst');
+          if (!inst) return;
+          var prefix = 'chihiro:' + inst + ':';
+          function wrap(storage) {
+            function names() {
+              var out = [];
+              for (var i = 0; i < storage.length; i++) {
+                var k = storage.key(i);
+                if (k && k.indexOf(prefix) === 0) out.push(k.slice(prefix.length));
+              }
+              return out;
+            }
+            return {
+              getItem: function (k) { return storage.getItem(prefix + k); },
+              setItem: function (k, v) { storage.setItem(prefix + k, String(v)); },
+              removeItem: function (k) { storage.removeItem(prefix + k); },
+              clear: function () {
+                var all = names();
+                for (var i = 0; i < all.length; i++) storage.removeItem(prefix + all[i]);
+              },
+              key: function (i) { return names()[i] || null; },
+              get length() { return names().length; }
+            };
+          }
+          try {
+            var ls = wrap(window.localStorage);
+            var ss = wrap(window.sessionStorage);
+            Object.defineProperty(window, 'localStorage', { configurable: true, get: function () { return ls; } });
+            Object.defineProperty(window, 'sessionStorage', { configurable: true, get: function () { return ss; } });
+          } catch (e) {}
+        })();
+        </script>
+        <meta name="color-scheme" content="light dark">
+        <meta name="theme-color" content="#606E7A">
+        <title>千寻IM - 千人千面, 千与千寻</title>
+        <link rel="stylesheet" href="/bcui/css/style.css">
+        <link rel="stylesheet" href="/bcui/css/color-light.css">
+        <link rel="stylesheet" href="/css/append-light.css">
+    </head>
+
+    <body>
+        <div id="app"></div>
+        <script type="module" src="/src/main.ts"></script>
+        <script src="/bcui/js/main.js"></script>
+    </body>
+</html>

@@ -101,7 +101,7 @@ Chihiro Runtime
 └── Bot 应用 → 仅在用户开启时挂到「当前账号」
 ```
 
-二次开发：Stapxs 扩成「多数据源 IM 壳」；NapCat 只管 QQ；AstrBot 提供多平台适配与 Bot 调度。
+二次开发：直接改 `vendor/stapxs` 作为 IM 壳；NapCat 只管 QQ 协议；AstrBot 提供多平台适配与 Bot 调度。Agent 读仓库根目录 [AGENTS.md](../AGENTS.md)。
 
 ---
 

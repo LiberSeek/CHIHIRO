@@ -1,21 +1,11 @@
-# vendor · 产品引用的上游源码
+# vendor
 
-这三份是千寻实际构建/对照用的源码，位于产品仓内（git submodule / 嵌套 git）。
-
-| 目录 | 上游 | 用途 |
+| 目录 | 上游 | 在千寻里的角色 |
 |---|---|---|
-| `stapxs/` | [Stapxs-QQ-Lite-2.0](https://github.com/Stapxs/Stapxs-QQ-Lite-2.0) | IM UI，主修改面（配合 `overlays/stapxs`） |
-| `napcat/` | [NapCatQQ](https://github.com/NapNeko/NapCatQQ) | OneBot / 插件协议对照 |
-| `astrbot/` | [AstrBot](https://github.com/AstrBotDevs/AstrBot) | 自动化对照与后续集成 |
+| `stapxs/` | [Stapxs-QQ-Lite-2.0](https://github.com/Stapxs/Stapxs-QQ-Lite-2.0) | **IM 主源码**，直接修改。钉住 `stapxs/UPSTREAM`。 |
+| `napcat/` | [NapCatQQ](https://github.com/NapNeko/NapCatQQ) | submodule，协议对照。运行时用本机 NapCat Shell。 |
+| `astrbot/` | [AstrBot](https://github.com/AstrBotDevs/AstrBot) | submodule，自动化对照。 |
 
-`../XRefs/` 只放额外参考，不参与构建。
+不要把 overlay 加回来。不要把千寻功能写进 napcat/astrbot 源码树。
 
-三份上游的边界、overlay 构建链和升级步骤见 [../docs/iteration.md](../docs/iteration.md) 与 [../docs/upstream-and-overlays.md](../docs/upstream-and-overlays.md)。
-
-更新上游：
-
-```bash
-cd vendor/stapxs && git fetch --tags && git checkout <tag>
-cd ../../
-npm run rebuild:im
-```
+见 [../AGENTS.md](../AGENTS.md) 与 [../docs/iteration.md](../docs/iteration.md)。

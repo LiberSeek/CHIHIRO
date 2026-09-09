@@ -18,7 +18,6 @@
     "compose:logs": "docker compose logs -f",
     "pake:im": "node scripts/pake-im.mjs",
     "upstream:status": "node scripts/upstream-status.mjs",
-    "overlay:stapxs": "node scripts/apply-stapxs-overlay.mjs",
     "build:stapxs": "node scripts/build-stapxs-plugin.mjs",
     "install:stapxs": "node scripts/install-stapxs-plugin.mjs",
     "rebuild:im": "npm run build:stapxs && npm run install:stapxs"
