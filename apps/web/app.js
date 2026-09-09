@@ -17,6 +17,7 @@ const ui = {
   loginSteps: $('login-steps'),
   qrHint: $('qr-hint'),
   menu: $('account-menu'),
+  menuBot: $('menu-bot'),
   menuRemove: $('menu-remove'),
   settings: $('btn-settings'),
   launch: $('btn-launch'),
@@ -24,7 +25,16 @@ const ui = {
   dropBtn: $('client-drop-btn'),
   dropIcon: $('client-drop-icon'),
   dropLabel: $('client-drop-label'),
-  dropMenu: $('client-drop-menu')
+  dropMenu: $('client-drop-menu'),
+  botBar: $('bot-bar'),
+  botDot: $('bot-dot'),
+  botStatus: $('bot-status'),
+  botToggle: $('btn-bot-toggle'),
+  botDash: $('btn-bot-dash'),
+  dashDrawer: $('dash-drawer'),
+  dashFrame: $('dash-frame'),
+  dashClose: $('btn-dash-close'),
+  stage: $('stage')
 }
 
 let clients = []
@@ -34,6 +44,9 @@ let viewingId = null
 let localAdding = sessionStorage.getItem('chihiro_adding') === '1'
 let accountsWhenAdding = new Set()
 const imFrames = new Map()
+let botBusyId = null
+let botBusyOn = false
+let dashOpen = false
 
 function setAdding(on, accountIds) {
   localAdding = on
@@ -49,6 +62,93 @@ function show(mode) {
   ui.empty.classList.toggle('hidden', mode !== 'empty')
   ui.login.classList.toggle('hidden', mode !== 'login')
   ui.im.classList.toggle('hidden', mode !== 'im')
+  ui.botBar?.classList.toggle('hidden', mode !== 'im')
+  ui.stage?.classList.toggle('has-bot-bar', mode === 'im')
+  if (mode === 'im') renderBotBar()
+}
+
+function botPhase(acc) {
+  if (!acc?.online) return 'offline'
+  if (botBusyId === acc.id) return botBusyOn ? 'pending-on' : 'pending-off'
+  if (acc.botEnabled && acc.botWired) return 'on'
+  if (acc.botEnabled && state?.astrbot?.error) return 'err'
+  if (acc.botEnabled) return 'pending-on'
+  return 'off'
+}
+
+function renderBotBar() {
+  if (!ui.botBar) return
+  const acc = viewedAccount()
+  const phase = botPhase(acc)
+  const running = Boolean(state?.astrbot?.running)
+  const err = state?.astrbot?.error || ''
+  const map = {
+    offline: { dot: 'off', text: '账号离线', action: '开启 Bot', disabled: true },
+    off: { dot: 'off', text: 'Bot 未开启', action: '开启 Bot', disabled: !acc?.online },
+    'pending-on': { dot: 'pending', text: running ? '正在接管…' : '正在启动 AstrBot…', action: '连接中', disabled: true },
+    'pending-off': { dot: 'pending', text: '正在关闭 Bot…', action: '关闭中', disabled: true },
+    on: { dot: 'on', text: 'Bot 已接管此账号', action: '关闭 Bot', disabled: false },
+    err: { dot: 'err', text: err || 'Bot 连接失败', action: '重试', disabled: false }
+  }
+  const view = map[phase] || map.off
+  ui.botDot.className = `bot-dot ${view.dot}`
+  ui.botStatus.textContent = view.text
+  ui.botToggle.textContent = view.action
+  ui.botToggle.disabled = view.disabled
+  if (ui.menuBot && acc && menuAccountId === acc.id) {
+    ui.menuBot.textContent = acc.botEnabled ? '关闭 Bot' : '开启 Bot'
+    ui.menuBot.disabled = !acc.online || botBusyId === acc.id
+  }
+}
+
+async function toggleBot(id, enabled) {
+  const acc = accountsOf().find((a) => a.id === id)
+  if (!id || !acc) return
+  botBusyId = id
+  botBusyOn = enabled
+  renderBotBar()
+  const res = await fetch('/api/runtime/bot/enable', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, enabled })
+  })
+  const snap = await res.json()
+  botBusyId = null
+  if (!res.ok) {
+    alert(snap.message || snap.error || 'Bot 开关失败')
+  }
+  applyState(snap)
+}
+
+function dashSrc() {
+  const url = state?.astrbot?.url || 'http://127.0.0.1:6185/'
+  return url.endsWith('/') ? url : `${url}/`
+}
+
+async function openDashboard() {
+  dashOpen = true
+  ui.dashDrawer?.classList.remove('hidden')
+  ui.dashDrawer?.setAttribute('aria-hidden', 'false')
+  if (!state?.astrbot?.running) {
+    const res = await fetch('/api/runtime/bot/ensure', { method: 'POST' })
+    const snap = await res.json()
+    if (!res.ok) {
+      alert(snap.message || snap.error || 'AstrBot 未能启动')
+      applyState(snap)
+      return
+    }
+    applyState(snap)
+  }
+  if (ui.dashFrame && ui.dashFrame.dataset.loaded !== dashSrc()) {
+    ui.dashFrame.src = dashSrc()
+    ui.dashFrame.dataset.loaded = dashSrc()
+  }
+}
+
+function closeDashboard() {
+  dashOpen = false
+  ui.dashDrawer?.classList.add('hidden')
+  ui.dashDrawer?.setAttribute('aria-hidden', 'true')
 }
 
 function accountsOf(data = state) {
@@ -70,14 +170,14 @@ function renderAccounts(data) {
   for (const a of accounts) {
     const btn = document.createElement('button')
     btn.className = 'avatar' + (a.id === highlight ? ' active' : '')
-    btn.title = `${a.nickname || a.uin} · ${a.client}${a.online ? ' · 在线' : ''}`
+    btn.title = `${a.nickname || a.uin} · ${a.client}${a.online ? ' · 在线' : ''}${a.botEnabled ? ' · Bot' : ''}`
     btn.dataset.id = a.id
     const img = document.createElement('img')
     img.alt = a.nickname || a.uin
     img.src = a.avatar || `https://q1.qlogo.cn/g?b=qq&s=100&nk=${a.uin || ''}`
     const badge = document.createElement('span')
-    badge.className = 'badge'
-    badge.textContent = a.online ? 'ON' : (a.client || 'qq').slice(0, 2).toUpperCase()
+    badge.className = 'badge' + (a.botEnabled ? ' bot' : '')
+    badge.textContent = a.botEnabled ? 'BOT' : (a.online ? 'ON' : (a.client || 'qq').slice(0, 2).toUpperCase())
     btn.append(img, badge)
     btn.addEventListener('click', () => selectAccount(a.id))
     btn.addEventListener('contextmenu', (ev) => openAccountMenu(ev, a))
@@ -270,9 +370,14 @@ let menuAccountId = null
 function openAccountMenu(ev, account) {
   ev.preventDefault()
   menuAccountId = account.id
+  if (ui.menuBot) {
+    ui.menuBot.textContent = account.botEnabled ? '关闭 Bot' : '开启 Bot'
+    ui.menuBot.disabled = !account.online
+    ui.menuBot.title = account.online ? '' : '账号在线后才能开关 Bot'
+  }
   ui.menu.classList.remove('hidden')
   const x = Math.min(ev.clientX, window.innerWidth - 190)
-  const y = Math.min(ev.clientY, window.innerHeight - 60)
+  const y = Math.min(ev.clientY, window.innerHeight - 80)
   ui.menu.style.left = `${x}px`
   ui.menu.style.top = `${y}px`
 }
@@ -452,10 +557,10 @@ function openSettings(ev) {
     alert('请先登录一个 QQ 账号，再打开该账号的设置。')
     return
   }
-  const path = inst
-    ? `/i/${encodeURIComponent(inst)}/webui/web_login`
-    : '/webui/web_login'
-  window.open(`${path}?token=${encodeURIComponent(token)}`, '_blank', 'noopener,noreferrer')
+  const next = new URL('/webui/web_login', location.origin)
+  next.searchParams.set('token', token)
+  if (inst) next.searchParams.set('chihiro_inst', inst)
+  window.open(next.pathname + next.search, '_blank', 'noopener,noreferrer')
 }
 
 ui.settings.addEventListener('click', openSettings)
@@ -467,6 +572,22 @@ ui.launch?.addEventListener('click', () => startClient(selectedClientId))
 ui.dropBtn?.addEventListener('click', toggleClientMenu)
 ui.dropMenu?.addEventListener('click', (ev) => ev.stopPropagation())
 ui.loginCancel.addEventListener('click', cancelPendingLogin)
+ui.botToggle?.addEventListener('click', () => {
+  const acc = viewedAccount()
+  if (!acc) return
+  const phase = botPhase(acc)
+  const enabled = phase !== 'on'
+  toggleBot(acc.id, enabled)
+})
+ui.botDash?.addEventListener('click', () => openDashboard())
+ui.dashClose?.addEventListener('click', () => closeDashboard())
+ui.menuBot?.addEventListener('click', async () => {
+  const id = menuAccountId
+  const acc = accountsOf().find((a) => a.id === id)
+  hideAccountMenu()
+  if (!id || !acc) return
+  toggleBot(id, !acc.botEnabled)
+})
 ui.menuRemove.addEventListener('click', async () => {
   const id = menuAccountId
   hideAccountMenu()

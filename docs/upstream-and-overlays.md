@@ -13,7 +13,6 @@
 
 ## 目录职责
 
-```bash
 `vendor/stapxs` 是唯一参与千寻构建的上游源码。`vendor/napcat` 和 `vendor/astrbot` 主要用于协议、适配器和插件架构对照；运行时分别使用本机 NapCat Shell 和 AstrBot 镜像/安装环境。
 
 ```text
@@ -22,7 +21,6 @@ overlays/   对上游的可审阅差异
 vendor/     可更新的上游 submodule
 dist/       可重建产物（不提交）
 data/       本机运行态（不提交）
-```
 ```
 
 ### 你改 UI 时

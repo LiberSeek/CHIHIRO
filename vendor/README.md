@@ -10,6 +10,8 @@
 
 `../XRefs/` 只放额外参考，不参与构建。
 
+三份上游的边界、overlay 构建链和升级步骤见 [../docs/iteration.md](../docs/iteration.md) 与 [../docs/upstream-and-overlays.md](../docs/upstream-and-overlays.md)。
+
 更新上游：
 
 ```bash

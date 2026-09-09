@@ -3,5 +3,8 @@
     "webuiToken": "replace-me",
     "onebotHttpToken": "chihiro-local-5800",
     "onebotWsToken": "chihiro-local-5801"
+  },
+  "astrbot": {
+    "reverseToken": ""
   }
 }

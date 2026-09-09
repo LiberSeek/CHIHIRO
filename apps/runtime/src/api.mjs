@@ -3,6 +3,8 @@ import path from 'node:path'
 import { CLIENTS, getClient } from './clients.mjs'
 import { createAccountStore } from './accounts.mjs'
 import { createQqRuntime } from './qq-napcat.mjs'
+import { createAstrbotRuntime } from './astrbot.mjs'
+import { createBotController } from './bot.mjs'
 import { log, logError } from './log.mjs'
 
 export function createRuntime({ root, cfg }) {
@@ -13,6 +15,18 @@ export function createRuntime({ root, cfg }) {
     logDir: path.join(dataDir, 'logs'),
     root
   })
+  const astrbot = createAstrbotRuntime({ root, cfg })
+  const bot = createBotController({ store, qq, astrbot })
+
+  async function snapshot() {
+    const snap = qq.snapshot()
+    snap.astrbot = await astrbot.refreshStatus()
+    const wired = bot.wired
+    for (const acc of snap.accounts?.accounts || []) {
+      acc.botWired = wired.has(acc.id)
+    }
+    return snap
+  }
 
   async function handle(req, res, url) {
     const method = req.method || 'GET'
@@ -24,7 +38,7 @@ export function createRuntime({ root, cfg }) {
 
     if (p === '/api/runtime/state' && method === 'GET') {
       await qq.refreshPorts()
-      return json(res, qq.snapshot())
+      return json(res, await snapshot())
     }
 
     if (p === '/api/runtime/accounts' && method === 'GET') {
@@ -40,7 +54,7 @@ export function createRuntime({ root, cfg }) {
         if (String(body.id).startsWith('qq:')) {
           qq.startOrQuick(body.id).catch((e) => logError('api', 'startOrQuick', e))
         }
-        return json(res, qq.snapshot())
+        return json(res, await snapshot())
       } catch (e) {
         return json(res, { error: e.message }, 400)
       }
@@ -49,12 +63,37 @@ export function createRuntime({ root, cfg }) {
     if (p === '/api/runtime/accounts/remove' && method === 'POST') {
       const body = await readJson(req)
       if (!body.id) return json(res, { error: 'missing_id' }, 400)
+      await bot.unwireBeforeRemove(body.id).catch((e) => logError('api', 'unwire', e))
       const snap = await qq.removeAccount(body.id)
+      snap.astrbot = await astrbot.refreshStatus()
       return json(res, snap)
+    }
+
+    if (p === '/api/runtime/bot/enable' && method === 'POST') {
+      const body = await readJson(req)
+      if (!body.id) return json(res, { error: 'missing_id' }, 400)
+      try {
+        await bot.setEnabled(body.id, body.enabled !== false)
+        return json(res, await snapshot())
+      } catch (e) {
+        logError('api', 'bot.enable', e)
+        return json(res, { error: e.message, message: e.message, ...(await snapshot()) }, 400)
+      }
+    }
+
+    if (p === '/api/runtime/bot/ensure' && method === 'POST') {
+      try {
+        await astrbot.ensure()
+        return json(res, await snapshot())
+      } catch (e) {
+        logError('api', 'bot.ensure', e)
+        return json(res, { error: e.message, message: e.message, ...(await snapshot()) }, 400)
+      }
     }
 
     if (p === '/api/runtime/login/cancel' && method === 'POST') {
       const snap = await qq.cancelPending()
+      snap.astrbot = await astrbot.refreshStatus()
       return json(res, snap)
     }
 
@@ -75,6 +114,7 @@ export function createRuntime({ root, cfg }) {
         uin: body.uin,
         forceNew: body.mode === 'new' || body.forceNew === true
       })
+      snap.astrbot = await astrbot.refreshStatus()
       return json(res, snap)
     }
 
@@ -101,13 +141,17 @@ export function createRuntime({ root, cfg }) {
         'Cache-Control': 'no-cache',
         Connection: 'keep-alive'
       })
-      const send = (snap) => {
-        res.write(`data: ${JSON.stringify(snap)}\n\n`)
+      const send = async () => {
+        try {
+          res.write(`data: ${JSON.stringify(await snapshot())}\n\n`)
+        } catch { /* closed */ }
       }
-      send(qq.snapshot())
-      const unsub = qq.subscribe(send)
+      send()
+      const unsub = qq.subscribe(() => { send() })
       const timer = setInterval(() => {
-        qq.refreshPorts().catch(() => {})
+        qq.refreshPorts()
+          .then(() => bot.sync())
+          .catch(() => {})
       }, 1500)
       req.on('close', () => {
         unsub()
@@ -119,7 +163,11 @@ export function createRuntime({ root, cfg }) {
     return false
   }
 
-  return { handle, qq, store }
+  async function shutdown() {
+    await astrbot.stopIfOwned().catch((e) => logError('api', 'astrbot stop', e))
+  }
+
+  return { handle, qq, store, astrbot, bot, snapshot, shutdown }
 }
 
 function json(res, obj, status = 200) {

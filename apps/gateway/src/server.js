@@ -74,9 +74,15 @@ function liveWebuiTarget() {
     || 'http://127.0.0.1:6099'
 }
 
+function astrbotTarget() {
+  return cfg.astrbot?.url || 'http://127.0.0.1:6185'
+}
+
 function instanceIdFromReq(req, url) {
   const fromPath = url.pathname.match(INST_PREFIX)
   if (fromPath) return decodeURIComponent(fromPath[1])
+  const fromQuery = url.searchParams.get('chihiro_inst')
+  if (fromQuery) return fromQuery
   const ref = req.headers.referer || ''
   if (!ref) return null
   try {
@@ -107,13 +113,6 @@ function resolveNapcat(instanceId, { preferReady = false } = {}) {
     token: liveWebuiToken(),
     obToken: liveWsToken(),
     wsPort: Number(String(runtime.qq.snapshot().obAddress || '').split(':')[1]) || null
-  }
-}
-
-function attachInstanceAuth(req, napcat) {
-  const token = napcat?.token
-  if (token && !req.headers.authorization) {
-    req.headers.authorization = `Bearer ${token}`
   }
 }
 
@@ -177,7 +176,6 @@ function servePluginStatic(pathname, res) {
 }
 
 function proxyWebui(req, res, url, napcat) {
-  attachInstanceAuth(req, napcat)
   req.url = stripInstancePrefix(url.pathname) + url.search
   proxy.web(req, res, { target: napcat.webui })
 }
@@ -206,7 +204,6 @@ const server = http.createServer(async (req, res) => {
 
   if (routedPath.startsWith('/api/') && routedPath !== '/api/status') {
     const napcat = resolveNapcat(instanceId, { preferReady: !instanceId })
-    attachInstanceAuth(req, napcat)
     req.url = routedPath + url.search
     proxy.web(req, res, { target: napcat.webui })
     return
@@ -240,14 +237,25 @@ const server = http.createServer(async (req, res) => {
       emptyWebuiPage(res)
       return
     }
-    if (!url.searchParams.get('token')) {
-      const loc = instanceId
-        ? `/i/${encodeURIComponent(instanceId)}/webui/web_login?token=${encodeURIComponent(token)}`
-        : `/webui/web_login?token=${encodeURIComponent(token)}`
-      res.writeHead(302, { Location: loc })
+    const inst = instanceId || napcat.id
+    const needsToken = !url.searchParams.get('token')
+    const needsInst = inst && !url.searchParams.get('chihiro_inst')
+    const onPrefixedPath = INST_PREFIX.test(url.pathname)
+    if (needsToken || needsInst || onPrefixedPath) {
+      const next = new URL('/webui/web_login', `http://${host}:${port}`)
+      next.searchParams.set('token', url.searchParams.get('token') || token)
+      if (inst) next.searchParams.set('chihiro_inst', inst)
+      res.writeHead(302, { Location: next.pathname + next.search })
       res.end()
       return
     }
+  }
+
+  if (url.pathname.startsWith('/files/') || routedPath.startsWith('/files/')) {
+    const napcat = resolveNapcat(instanceId, { preferReady: true })
+    req.url = (url.pathname.startsWith('/files/') ? url.pathname : routedPath) + url.search
+    proxy.web(req, res, { target: napcat.webui })
+    return
   }
 
   if (servePluginStatic(url.pathname, res)) return
@@ -260,7 +268,7 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname.startsWith('/astrbot')) {
     req.url = (url.pathname.replace(/^\/astrbot/, '') || '/') + url.search
-    proxy.web(req, res, { target: cfg.astrbot.url })
+    proxy.web(req, res, { target: astrbotTarget() })
     return
   }
 
@@ -291,15 +299,34 @@ server.on('upgrade', (req, socket, head) => {
     proxy.ws(req, socket, head, { target })
     return
   }
+  if (url.pathname.startsWith('/astrbot') || routedPath.startsWith('/astrbot')) {
+    req.url = (url.pathname.replace(/^\/astrbot/, '') || '/') + url.search
+    proxy.ws(req, socket, head, { target: astrbotTarget() })
+    return
+  }
   if (routedPath.startsWith('/webui') || routedPath.startsWith('/plugin') || routedPath.startsWith('/api/')) {
     const napcat = resolveNapcat(instanceId, { preferReady: routedPath.startsWith('/plugin') })
-    attachInstanceAuth(req, napcat)
     req.url = routedPath + url.search
     proxy.ws(req, socket, head, { target: napcat.webui })
     return
   }
   socket.destroy()
 })
+
+let shuttingDown = false
+async function shutdown(signal) {
+  if (shuttingDown) return
+  shuttingDown = true
+  log('gw', `shutdown ${signal}`)
+  try {
+    await runtime.shutdown?.()
+  } catch (e) {
+    logError('gw', 'shutdown', e)
+  }
+  process.exit(0)
+}
+process.on('SIGINT', () => shutdown('SIGINT'))
+process.on('SIGTERM', () => shutdown('SIGTERM'))
 
 server.listen(port, host, () => {
   log('gw', `listening http://${host}:${port}`)

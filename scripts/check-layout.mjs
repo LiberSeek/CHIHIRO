@@ -54,7 +54,8 @@ for (const item of [...(manifest?.replacements || []), ...(manifest?.snippetPatc
     continue
   }
   const anchor = item.from || item.anchor
-  if (anchor && !source.includes(anchor)) {
+  const applied = item.to || item.replaceAnchorWith
+  if (anchor && !source.includes(anchor) && !(applied && source.includes(applied))) {
     fail(`overlay 锚点已漂移: vendor/stapxs/${item.file}`)
   }
 }

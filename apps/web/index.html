@@ -55,11 +55,28 @@
       <button id="login-cancel" class="btn ghost hidden" type="button">取消这次登录</button>
     </div>
 
+    <div id="bot-bar" class="bot-bar hidden">
+      <span id="bot-dot" class="bot-dot off" aria-hidden="true"></span>
+      <span id="bot-status" class="bot-status">Bot 未开启</span>
+      <span class="bot-bar-spacer"></span>
+      <button id="btn-bot-toggle" type="button" class="btn bot-toggle">开启 Bot</button>
+      <button id="btn-bot-dash" type="button" class="btn ghost">Bot 后台</button>
+    </div>
     <div id="im-host" class="im hidden"></div>
   </section>
 
+  <aside id="dash-drawer" class="dash-drawer hidden" aria-hidden="true">
+    <header class="dash-head">
+      <strong>AstrBot 后台</strong>
+      <span class="dash-hint">模型、白名单和插件在这里配置</span>
+      <button id="btn-dash-close" type="button" class="btn ghost">关闭</button>
+    </header>
+    <iframe id="dash-frame" class="dash-frame" title="AstrBot Dashboard"></iframe>
+  </aside>
+
   <div id="account-menu" class="account-menu hidden">
-    <button id="menu-remove" type="button">退出并清除此账号</button>
+    <button id="menu-bot" type="button">开启 Bot</button>
+    <button id="menu-remove" type="button" class="danger">退出并清除此账号</button>
   </div>
 
   <div id="modal" class="modal hidden">

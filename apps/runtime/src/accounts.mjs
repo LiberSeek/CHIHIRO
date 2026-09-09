@@ -56,5 +56,18 @@ export function createAccountStore(filePath) {
     return data
   }
 
-  return { load, list, upsert, setActive, remove, filePath }
+  function patch(id, fields) {
+    const data = load()
+    const i = data.accounts.findIndex((a) => a.id === id)
+    if (i < 0) throw new Error('account_not_found')
+    data.accounts[i] = {
+      ...data.accounts[i],
+      ...fields,
+      updatedAt: new Date().toISOString()
+    }
+    save(data)
+    return data
+  }
+
+  return { load, list, upsert, setActive, remove, patch, filePath }
 }

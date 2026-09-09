@@ -754,6 +754,22 @@ export function createQqRuntime({ store, logDir, root }) {
     return proxyFromInst(ready) || proxyFromInst(viewInstance())
   }
 
+  function getInstanceForAccount(accountId) {
+    if (!accountId) return null
+    const listed = store.list()
+    const acc = (listed.accounts || []).find((a) => a.id === accountId)
+    if (!acc) return null
+    if (acc.instanceId && instances.has(acc.instanceId)) return instances.get(acc.instanceId)
+    if (acc.uin) {
+      return [...instances.values()].find((i) => i.uin && String(i.uin) === String(acc.uin)) || null
+    }
+    return null
+  }
+
+  function touch() {
+    emit()
+  }
+
   async function resumeAll() {
     pruneOrphanInstanceDirs()
     const saved = store.list().accounts || []
@@ -819,6 +835,8 @@ export function createQqRuntime({ store, logDir, root }) {
     cancelPending,
     getInstanceProxy,
     getReadyProxy,
+    getInstanceForAccount,
+    touch,
     qqBin: OFFICIAL_BIN
   }
 }

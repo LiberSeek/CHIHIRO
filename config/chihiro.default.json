@@ -21,7 +21,12 @@
     "pluginPage": "/webui/plugin/napcat-plugin-ssqq/page/dashboard"
   },
   "astrbot": {
-    "url": "http://127.0.0.1:6185"
+    "url": "http://127.0.0.1:6185",
+    "host": "127.0.0.1",
+    "port": 6185,
+    "reverseHost": "127.0.0.1",
+    "reversePort": 6199,
+    "dataDir": "data/astrbot"
   },
   "pake": {
     "name": "千寻",
