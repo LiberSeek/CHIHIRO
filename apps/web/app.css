@@ -26,12 +26,6 @@ body { display: flex; }
   border-right: 1px solid var(--line);
 }
 
-.brand {
-  width: 40px; height: 40px; border-radius: 12px;
-  display: grid; place-items: center;
-  background: #2b2b2b; font-weight: 700; letter-spacing: -0.04em;
-}
-
 .account-list { display: flex; flex-direction: column; gap: 8px; width: 100%; align-items: center; }
 
 .avatar {
@@ -42,9 +36,10 @@ body { display: flex; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .avatar .badge {
   position: absolute; right: -2px; bottom: -2px;
-  font-size: 9px; background: var(--qq); color: #001018;
+  font-size: 9px; background: #555; color: #ddd;
   border-radius: 4px; padding: 0 3px; font-weight: 700;
 }
+.avatar.active .badge { background: var(--qq); color: #001018; }
 
 .rail-btn {
   width: 42px; height: 42px; border-radius: 12px; border: 1px dashed #555;
@@ -52,8 +47,14 @@ body { display: flex; }
   display: grid; place-items: center; text-decoration: none;
 }
 .rail-btn.add:hover { border-color: var(--accent); color: var(--accent); }
-.rail-btn.ghost { border-style: solid; border-color: var(--line); font-size: 14px; color: var(--muted); }
 .rail-spacer { flex: 1; }
+
+.rail-settings {
+  width: 48px; height: 48px; margin-bottom: 4px;
+  display: grid; place-items: center;
+  color: var(--muted); text-decoration: none; border: 0; background: transparent;
+}
+.rail-settings:hover { color: var(--text); }
 
 .stage { flex: 1; position: relative; min-width: 0; }
 .panel {
@@ -65,11 +66,189 @@ body { display: flex; }
 .hint { color: var(--muted); max-width: 420px; line-height: 1.55; margin: 0; }
 .hidden { display: none !important; }
 
+.empty-panel {
+  justify-content: center;
+  padding: 32px 24px;
+}
+.empty-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.empty-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.empty-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  object-fit: cover;
+  display: block;
+  background: #2b2b2b;
+}
+.empty-tagline {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text);
+}
+.launch-row {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 8px;
+}
+.launch-btn {
+  height: 40px;
+  padding: 0 18px;
+  font-size: 15px;
+  border-radius: 10px;
+}
+.client-dropdown { position: relative; }
+.client-drop-btn {
+  width: 220px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+}
+.client-drop-btn:hover { border-color: #48484a; }
+.client-drop-icon {
+  width: 22px; height: 22px; border-radius: 6px;
+  display: grid; place-items: center;
+  background: #2c2c2e; color: var(--qq);
+  font-size: 9px; font-weight: 750; flex: 0 0 auto;
+}
+.client-drop-btn .client-drop-label {
+  flex: 1;
+  text-align: left;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.client-drop-caret {
+  margin-left: auto;
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+.client-drop-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0; right: 0;
+  z-index: 8;
+  max-height: 260px;
+  overflow: auto;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  box-shadow: 0 10px 28px rgba(0,0,0,.45);
+}
+.client-drop-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 8px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+}
+.client-drop-option:hover { background: #2c2c2e; }
+.client-drop-option.is-on { color: var(--qq); }
+.client-drop-option.is-off { color: var(--muted); }
+.client-drop-option .client-drop-icon { width: 20px; height: 20px; font-size: 8px; }
+
 .qr {
   width: 220px; height: 220px; background: #fff; border-radius: 12px; padding: 10px;
 }
 
+.login-brand {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+.login-status {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.login-steps {
+  list-style: none;
+  display: flex;
+  align-items: flex-start;
+  width: min(520px, 94%);
+  margin: 6px 0 10px;
+  padding: 0;
+}
+.login-steps li {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.2;
+}
+.login-steps li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: calc(50% + 11px);
+  right: calc(-50% + 11px);
+  height: 1px;
+  background: #3a3a3c;
+}
+.login-steps li .dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid #555;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  z-index: 1;
+  background: var(--bg);
+}
+.login-steps li.active { color: var(--text); }
+.login-steps li.active .dot {
+  border-color: var(--qq);
+  background: var(--qq);
+  color: #001018;
+}
+.login-steps li.active:not(:last-child)::after {
+  background: linear-gradient(90deg, var(--qq), #3a3a3c);
+}
+.login-steps li.done { color: #8e8e93; }
+.login-steps li.done .dot {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #04160c;
+}
+.login-steps li.done:not(:last-child)::after { background: var(--accent); }
+
 .im {
+  position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff;
+}
+.im-frame {
   position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff;
 }
 
@@ -93,3 +272,14 @@ select {
   background: var(--qq); color: #001018; font-weight: 650;
 }
 .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+
+.account-menu {
+  position: fixed; z-index: 30; min-width: 168px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.4);
+}
+.account-menu button {
+  width: 100%; border: 0; background: transparent; color: var(--text);
+  text-align: left; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 13px;
+}
+.account-menu button:hover { background: #2c2c2e; color: #ff6b6b; }

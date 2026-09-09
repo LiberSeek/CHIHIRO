@@ -5,10 +5,14 @@ import { fileURLToPath } from 'node:url'
 import httpProxy from 'http-proxy'
 import { createRuntime } from '../../runtime/src/api.mjs'
 import { liveNapcatSecrets } from '../../runtime/src/napcat-secrets.mjs'
+import { log, logError } from '../../runtime/src/log.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '../../..')
 const webDir = path.join(root, 'apps/web')
+const pluginStaticDir = path.join(root, 'dist/plugins/napcat-plugin-ssqq/webui/dist')
+const PLUGIN_STATIC_PREFIX = '/plugin/napcat-plugin-ssqq/files/static'
+const INST_PREFIX = /^\/i\/([^/]+)(?=\/|$)/
 
 function loadConfig() {
   const defaults = JSON.parse(
@@ -39,22 +43,82 @@ const port = cfg.gateway.port || 3100
 
 const runtime = createRuntime({ root, cfg })
 
+function activeProxy() {
+  try {
+    return runtime.qq.snapshot().proxy || {}
+  } catch {
+    return {}
+  }
+}
+
 function liveWebuiToken() {
-  return liveNapcatSecrets().webui.token
+  return activeProxy().token
+    || liveNapcatSecrets().webui.token
     || process.env.CHIHIRO_WEBUI_TOKEN
     || cfg.napcat.webuiToken
     || ''
 }
 
 function liveWsToken() {
-  return liveNapcatSecrets().onebot.wsToken
+  const snap = runtime.qq.snapshot()
+  return snap.obToken
+    || liveNapcatSecrets().onebot.wsToken
     || process.env.CHIHIRO_ONEBOT_WS_TOKEN
     || cfg.napcat.onebotWsToken
     || ''
 }
 
-function attachNapcatAuth(req) {
-  const token = liveWebuiToken()
+function liveWebuiTarget() {
+  return activeProxy().webui
+    || cfg.napcat.webui
+    || 'http://127.0.0.1:6099'
+}
+
+function instanceIdFromReq(req, url) {
+  const fromPath = url.pathname.match(INST_PREFIX)
+  if (fromPath) return decodeURIComponent(fromPath[1])
+  const ref = req.headers.referer || ''
+  if (!ref) return null
+  try {
+    const ru = new URL(ref)
+    const m = ru.pathname.match(INST_PREFIX)
+    if (m) return decodeURIComponent(m[1])
+    return ru.searchParams.get('chihiro_inst') || null
+  } catch {
+    return null
+  }
+}
+
+function stripInstancePrefix(pathname) {
+  const next = pathname.replace(INST_PREFIX, '')
+  return next || '/'
+}
+
+function resolveNapcat(instanceId, { preferReady = false } = {}) {
+  const named = instanceId ? runtime.qq.getInstanceProxy(instanceId) : null
+  if (named) return named
+  if (preferReady) {
+    const ready = runtime.qq.getReadyProxy?.()
+    if (ready) return ready
+  }
+  return {
+    id: null,
+    webui: liveWebuiTarget(),
+    token: liveWebuiToken(),
+    obToken: liveWsToken(),
+    wsPort: Number(String(runtime.qq.snapshot().obAddress || '').split(':')[1]) || null
+  }
+}
+
+function attachInstanceAuth(req, napcat) {
+  const token = napcat?.token
+  if (token && !req.headers.authorization) {
+    req.headers.authorization = `Bearer ${token}`
+  }
+}
+
+function attachWsAuth(req, napcat) {
+  const token = napcat?.obToken || liveWsToken()
   if (token && !req.headers.authorization) {
     req.headers.authorization = `Bearer ${token}`
   }
@@ -66,6 +130,7 @@ const proxy = httpProxy.createProxyServer({
   xfwd: true
 })
 proxy.on('error', (err, _req, res) => {
+  logError('gw', 'proxy', err.message)
   if (res && !res.headersSent && typeof res.writeHead === 'function') {
     res.writeHead(502, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify({ error: 'bad_gateway', message: err.message }))
@@ -92,17 +157,58 @@ function serveStatic(url, res) {
   return true
 }
 
+function servePluginStatic(pathname, res) {
+  const routed = stripInstancePrefix(pathname)
+  if (!routed.startsWith(PLUGIN_STATIC_PREFIX)) return false
+  let rel = routed.slice(PLUGIN_STATIC_PREFIX.length) || '/index.html'
+  if (rel.endsWith('/')) rel += 'index.html'
+  if (!rel.startsWith('/')) rel = `/${rel}`
+  if (rel.includes('..')) return false
+  const file = path.join(pluginStaticDir, rel)
+  if (!file.startsWith(pluginStaticDir)) return false
+  if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) return false
+  const ext = path.extname(file)
+  res.writeHead(200, {
+    'Content-Type': mime[ext] || 'application/octet-stream',
+    'Cache-Control': ext === '.html' || ext === '.js' ? 'no-store' : 'public, max-age=0, must-revalidate'
+  })
+  fs.createReadStream(file).pipe(res)
+  return true
+}
+
+function proxyWebui(req, res, url, napcat) {
+  attachInstanceAuth(req, napcat)
+  req.url = stripInstancePrefix(url.pathname) + url.search
+  proxy.web(req, res, { target: napcat.webui })
+}
+
+function emptyWebuiPage(res) {
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+  res.end(`<!doctype html><meta charset="utf-8"><title>千寻</title>
+<body style="font-family:system-ui;background:#111;color:#f2f2f7;display:grid;place-items:center;height:100vh;margin:0">
+<p>请先在千寻登录一个 QQ 账号，再打开设置。</p>
+<p><a href="/" style="color:#12b7f5">返回工作台</a></p>
+</body>`)
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || '/', `http://${host}:${port}`)
+  const instanceId = instanceIdFromReq(req, url)
+  const routedPath = stripInstancePrefix(url.pathname)
 
   if (url.pathname.startsWith('/api/runtime')) {
+    if (url.pathname !== '/api/runtime/stream' && url.pathname !== '/api/runtime/state' && url.pathname !== '/api/runtime/qq/qr') {
+      log('gw', req.method, url.pathname)
+    }
     const handled = await runtime.handle(req, res, url)
     if (handled) return
   }
 
-  if (url.pathname.startsWith('/api/') && url.pathname !== '/api/status') {
-    attachNapcatAuth(req)
-    proxy.web(req, res, { target: cfg.napcat.webui })
+  if (routedPath.startsWith('/api/') && routedPath !== '/api/status') {
+    const napcat = resolveNapcat(instanceId, { preferReady: !instanceId })
+    attachInstanceAuth(req, napcat)
+    req.url = routedPath + url.search
+    proxy.web(req, res, { target: napcat.webui })
     return
   }
 
@@ -123,9 +229,32 @@ const server = http.createServer(async (req, res) => {
     return
   }
 
-  if (url.pathname.startsWith('/webui') || url.pathname.startsWith('/plugin')) {
-    attachNapcatAuth(req)
-    proxy.web(req, res, { target: cfg.napcat.webui })
+  if (
+    routedPath === '/webui' ||
+    routedPath === '/webui/' ||
+    routedPath === '/webui/web_login'
+  ) {
+    const napcat = resolveNapcat(instanceId)
+    const token = napcat.token || liveWebuiToken()
+    if (!token) {
+      emptyWebuiPage(res)
+      return
+    }
+    if (!url.searchParams.get('token')) {
+      const loc = instanceId
+        ? `/i/${encodeURIComponent(instanceId)}/webui/web_login?token=${encodeURIComponent(token)}`
+        : `/webui/web_login?token=${encodeURIComponent(token)}`
+      res.writeHead(302, { Location: loc })
+      res.end()
+      return
+    }
+  }
+
+  if (servePluginStatic(url.pathname, res)) return
+
+  if (routedPath.startsWith('/webui') || routedPath.startsWith('/plugin')) {
+    const napcat = resolveNapcat(instanceId, { preferReady: routedPath.startsWith('/plugin') })
+    proxyWebui(req, res, url, napcat)
     return
   }
 
@@ -143,25 +272,36 @@ const server = http.createServer(async (req, res) => {
 
 server.on('upgrade', (req, socket, head) => {
   const url = new URL(req.url || '/', `http://${host}:${port}`)
-  if (url.pathname.startsWith('/onebot-ws') || url.pathname === '/ws') {
-    const target = cfg.napcat.onebotWs.replace(/^ws/, 'http')
-    const wsToken = liveWsToken()
-    if (wsToken && !req.headers.authorization) {
-      req.headers.authorization = `Bearer ${wsToken}`
-    }
+  const instanceId = instanceIdFromReq(req, url)
+  const routedPath = stripInstancePrefix(url.pathname)
+
+  if (
+    routedPath.startsWith('/onebot-ws') ||
+    routedPath === '/ws' ||
+    routedPath === '/onebot-ws'
+  ) {
+    const napcat = resolveNapcat(instanceId)
+    const wsPort = napcat.wsPort
+      || Number(String(runtime.qq.snapshot().obAddress || '').split(':')[1])
+    const target = wsPort
+      ? `http://127.0.0.1:${wsPort}`
+      : cfg.napcat.onebotWs.replace(/^ws/, 'http')
+    attachWsAuth(req, napcat)
+    req.url = `/${url.search || ''}`
     proxy.ws(req, socket, head, { target })
     return
   }
-  if (url.pathname.startsWith('/webui') || url.pathname.startsWith('/plugin')) {
-    attachNapcatAuth(req)
-    proxy.ws(req, socket, head, { target: cfg.napcat.webui })
+  if (routedPath.startsWith('/webui') || routedPath.startsWith('/plugin') || routedPath.startsWith('/api/')) {
+    const napcat = resolveNapcat(instanceId, { preferReady: routedPath.startsWith('/plugin') })
+    attachInstanceAuth(req, napcat)
+    req.url = routedPath + url.search
+    proxy.ws(req, socket, head, { target: napcat.webui })
     return
   }
   socket.destroy()
 })
 
 server.listen(port, host, () => {
-  console.log(`[千寻] http://${host}:${port}`)
-  console.log('  工作台  打开后点 + 选择 QQ，页内扫码登录')
-  console.log('  IM      登录成功后嵌入 Stapxs')
+  log('gw', `listening http://${host}:${port}`)
+  log('gw', '工作台打开后点 + 选择 QQ，页内扫码登录（使用 QQ 副本，不占用原生 QQ）')
 })

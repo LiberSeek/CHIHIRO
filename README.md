@@ -7,6 +7,8 @@ QQ 工作台产品代码。工作区在上一级 `Chihiro/`。
 ```text
 CHIHIRO-EE/
 ├── apps/gateway          统一入口（npm run gateway）
+├── apps/runtime          账号会话、QQ/NapCat 进程与二维码生命周期
+├── apps/web              多账号工作台壳
 ├── apps/desktop          Pake 桌面壳脚本
 ├── overlays/stapxs       UI / 默认连接补丁
 ├── vendor/
@@ -18,6 +20,8 @@ CHIHIRO-EE/
 ├── docs/
 └── docker-compose.yml
 ```
+
+三份上游不是同一层的代码：Stapxs 提供 IM 视图，NapCat 提供 QQ/OneBot 运行时，AstrBot 提供自动化和插件生态。千寻自己的产品代码在 `apps/`，Stapxs 的差异在 `overlays/`，详细迭代规则见 [docs/iteration.md](docs/iteration.md)。
 
 ## 运行
 
@@ -31,6 +35,7 @@ Vendor 分支见 [docs/git-workflow.md](docs/git-workflow.md)。
 cd /Users/raven/iWorking/RavenStudio/Products/PRODUCTION/LiberSeekAI/Chihiro/CHIHIRO-EE
 cp config/chihiro.local.example.json config/chihiro.local.json
 npm install
+npm run check:layout   # 子模块、overlay 锚点和产品入口校验
 npm run dev              # 工作台 http://127.0.0.1:3100/  （点 + 选 QQ，页内扫码）
 npm run rebuild:im       # overlay + 安装到本机 NapCat 插件目录
 npm run open:im

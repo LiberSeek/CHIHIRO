@@ -9,9 +9,19 @@
       "to": "<title>千寻</title>"
     },
     {
+      "file": "src/renderer/index.html",
+      "from": "<meta name=\"referrer\" content=\"no-referrer\" id=\"referrer\">",
+      "to": "<meta name=\"referrer\" content=\"same-origin\" id=\"referrer\">\n        <script>\n        (function () {\n          if ('serviceWorker' in navigator) {\n            navigator.serviceWorker.getRegistrations().then(function (regs) {\n              regs.forEach(function (r) { r.unregister(); });\n            });\n            if (window.caches) caches.keys().then(function (keys) {\n              keys.forEach(function (k) { caches.delete(k); });\n            });\n          }\n          var inst = new URLSearchParams(location.search).get('chihiro_inst');\n          if (!inst) return;\n          var prefix = 'chihiro:' + inst + ':';\n          function wrap(storage) {\n            function names() {\n              var out = [];\n              for (var i = 0; i < storage.length; i++) {\n                var k = storage.key(i);\n                if (k && k.indexOf(prefix) === 0) out.push(k.slice(prefix.length));\n              }\n              return out;\n            }\n            return {\n              getItem: function (k) { return storage.getItem(prefix + k); },\n              setItem: function (k, v) { storage.setItem(prefix + k, String(v)); },\n              removeItem: function (k) { storage.removeItem(prefix + k); },\n              clear: function () {\n                var all = names();\n                for (var i = 0; i < all.length; i++) storage.removeItem(prefix + all[i]);\n              },\n              key: function (i) { return names()[i] || null; },\n              get length() { return names().length; }\n            };\n          }\n          try {\n            var ls = wrap(window.localStorage);\n            var ss = wrap(window.sessionStorage);\n            Object.defineProperty(window, 'localStorage', { configurable: true, get: function () { return ls; } });\n            Object.defineProperty(window, 'sessionStorage', { configurable: true, get: function () { return ss; } });\n          } catch (e) {}\n        })();\n        </script>"
+    },
+    {
       "file": "src/renderer/src/function/option.ts",
       "from": "    address: '',\n    top_info: {},\n    save_password: '',\n    notice_group: {},\n    auto_connect: false,",
       "to": "    address: (import.meta as any).env?.VITE_CHIHIRO_DEFAULT_ADDRESS || '127.0.0.1:5801',\n    top_info: {},\n    save_password: '',\n    notice_group: {},\n    auto_connect: String((import.meta as any).env?.VITE_CHIHIRO_AUTO_CONNECT ?? 'true') === 'true',"
+    },
+    {
+      "file": "src/renderer/src/function/option.ts",
+      "from": "    close_ga: false,\n    open_ga_bot: true,",
+      "to": "    close_ga: true,\n    open_ga_bot: false,"
     },
     {
       "file": "src/renderer/src/function/connect.ts",
@@ -25,13 +35,28 @@
     },
     {
       "file": "ssqq.napcat-plugin/index.ts",
-      "from": "title: \"Stapxs QQ Lite\"",
-      "to": "title: \"千寻\""
+      "from": "title: 'Stapxs QQ Lite'",
+      "to": "title: '千寻'"
     },
     {
       "file": "ssqq.napcat-plugin/index.ts",
-      "from": "description: \"Stapxs QQ Lite\"",
-      "to": "description: \"千寻 · Stapxs QQ Lite\""
+      "from": "description: 'Stapxs QQ Lite'",
+      "to": "description: '千寻 · Stapxs QQ Lite'"
+    },
+    {
+      "file": "src/renderer/public/css/append-napcat-light.css",
+      "from": ":root {\n    --heroui-background: 0 0% 100%;\n    --tw-bg-opacity: .5 !important;\n\n    --color-main: #c8dafb;\n    --color-main-0: #c8dafb;\n    --color-font-r: var(--color-font);\n    --color-font-1-r: var(--color-font-1);\n\n    --color-bg: hsl(var(--heroui-background) / var(--heroui-background-opacity, var(--tw-bg-opacity)));\n    --color-card: hsl(var(--heroui-background) / var(--heroui-background-opacity, var(--tw-bg-opacity)));\n    --color-card-1: hsl(var(--heroui-background) / var(--heroui-background-opacity, var(--tw-bg-opacity)));\n    --color-card-2: hsl(var(--heroui-background) / var(--heroui-background-opacity, var(--tw-bg-opacity)));\n}",
+      "to": "/* Chihiro: Stapxs runs in a standalone iframe, not inside NapCat WebUI.\n   Keep bcui color-light.css variables so cards/headers stay solid. */\n"
+    },
+    {
+      "file": "src/renderer/public/css/append-napcat-dark.css",
+      "from": ":root {\n    --heroui-background: 0 0% 0%;\n    --tw-bg-opacity: 1;\n\n    --color-main: #142342;\n    --color-main-0: #142342;\n    --color-font-r: var(--color-font);\n    --color-font-1-r: var(--color-font-1);\n\n    --color-bg: hsl(var(--heroui-background) / var(--heroui-background-opacity, var(--tw-bg-opacity)));\n    --color-card: hsl(var(--heroui-background) / var(--heroui-background-opacity, var(--tw-bg-opacity)));\n    --color-card-1: hsl(var(--heroui-background) / var(--heroui-background-opacity, var(--tw-bg-opacity)));\n    --color-card-2: hsl(var(--heroui-background) / var(--heroui-background-opacity, var(--tw-bg-opacity)));\n}",
+      "to": "/* Chihiro: do not remap colors onto NapCat HeroUI in standalone iframe. */\n"
+    },
+    {
+      "file": "src/renderer/src/assets/css/append/append_napcat.css",
+      "from": "html,\nbody,\n.main-body > ul,\n.friend-list,\n.friend-list-space,\n.chat-pan,\n.opt-main {\n    background: transparent !important;\n}",
+      "to": "/* Chihiro: keep solid backgrounds in the standalone IM iframe. */"
     }
   ],
   "snippetPatches": [
@@ -39,12 +64,82 @@
       "file": "src/renderer/src/App.vue",
       "anchor": "logger.error(null, 'Napcat 快速连接失败，状态码：' + response.status)",
       "insertBefore": false,
-      "replaceAnchorWith": "logger.error(null, 'Napcat 快速连接失败，状态码：' + response.status)\n                        // Chihiro fallback: use configured OneBot WS\n                        const fallbackAddress = import.meta.env.VITE_CHIHIRO_DEFAULT_ADDRESS || '127.0.0.1:5801'\n                        const fallbackToken = import.meta.env.VITE_CHIHIRO_DEFAULT_TOKEN || ''\n                        loginInfo.address = fallbackAddress\n                        loginInfo.token = fallbackToken\n                        if (fallbackAddress) connect()"
+      "replaceAnchorWith": "logger.error(null, 'Napcat 快速连接失败，状态码：' + response.status)\n                        // Chihiro fallback: use iframe query or configured OneBot WS\n                        const chihiroQs = new URLSearchParams(location.search)\n                        const fallbackAddress = chihiroQs.get('ob_address') || import.meta.env.VITE_CHIHIRO_DEFAULT_ADDRESS || '127.0.0.1:5801'\n                        const fallbackToken = chihiroQs.get('ob_token') || import.meta.env.VITE_CHIHIRO_DEFAULT_TOKEN || ''\n                        loginInfo.address = fallbackAddress\n                        loginInfo.token = fallbackToken\n                        if (fallbackAddress) connect()"
     },
     {
       "file": "src/renderer/src/App.vue",
       "anchor": "logger.error(null, 'Napcat 快速连接请求失败：' + error)",
-      "replaceAnchorWith": "logger.error(null, 'Napcat 快速连接请求失败：' + error)\n                    const fallbackAddress = import.meta.env.VITE_CHIHIRO_DEFAULT_ADDRESS || '127.0.0.1:5801'\n                    const fallbackToken = import.meta.env.VITE_CHIHIRO_DEFAULT_TOKEN || ''\n                    loginInfo.address = fallbackAddress\n                    loginInfo.token = fallbackToken\n                    if (fallbackAddress) connect()"
+      "replaceAnchorWith": "logger.error(null, 'Napcat 快速连接请求失败：' + error)\n                    const chihiroQs = new URLSearchParams(location.search)\n                    const fallbackAddress = chihiroQs.get('ob_address') || import.meta.env.VITE_CHIHIRO_DEFAULT_ADDRESS || '127.0.0.1:5801'\n                    const fallbackToken = chihiroQs.get('ob_token') || import.meta.env.VITE_CHIHIRO_DEFAULT_TOKEN || ''\n                    loginInfo.address = fallbackAddress\n                    loginInfo.token = fallbackToken\n                    if (fallbackAddress) connect()"
+    },
+    {
+      "file": "src/renderer/src/App.vue",
+      "anchor": "        const loadedConfig = await Option.load()",
+      "replaceAnchorWith": "        const loadedConfig = await Option.load()\n        {\n            const chihiroQs = new URLSearchParams(location.search)\n            const chihiroAddr = chihiroQs.get('ob_address')\n            const chihiroTok = chihiroQs.get('ob_token')\n            if (chihiroAddr) {\n                loginInfo.address = chihiroAddr\n                loadedConfig.address = chihiroAddr\n            }\n            if (chihiroTok) loginInfo.token = chihiroTok\n        }"
+    },
+    {
+      "file": "src/renderer/src/App.vue",
+      "anchor": "        loginInfo.address = settingsStore.sysConfig.address",
+      "replaceAnchorWith": "        loginInfo.address = settingsStore.sysConfig.address\n        {\n            const chihiroQs = new URLSearchParams(location.search)\n            const chihiroAddr = chihiroQs.get('ob_address')\n            const chihiroTok = chihiroQs.get('ob_token')\n            if (chihiroAddr) {\n                loginInfo.address = chihiroAddr\n                settingsStore.sysConfig.address = chihiroAddr\n            }\n            if (chihiroTok) loginInfo.token = chihiroTok\n        }"
+    },
+    {
+      "file": "src/renderer/src/App.vue",
+      "anchor": "        if(napcat) {\n            logger.info('Stapxs QQ Lite 处于 Napcat 模式 ……')",
+      "replaceAnchorWith": "        if(napcat && !new URLSearchParams(location.search).get('ob_address')) {\n            logger.info('Stapxs QQ Lite 处于 Napcat 模式 ……')"
+    },
+    {
+      "file": "src/renderer/src/App.vue",
+      "anchor": "        // UM：加载 Umami 统计功能\n        if (!Option.get('close_ga') && !dev) {",
+      "replaceAnchorWith": "        // UM：加载 Umami 统计功能\n        // Chihiro: never initialize Umami; do not upload usage data.\n        if (false && !Option.get('close_ga') && !dev) {"
+    },
+    {
+      "file": "src/renderer/src/App.vue",
+      "anchor": "        !Option.get('close_ga') &&\n        !dev",
+      "replaceAnchorWith": "        false &&\n        !Option.get('close_ga') &&\n        !dev"
+    },
+    {
+      "file": "src/renderer/src/function/utils/appUtil.ts",
+      "anchor": "    if (!option.get('close_ga') && !import.meta.env.DEV) {\n        Umami.trackEvent(event, data)",
+      "replaceAnchorWith": "    if (false && !option.get('close_ga') && !import.meta.env.DEV) {\n        Umami.trackEvent(event, data)"
+    },
+    {
+      "file": "src/renderer/src/function/utils/appUtil.ts",
+      "anchor": "    if (!option.get('close_ga') && !import.meta.env.DEV) {\n        Umami.trackIdentify(data)",
+      "replaceAnchorWith": "    if (false && !option.get('close_ga') && !import.meta.env.DEV) {\n        Umami.trackIdentify(data)"
+    },
+    {
+      "file": "src/renderer/src/function/utils/appUtil.ts",
+      "anchor": "    // napcat 插件模式附加样式\n    if (import.meta.env.VITE_NAPCAT) {\n        import('@renderer/assets/css/append/append_full_vibrancy.css').then(() => {\n            logger.info('完全透明 UI 附加样式加载完成')\n        })\n        import('@renderer/assets/css/append/append_napcat.css').then(() => {\n            logger.info('napcat 插件模式附加样式加载完成')\n        })\n    }",
+      "replaceAnchorWith": "    // napcat 插件模式附加样式：嵌在 NapCat WebUI 里才需要玻璃透明。\n    // 千寻是独立 iframe，加载这些样式会把卡片/顶栏/输入框洗成半透明，看起来像 CSS 缺失。\n    if (import.meta.env.VITE_NAPCAT && !import.meta.env.VITE_CHIHIRO) {\n        import('@renderer/assets/css/append/append_full_vibrancy.css').then(() => {\n            logger.info('完全透明 UI 附加样式加载完成')\n        })\n        import('@renderer/assets/css/append/append_napcat.css').then(() => {\n            logger.info('napcat 插件模式附加样式加载完成')\n        })\n    }"
+    },
+    {
+      "file": "src/renderer/src/function/utils/appUtil.ts",
+      "anchor": "        if (getTimes % 20 == 0) {",
+      "replaceAnchorWith": "        if (false) { // Chihiro: skip GitHub star nag"
+    },
+    {
+      "file": "src/renderer/src/function/utils/appUtil.ts",
+      "anchor": "        if (getTimes % 50 == 0 && import.meta.env.VITE_APP_SPONSORS_URL) {",
+      "replaceAnchorWith": "        if (false) { // Chihiro: skip sponsor nag"
+    },
+    {
+      "file": "src/renderer/src/function/utils/appUtil.ts",
+      "anchor": "    const times = localStorage.getItem('times')",
+      "replaceAnchorWith": "    const times = null // Chihiro: skip open-count nags"
+    },
+    {
+      "file": "src/renderer/src/function/utils/appUtil.ts",
+      "anchor": "    // 使用引导\n    const guide = localStorage.getItem('guide')\n    const guideVersion = 1\n    if (guide != guideVersion.toString()) {\n        // 首次打开，显示首次打开引导信息\n        const popInfo = {\n            template: markRaw(WelPan),\n            allowClose: false,\n            button: [],\n        }\n        uiStore.popBoxList.push(popInfo)\n        localStorage.setItem('guide', guideVersion.toString())\n    }",
+      "replaceAnchorWith": "    // 使用引导：千寻跳过 WELCOME 向导，沿用 overlay 默认配置。\n    localStorage.setItem('guide', '1')"
+    },
+    {
+      "file": "vite.config.ts",
+      "anchor": "            !isDesktop && VitePWA({ registerType: 'autoUpdate' }),",
+      "replaceAnchorWith": "            !isDesktop && !process.env.VITE_CHIHIRO && VitePWA({ registerType: 'autoUpdate' }),"
+    },
+    {
+      "file": "scripts/napcat-postbuild.cjs",
+      "anchor": "  console.error('ssqq.napcat-plugin build:zip 执行失败', e);\n  process.exit(1);",
+      "replaceAnchorWith": "  console.error('ssqq.napcat-plugin build:zip 执行失败（千寻可继续使用 unpacked webui/dist）', e);"
     }
   ]
 }

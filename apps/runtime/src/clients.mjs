@@ -7,7 +7,7 @@ export const CLIENTS = [
     badge: 'QQ',
     enabled: true,
     login: 'qr',
-    hint: '将后台拉起 NTQQ，并在工作台内扫码'
+    hint: '使用 QQ 副本登录，可多号同时在线，不占用你自己打开的原生 QQ'
   },
   { id: 'telegram', name: 'Telegram', badge: 'TG', enabled: false, login: 'token' },
   { id: 'lark', name: '飞书', badge: '飞', enabled: false, login: 'oauth' },

@@ -3,13 +3,15 @@ import path from 'node:path'
 import { CLIENTS, getClient } from './clients.mjs'
 import { createAccountStore } from './accounts.mjs'
 import { createQqRuntime } from './qq-napcat.mjs'
+import { log, logError } from './log.mjs'
 
 export function createRuntime({ root, cfg }) {
   const dataDir = path.join(root, 'data')
   const store = createAccountStore(path.join(dataDir, 'accounts.json'))
   const qq = createQqRuntime({
     store,
-    logDir: path.join(dataDir, 'logs')
+    logDir: path.join(dataDir, 'logs'),
+    root
   })
 
   async function handle(req, res, url) {
@@ -32,14 +34,28 @@ export function createRuntime({ root, cfg }) {
     if (p === '/api/runtime/accounts/active' && method === 'POST') {
       const body = await readJson(req)
       try {
-        const data = store.setActive(body.id)
+        store.setActive(body.id)
+        log('api', `active ${body.id}`)
+        qq.setActiveAccount(body.id)
         if (String(body.id).startsWith('qq:')) {
-          qq.startOrQuick(body.id).catch(() => {})
+          qq.startOrQuick(body.id).catch((e) => logError('api', 'startOrQuick', e))
         }
-        return json(res, data)
+        return json(res, qq.snapshot())
       } catch (e) {
         return json(res, { error: e.message }, 400)
       }
+    }
+
+    if (p === '/api/runtime/accounts/remove' && method === 'POST') {
+      const body = await readJson(req)
+      if (!body.id) return json(res, { error: 'missing_id' }, 400)
+      const snap = await qq.removeAccount(body.id)
+      return json(res, snap)
+    }
+
+    if (p === '/api/runtime/login/cancel' && method === 'POST') {
+      const snap = await qq.cancelPending()
+      return json(res, snap)
     }
 
     if (p === '/api/runtime/start' && method === 'POST') {
@@ -54,13 +70,18 @@ export function createRuntime({ root, cfg }) {
           client
         }, 501)
       }
-      const snap = await qq.start({ uin: body.uin })
+      log('api', `start client=${clientId} mode=${body.mode || '-'} uin=${body.uin || '-'}`)
+      const snap = await qq.start({
+        uin: body.uin,
+        forceNew: body.mode === 'new' || body.forceNew === true
+      })
       return json(res, snap)
     }
 
     if (p === '/api/runtime/qq/qr' && method === 'GET') {
-      const qr = qq.snapshot().qr
-      if (!qr.exists) {
+      const snap = qq.snapshot()
+      const qr = snap.qr
+      if (!snap.pendingAdd || snap.phase !== 'qr' || !qr.exists) {
         res.writeHead(404, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({ error: 'qr_not_ready' }))
         return true

@@ -34,8 +34,17 @@ if (!fs.existsSync(src)) {
   process.exit(1)
 }
 
-console.log('ensuring nested assets (qq-face / bcui)')
-run('git', ['submodule', 'update', '--init', '--recursive'], { cwd: src })
+const nestedAssets = [
+  path.join(src, 'src/renderer/public/bcui'),
+  path.join(src, 'src/renderer/src/assets/img/qq-face'),
+]
+const nestedReady = nestedAssets.every((p) => fs.existsSync(p) && fs.readdirSync(p).length > 0)
+if (nestedReady) {
+  console.log('nested assets already present (qq-face / bcui), skip submodule update')
+} else {
+  console.log('ensuring nested assets (qq-face / bcui)')
+  run('git', ['submodule', 'update', '--init', '--recursive'], { cwd: src })
+}
 
 console.log('syncing vendor/stapxs -> .cache/stapxs-build')
 fs.mkdirSync(path.dirname(build), { recursive: true })
@@ -54,6 +63,7 @@ run('node', [path.join(root, 'scripts/apply-stapxs-overlay.mjs'), build])
 const env = {
   ...process.env,
   VITE_NAPCAT: '1',
+  VITE_CHIHIRO: '1',
   VITE_CHIHIRO_DEFAULT_ADDRESS: address,
   VITE_CHIHIRO_DEFAULT_TOKEN: token,
   VITE_CHIHIRO_AUTO_CONNECT: 'true',

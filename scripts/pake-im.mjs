@@ -30,6 +30,7 @@ const height = cfg.pake.height || 800
 const outDir = path.join(root, 'apps/desktop/dist')
 fs.mkdirSync(outDir, { recursive: true })
 
+const icon = path.join(root, 'branding/chihiro.icns')
 const args = [
   'pake-cli',
   url,
@@ -39,6 +40,7 @@ const args = [
   '--hide-title-bar',
   '--multi-arch'
 ]
+if (fs.existsSync(icon)) args.push('--icon', icon)
 
 console.log('Pake target URL:', url)
 console.log('Running: npx', args.join(' '))

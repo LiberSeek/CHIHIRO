@@ -19,7 +19,7 @@ export function createAccountStore(filePath) {
     return load()
   }
 
-  function upsert(account) {
+  function upsert(account, { activate = true } = {}) {
     const data = load()
     const i = data.accounts.findIndex((a) => a.id === account.id)
     const next = {
@@ -31,7 +31,7 @@ export function createAccountStore(filePath) {
       next.createdAt = next.updatedAt
       data.accounts.push(next)
     }
-    data.activeId = account.id
+    if (activate) data.activeId = account.id
     save(data)
     return data
   }
@@ -46,5 +46,15 @@ export function createAccountStore(filePath) {
     return data
   }
 
-  return { load, list, upsert, setActive, filePath }
+  function remove(id) {
+    const data = load()
+    data.accounts = data.accounts.filter((a) => a.id !== id)
+    if (data.activeId === id) {
+      data.activeId = data.accounts[0]?.id || null
+    }
+    save(data)
+    return data
+  }
+
+  return { load, list, upsert, setActive, remove, filePath }
 }

@@ -1,6 +1,6 @@
 # 上游吸收与 UI Overlay
 
-## 目标
+## 当前约定
 
 一个 Git 持续吸收：
 
@@ -9,15 +9,20 @@
 - [NapCatQQ](https://github.com/NapNeko/NapCatQQ)（协议参考）
 - [Pake](https://github.com/tw93/Pake)（桌面打包）
 
-同时避免「fork 后永远合不回上游」。
+同时避免“fork 后永远合不回上游”。当前三个目录已经是 Git submodule；产品代码不直接写入 `vendor/*`。
 
-## 推荐：Submodule + Overlay
+## 目录职责
 
 ```bash
-git submodule add https://github.com/Stapxs/Stapxs-QQ-Lite-2.0.git vendor/stapxs
-git submodule add https://github.com/AstrBotDevs/AstrBot.git vendor/astrbot
-git submodule add https://github.com/NapNeko/NapCatQQ.git vendor/napcat
-git submodule add https://github.com/tw93/Pake.git ../XRefs/Pake
+`vendor/stapxs` 是唯一参与千寻构建的上游源码。`vendor/napcat` 和 `vendor/astrbot` 主要用于协议、适配器和插件架构对照；运行时分别使用本机 NapCat Shell 和 AstrBot 镜像/安装环境。
+
+```text
+apps/       千寻产品代码
+overlays/   对上游的可审阅差异
+vendor/     可更新的上游 submodule
+dist/       可重建产物（不提交）
+data/       本机运行态（不提交）
+```
 ```
 
 ### 你改 UI 时
@@ -36,16 +41,15 @@ cd ../..
 # 重新 apply overlay；只解决 overlay 冲突
 ```
 
-## 现阶段（未加 submodule 前）
+### 构建和校验
 
-本地已有参考克隆：
+```bash
+npm run check:layout
+npm run build:stapxs
+npm run install:stapxs
+```
 
-- `XRefs/NapCatQQ`
-- `XRefs/AstrBot` → `~/AstrBot`
-- `XRefs/linuxdo-wecom-ui`（布局参考）
-- 已安装插件：`~/Library/.../NapCat/plugins/napcat-plugin-ssqq`
-
-下一步再把 Stapxs 源码以 submodule 拉进 `vendor/stapxs`，并做第一条 overlay（默认 OneBot 连接）。
+`build:stapxs` 会将 `vendor/stapxs` 复制到 `.cache/stapxs-build`，应用 `overlays/stapxs/manifest.json`，再构建 `napcat-plugin-ssqq`。上游目录本身保持干净。
 
 ## 不要做的事
 

@@ -9,6 +9,7 @@
     "gateway": "node apps/gateway/src/server.js",
     "dev:gateway": "node --watch apps/gateway/src/server.js",
     "status": "node scripts/status.mjs",
+    "check:layout": "node scripts/check-layout.mjs",
     "open:im": "node scripts/open.mjs im",
     "open:webui": "node scripts/open.mjs webui",
     "open:astrbot": "node scripts/open.mjs astrbot",

@@ -4,33 +4,63 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>千寻</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="stylesheet" href="/app.css" />
 </head>
 <body>
   <aside class="rail">
-    <div class="brand" title="千寻">寻</div>
     <div id="account-list" class="account-list"></div>
     <button id="btn-add" class="rail-btn add" title="添加账号">+</button>
     <div class="rail-spacer"></div>
-    <a class="rail-btn ghost" href="/webui/" title="NapCat 设置" target="_blank" rel="noreferrer">设</a>
+    <a id="btn-settings" class="rail-settings" href="/webui/" title="当前账号设置" target="_blank" rel="noreferrer" aria-label="设置">
+      <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      </svg>
+    </a>
   </aside>
 
   <section id="stage" class="stage">
-    <div id="empty" class="panel">
-      <h1>千寻</h1>
-      <p>共用一套 IM。左侧切换账号，聊天为主，Bot 为辅。</p>
-      <p class="hint">点击左下角 <strong>+</strong> 选择客户端并登录。第一版请选 <strong>QQ</strong>。</p>
+    <div id="empty" class="panel empty-panel">
+      <div class="empty-copy">
+        <div class="empty-title">
+          <img class="empty-logo" src="/icon.png" alt="" />
+          <h1>千寻</h1>
+        </div>
+        <p class="empty-tagline">千人千面, 千与千寻</p>
+        <div class="launch-row">
+          <div id="client-dropdown" class="client-dropdown">
+            <button id="client-drop-btn" type="button" class="client-drop-btn" aria-haspopup="listbox" aria-expanded="false">
+              <span id="client-drop-icon" class="client-drop-icon">QQ</span>
+              <span id="client-drop-label">QQ</span>
+              <svg class="client-drop-caret" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                <path fill="currentColor" d="M4.2 6.2a.75.75 0 0 1 1.06 0L8 8.94l2.74-2.74a.75.75 0 1 1 1.06 1.06l-3.27 3.27a.75.75 0 0 1-1.06 0L4.2 7.26a.75.75 0 0 1 0-1.06z"/>
+              </svg>
+            </button>
+            <div id="client-drop-menu" class="client-drop-menu hidden" role="listbox"></div>
+          </div>
+          <button id="btn-launch" type="button" class="btn launch-btn">启动</button>
+        </div>
+      </div>
     </div>
 
     <div id="login" class="panel hidden">
       <h1>登录 QQ</h1>
-      <p id="login-msg" class="hint">正在准备二维码…</p>
+      <p class="login-brand">千寻IM - 千人千面, 千与千寻</p>
+      <ol id="login-steps" class="login-steps hidden"></ol>
+      <p id="login-msg" class="login-status hidden">正在准备二维码…</p>
       <img id="qr" class="qr hidden" alt="登录二维码" />
-      <p class="hint">请用手机 QQ 扫描。二维码约两分钟有效，过期会自动刷新。</p>
+      <p id="qr-hint" class="hint hidden">请使用 QQ 扫描二维码, 约两分钟有效。</p>
+      <button id="login-cancel" class="btn ghost hidden" type="button">取消这次登录</button>
     </div>
 
-    <iframe id="im" class="im hidden" title="千寻 IM"></iframe>
+    <div id="im-host" class="im hidden"></div>
   </section>
+
+  <div id="account-menu" class="account-menu hidden">
+    <button id="menu-remove" type="button">退出并清除此账号</button>
+  </div>
 
   <div id="modal" class="modal hidden">
     <div class="sheet">
