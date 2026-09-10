@@ -60,6 +60,7 @@ npm install
 npm run check:layout
 npm run dev              # http://127.0.0.1:3100/
 npm run rebuild:im       # build vendor/stapxs → NapCat plugin dir
+npm run mcp              # stdio MCP for Codex/Claude (docs/mcp.md)
 npm run status
 ```
 

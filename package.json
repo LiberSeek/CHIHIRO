@@ -2,7 +2,7 @@
   "name": "chihiro",
   "version": "0.1.0",
   "private": true,
-  "description": "\u5343\u5bfb Chihiro \u2014 QQ IM workbench shell over NapCat + Stapxs + AstrBot",
+  "description": "千寻 Chihiro — QQ IM workbench shell over NapCat + Stapxs + AstrBot",
   "type": "module",
   "scripts": {
     "dev": "node apps/gateway/src/server.js",
@@ -20,12 +20,14 @@
     "upstream:status": "node scripts/upstream-status.mjs",
     "build:stapxs": "node scripts/build-stapxs-plugin.mjs",
     "install:stapxs": "node scripts/install-stapxs-plugin.mjs",
-    "rebuild:im": "npm run build:stapxs && npm run install:stapxs"
+    "rebuild:im": "npm run build:stapxs && npm run install:stapxs",
+    "mcp": "node apps/mcp/server.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "http-proxy": "^1.18.1"
+    "http-proxy": "^1.18.1",
+    "ws": "^8.21.3"
   }
 }

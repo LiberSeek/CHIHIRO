@@ -5,6 +5,7 @@ import { createAccountStore } from './accounts.mjs'
 import { createQqRuntime } from './qq-napcat.mjs'
 import { createAstrbotRuntime } from './astrbot.mjs'
 import { createBotController } from './bot.mjs'
+import { createAgentController } from './agent.mjs'
 import { log, logError } from './log.mjs'
 
 export function createRuntime({ root, cfg }) {
@@ -16,7 +17,8 @@ export function createRuntime({ root, cfg }) {
     root
   })
   const astrbot = createAstrbotRuntime({ root, cfg })
-  const bot = createBotController({ store, qq, astrbot })
+  const agent = createAgentController({ root, store, qq, astrbot, cfg })
+  const bot = createBotController({ store, qq, astrbot, cfg })
 
   async function snapshot() {
     const snap = qq.snapshot()
@@ -24,6 +26,9 @@ export function createRuntime({ root, cfg }) {
     const wired = bot.wired
     for (const acc of snap.accounts?.accounts || []) {
       acc.botWired = wired.has(acc.id)
+    }
+    snap.agent = {
+      pendingByAccount: agent.pendingCounts()
     }
     return snap
   }
@@ -67,6 +72,11 @@ export function createRuntime({ root, cfg }) {
       const snap = await qq.removeAccount(body.id)
       snap.astrbot = await astrbot.refreshStatus()
       return json(res, snap)
+    }
+
+    if (p.startsWith('/api/runtime/agent')) {
+      const handled = await agent.handleHttp(req, res, url)
+      if (handled) return true
     }
 
     if (p === '/api/runtime/bot/enable' && method === 'POST') {
@@ -167,7 +177,7 @@ export function createRuntime({ root, cfg }) {
     await astrbot.stopIfOwned().catch((e) => logError('api', 'astrbot stop', e))
   }
 
-  return { handle, qq, store, astrbot, bot, snapshot, shutdown }
+  return { handle, qq, store, astrbot, bot, agent, snapshot, shutdown }
 }
 
 function json(res, obj, status = 200) {

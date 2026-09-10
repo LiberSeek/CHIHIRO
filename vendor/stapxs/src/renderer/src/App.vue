@@ -378,6 +378,16 @@ const settingsStore = useSettingsStore()
 const authStore = useAuthStore()
 const contactStore = useContactStore()
 const chatStore = useChatStore()
+watch(() => contactStore.newMsgCount, (n) => {
+    try {
+        window.parent.postMessage({
+            source: 'chihiro-im',
+            kind: 'unread',
+            instanceId: new URLSearchParams(location.search).get('chihiro_inst') || '',
+            count: Number(n) || 0
+        }, '*')
+    } catch (e) {}
+}, { immediate: true })
 let musicSyncTimer = -1
 const tags = shallowReactive({
     page: 'Home',

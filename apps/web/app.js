@@ -25,9 +25,23 @@ const ui = {
   dropLabel: $('client-drop-label'),
   dropMenu: $('client-drop-menu'),
   botDot: $('bot-dot'),
-  botStatus: $('bot-status'),
-  botToggle: $('btn-bot-toggle'),
-  botDash: $('btn-bot-dash'),
+  botStatus: $('agentic-status'),
+  botToggle: $('agentic-switch'),
+  paneAgentic: $('pane-agentic'),
+  agenticList: $('agentic-list'),
+  agenticDetail: $('agentic-detail'),
+  agenticBack: $('agentic-back'),
+  agenticPeer: $('agentic-peer'),
+  agenticThread: $('agentic-thread'),
+  agenticDrafts: $('agentic-drafts'),
+  agenticInput: $('agentic-input'),
+  agenticAsk: $('agentic-ask'),
+  agenticQuote: $('agentic-quote'),
+  agenticQuoteText: $('agentic-quote-text'),
+  agenticQuoteClear: $('agentic-quote-clear'),
+  agenticPermBtn: $('agentic-perm-btn'),
+  agenticPermMenu: $('agentic-perm-menu'),
+  agenticPermLabel: $('agentic-perm-label'),
   dashDrawer: $('dash-drawer'),
   dashFrame: $('dash-frame'),
   dashClose: $('btn-dash-close'),
@@ -42,12 +56,6 @@ const ui = {
   workspace: $('workspace'),
   feature: $('feature'),
   featureTabs: $('feature-tabs'),
-  paneGroup: $('pane-group'),
-  paneAgent: $('pane-agent'),
-  paneBot: $('pane-bot'),
-  groupNotices: $('group-notices'),
-  groupMembers: $('group-members'),
-  groupMemberTitle: $('group-member-title'),
   leaving: $('leaving')
 }
 
@@ -61,9 +69,17 @@ const imFrames = new Map()
 let botBusyId = null
 let botBusyOn = false
 let featureOpen = false
-let featureTab = 'bot'
+let featureTab = 'agentic'
 let imChat = null
 let leavingId = null
+const unreadByInst = new Map()
+let agentState = { sessions: [], drafts: [] }
+let agentOpenKey = null
+let agentQuote = ''
+let agentEs = null
+let agentStreamAccount = null
+let agentStreamTimer = null
+let agentStreamWanted = false
 
 function setAdding(on, accountIds) {
   localAdding = on
@@ -83,8 +99,10 @@ function show(mode) {
   if (mode === 'im') {
     renderBotBar()
     renderFeature()
+    connectAgentStream()
   } else {
     setFeatureOpen(false)
+    stopAgentStream()
   }
 }
 
@@ -101,21 +119,21 @@ function renderBotBar() {
   if (!ui.botToggle && !ui.botStatus) return
   const acc = viewedAccount()
   const phase = botPhase(acc)
-  const running = Boolean(state?.astrbot?.running)
-  const err = state?.astrbot?.error || ''
   const map = {
-    offline: { dot: 'off', text: '账号离线', action: '开启 Bot', disabled: true },
-    off: { dot: 'off', text: running ? 'AstrBot 已运行，未接管此账号' : 'Bot 未开启', action: '开启 Bot', disabled: !acc?.online },
-    'pending-on': { dot: 'pending', text: running ? '正在接管…' : '正在启动 AstrBot…', action: '连接中', disabled: true },
-    'pending-off': { dot: 'pending', text: '正在关闭 Bot…', action: '关闭中', disabled: true },
-    on: { dot: 'on', text: 'Bot 已接管此账号', action: '关闭 Bot', disabled: false },
-    err: { dot: 'err', text: err || 'Bot 连接失败', action: '重试', disabled: false }
+    offline: { text: '未托管', disabled: true, on: false, hosted: false },
+    off: { text: '未托管', disabled: !acc?.online, on: false, hosted: false },
+    'pending-on': { text: '启动中', disabled: true, on: true, hosted: false },
+    'pending-off': { text: '关闭中', disabled: true, on: false, hosted: false },
+    on: { text: '已托管', disabled: false, on: true, hosted: true },
+    err: { text: '未托管', disabled: false, on: false, hosted: false }
   }
   const view = map[phase] || map.off
-  if (ui.botDot) ui.botDot.className = `bot-dot ${view.dot}`
-  if (ui.botStatus) ui.botStatus.textContent = view.text
+  if (ui.botStatus) {
+    ui.botStatus.textContent = view.text
+    ui.botStatus.classList.toggle('is-on', view.hosted)
+  }
   if (ui.botToggle) {
-    ui.botToggle.textContent = view.action
+    ui.botToggle.checked = view.on
     ui.botToggle.disabled = view.disabled
   }
 }
@@ -198,62 +216,16 @@ function setFeatureOpen(on) {
 }
 
 function setFeatureTab(tab) {
-  featureTab = tab
-  const buttons = ui.featureTabs?.querySelectorAll('button') || []
-  for (const btn of buttons) {
-    btn.classList.toggle('is-on', btn.dataset.tab === tab)
-    if (tab === 'group') {
-      const isGroup = imChat?.type === 'group'
-      if (btn.dataset.tab === 'group') btn.classList.toggle('hidden', !isGroup)
-    }
-  }
-  const groupBtn = ui.featureTabs?.querySelector('[data-tab="group"]')
-  if (groupBtn) groupBtn.classList.toggle('hidden', imChat?.type !== 'group')
-  ui.paneGroup?.classList.toggle('hidden', tab !== 'group')
-  ui.paneAgent?.classList.toggle('hidden', tab !== 'agent')
-  ui.paneBot?.classList.toggle('hidden', tab !== 'bot')
-}
-
-function noticeText(n) {
-  return n.cn || n.message || n.content || n.text || n.notice || ''
+  featureTab = 'agentic'
+  ui.paneAgentic?.classList.remove('hidden')
+  ui.feature?.classList.add('is-agentic')
+  if (tab === 'agentic') renderAgentic()
 }
 
 function renderFeature() {
   renderBotBar()
-  const isGroup = imChat?.type === 'group'
-  const groupBtn = ui.featureTabs?.querySelector('[data-tab="group"]')
-  if (groupBtn) groupBtn.classList.toggle('hidden', !isGroup)
-  if (!isGroup && featureTab === 'group') setFeatureTab('bot')
-  else setFeatureTab(featureTab)
-
-  if (ui.groupMemberTitle) {
-    const n = imChat?.memberCount || (imChat?.members || []).length
-    ui.groupMemberTitle.textContent = isGroup ? `群聊成员 ${n || ''}`.trim() : '群聊成员'
-  }
-  if (ui.groupNotices) {
-    const notices = imChat?.notices || []
-    if (!isGroup) ui.groupNotices.innerHTML = '<p class="hint">打开一个群聊后显示公告。</p>'
-    else if (!notices.length) ui.groupNotices.innerHTML = '<p class="hint">这里还没有公告。</p>'
-    else {
-      ui.groupNotices.innerHTML = notices.map((n) => {
-        const text = noticeText(n)
-        return `<div class="notice-item">${escapeHtml(text || '【图片公告】')}</div>`
-      }).join('')
-    }
-  }
-  if (ui.groupMembers) {
-    const members = imChat?.members || []
-    if (!isGroup) ui.groupMembers.innerHTML = ''
-    else {
-      ui.groupMembers.innerHTML = members.map((m) => {
-        const name = m.card || m.nickname || m.user_id
-        const role = m.role === 'owner' ? '群主' : m.role === 'admin' ? '管理员' : ''
-        const roleClass = m.role === 'owner' ? 'owner' : m.role === 'admin' ? 'admin' : ''
-        const avatar = `https://q1.qlogo.cn/g?b=qq&s=100&nk=${encodeURIComponent(m.user_id || '')}`
-        return `<div class="member-item"><img alt="" src="${avatar}" /><span class="name">${escapeHtml(String(name))}</span>${role ? `<span class="role ${roleClass}">${role}</span>` : ''}</div>`
-      }).join('')
-    }
-  }
+  setFeatureTab('agentic')
+  renderAgentic()
 }
 
 function escapeHtml(s) {
@@ -262,16 +234,296 @@ function escapeHtml(s) {
   }[c]))
 }
 
+const AGENT_STATUS = {
+  idle: '空闲',
+  processing: '处理中',
+  pending_review: '待你确认',
+  replied: '已回复'
+}
+
+const MODE_UI = {
+  ask: { chip: '请求批准', warn: false },
+  auto: { chip: '帮我批准', warn: false },
+  always: { chip: '完全访问', warn: true }
+}
+
+const thinkOpen = new Set()
+
+function syncPermUi(mode) {
+  const m = MODE_UI[mode] || MODE_UI.always
+  if (ui.agenticPermLabel) ui.agenticPermLabel.textContent = m.chip
+  ui.agenticPermBtn?.classList.toggle('is-always', Boolean(m.warn))
+  ui.agenticPermBtn?.classList.toggle('is-ask', mode === 'ask')
+  ui.agenticPermMenu?.querySelectorAll('[data-mode]').forEach((btn) => {
+    btn.classList.toggle('is-on', btn.dataset.mode === mode)
+  })
+}
+
+function closePermMenu() {
+  ui.agenticPermMenu?.classList.add('hidden')
+}
+
+function setAgentQuote(text) {
+  agentQuote = String(text || '').trim()
+  if (ui.agenticQuoteText) ui.agenticQuoteText.textContent = agentQuote
+  ui.agenticQuote?.classList.toggle('hidden', !agentQuote)
+}
+
+function clearAgentQuote() {
+  setAgentQuote('')
+}
+
+function stepIcon(kind) {
+  if (kind === 'query') return '🔍'
+  if (kind === 'reply') return '💬'
+  if (kind === 'act') return '⚡'
+  if (kind === 'recv') return '•'
+  if (kind === 'mode') return '•'
+  return '•'
+}
+
+function renderThink(m) {
+  const running = m.status === 'running'
+  const open = running || thinkOpen.has(m.id)
+  const label = running ? '正在思考' : '已思考'
+  const steps = (m.steps || []).map((s) => {
+    const det = s.detail ? `<span class="det">${escapeHtml(s.detail)}</span>` : ''
+    return `<li><span class="ttl">${stepIcon(s.kind)} ${escapeHtml(s.title)}</span>${det}</li>`
+  }).join('')
+  return `<div class="agentic-think ${open ? 'is-open' : ''}" data-id="${escapeHtml(m.id)}" data-think="1">
+    <button type="button" class="agentic-think-toggle" data-think-toggle="${escapeHtml(m.id)}">
+      <span class="agentic-think-label">
+        ${running ? '<span class="agentic-think-dot"></span>' : ''}
+        <span>${label}</span>
+      </span>
+      <span class="agentic-think-caret"></span>
+    </button>
+    <ul class="agentic-think-steps">${steps}</ul>
+  </div>`
+}
+
+function stopAgentStream() {
+  agentStreamWanted = false
+  if (agentStreamTimer) {
+    clearTimeout(agentStreamTimer)
+    agentStreamTimer = null
+  }
+  if (agentEs) {
+    try { agentEs.close() } catch { /* ignore */ }
+    agentEs = null
+  }
+  agentStreamAccount = null
+}
+
+function connectAgentStream() {
+  const acc = viewedAccount()
+  if (!acc?.id) {
+    stopAgentStream()
+    return
+  }
+  agentStreamWanted = true
+  if (agentEs && agentStreamAccount === acc.id && agentEs.readyState !== EventSource.CLOSED) return
+  if (agentEs) {
+    try { agentEs.close() } catch { /* ignore */ }
+    agentEs = null
+  }
+  agentStreamAccount = acc.id
+  const es = new EventSource(`/api/runtime/agent/stream?accountId=${encodeURIComponent(acc.id)}`)
+  agentEs = es
+  es.onmessage = (ev) => {
+    try {
+      agentState = JSON.parse(ev.data) || agentState
+      renderAgentic()
+    } catch { /* ignore */ }
+  }
+  es.onerror = () => {
+    if (es.readyState !== EventSource.CLOSED) return
+    if (agentEs === es) agentEs = null
+    if (!agentStreamWanted || agentStreamTimer) return
+    agentStreamTimer = setTimeout(() => {
+      agentStreamTimer = null
+      if (agentStreamWanted && !agentEs) connectAgentStream()
+    }, 3000)
+  }
+}
+
+function renderAgentic() {
+  if (!ui.agenticList) return
+  const acc = viewedAccount()
+  const inDetail = Boolean(agentOpenKey)
+  ui.agenticList.classList.toggle('hidden', inDetail)
+  ui.agenticDetail?.classList.toggle('hidden', !inDetail)
+  if (!inDetail) {
+    const sessions = agentState.sessions || []
+    if (!sessions.length) {
+      ui.agenticList.classList.add('is-empty')
+      ui.agenticList.innerHTML = '<p class="agentic-empty">暂无会话/任务</p>'
+    } else {
+      ui.agenticList.classList.remove('is-empty')
+      ui.agenticList.innerHTML = sessions.map((s) => {
+        const st = AGENT_STATUS[s.status] || s.status || '空闲'
+        const id = s.peerId || ''
+        const preview = escapeHtml(s.lastText || s.title || '')
+        return `<button type="button" class="agentic-item" data-key="${escapeHtml(s.key)}">
+          <div class="meta"><div class="id">ID: ${escapeHtml(id)}</div><div class="preview">${preview}</div></div>
+          <span class="st ${escapeHtml(s.status || '')}">${st}</span>
+          <span class="go">›</span>
+        </button>`
+      }).join('')
+    }
+    return
+  }
+  const session = (agentState.sessions || []).find((s) => s.key === agentOpenKey)
+  if (!session) {
+    agentOpenKey = null
+    renderAgentic()
+    return
+  }
+  if (ui.agenticPeer) ui.agenticPeer.textContent = `${session.title || session.peerId} · ${session.peerId}`
+  syncPermUi(session.mode || 'always')
+  const msgs = session.messages || []
+  if (ui.agenticThread) {
+    ui.agenticThread.querySelectorAll('.agentic-think[data-id]').forEach((el) => {
+      if (el.classList.contains('is-open')) thinkOpen.add(el.dataset.id)
+      else thinkOpen.delete(el.dataset.id)
+    })
+    const el = ui.agenticThread
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48
+    ui.agenticThread.innerHTML = msgs.map((m) => {
+      if (m.role === 'thinking') return renderThink(m)
+      if (m.role === 'draft') return ''
+      const role = m.role === 'operator' ? 'operator' : m.role === 'bot' ? 'bot' : 'user'
+      const text = escapeHtml(m.text || '')
+      return `<div class="agentic-bubble ${role}">${text}</div>`
+    }).join('')
+    if (atBottom) ui.agenticThread.scrollTop = ui.agenticThread.scrollHeight
+  }
+  const drafts = (agentState.drafts || []).filter((d) => d.sessionKey === session.key)
+  if (ui.agenticDrafts) {
+    if (!drafts.length) ui.agenticDrafts.innerHTML = ''
+    else {
+      ui.agenticDrafts.innerHTML = drafts.map((d) => `<div class="agentic-draft-card">
+        <div>待确认发送 · ${escapeHtml(d.reason === 'auto_sensitive' ? '自动模式拦截敏感内容' : d.reason === 'assist' ? '协助回复' : '询问模式')}</div>
+        <div>${escapeHtml(d.text || '')}</div>
+        <div class="row">
+          <button type="button" class="btn" data-approve="${escapeHtml(d.id)}">发送</button>
+          <button type="button" class="btn ghost" data-discard="${escapeHtml(d.id)}">丢弃</button>
+        </div>
+      </div>`).join('')
+    }
+  }
+}
+
+async function openAgentSession(key) {
+  agentOpenKey = key
+  clearAgentQuote()
+  const acc = viewedAccount()
+  if (!acc) return
+  try {
+    const data = await (await fetch(`/api/runtime/agent/session?key=${encodeURIComponent(key)}`)).json()
+    if (data.session) {
+      const list = agentState.sessions || []
+      const i = list.findIndex((s) => s.key === key)
+      if (i >= 0) list[i] = { ...list[i], ...data.session }
+      else list.unshift(data.session)
+      agentState.sessions = list
+      if (data.session.drafts) {
+        const others = (agentState.drafts || []).filter((d) => d.sessionKey !== key)
+        agentState.drafts = others.concat(data.session.drafts)
+      }
+    }
+  } catch { /* ignore */ }
+  renderAgentic()
+}
+
+async function setAgentMode(mode) {
+  const acc = viewedAccount()
+  if (!acc) return
+  const session = (agentState.sessions || []).find((s) => s.key === agentOpenKey)
+  await fetch('/api/runtime/agent/mode', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(session
+      ? { accountId: acc.id, peerId: session.peerId, type: session.type, mode }
+      : { accountId: acc.id, mode })
+  })
+}
+
+async function agentAskOrSend() {
+  const acc = viewedAccount()
+  const session = (agentState.sessions || []).find((s) => s.key === agentOpenKey)
+  const text = ui.agenticInput?.value?.trim() || ''
+  if (!acc || !session || (!text && !agentQuote)) return
+  const res = await fetch('/api/runtime/agent/ask', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      accountId: acc.id,
+      peerId: session.peerId,
+      type: session.type,
+      text,
+      quote: agentQuote || undefined
+    })
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    alert(body.message || body.error || '发送失败')
+    return
+  }
+  if (ui.agenticInput) {
+    ui.agenticInput.value = ''
+    ui.agenticInput.style.height = 'auto'
+  }
+  clearAgentQuote()
+}
+
+function applyQuoteFromChat(data) {
+  const acc = viewedAccount()
+  if (!acc || !data) return
+  const type = data.type === 'group' ? 'group' : 'private'
+  const peerId = String(data.peerId || '')
+  if (!peerId) return
+  const key = `${acc.id}:${type}:${peerId}`
+  setFeatureOpen(true)
+  setFeatureTab('agentic')
+  agentOpenKey = key
+  const list = agentState.sessions || []
+  if (!list.some((s) => s.key === key)) {
+    list.unshift({
+      key,
+      accountId: acc.id,
+      type,
+      peerId,
+      title: data.title || peerId,
+      messages: [],
+      status: 'idle',
+      mode: 'always'
+    })
+    agentState.sessions = list
+  }
+  setAgentQuote(data.text || '')
+  renderAgentic()
+  ui.agenticInput?.focus()
+}
+
 function onImMessage(ev) {
   const data = ev.data
   if (!data || data.source !== 'chihiro-im') return
+  if (data.kind === 'unread') {
+    if (data.instanceId) unreadByInst.set(data.instanceId, Number(data.count) || 0)
+    renderAccounts()
+    return
+  }
   if (data.kind === 'toggle-feature') {
     setFeatureOpen(!featureOpen)
     return
   }
+  if (data.kind === 'quote-bot') {
+    applyQuoteFromChat(data)
+    return
+  }
   if (data.kind === 'chat') {
     imChat = data.chat || null
-    if (imChat?.type === 'group' && featureOpen) setFeatureTab('group')
     renderFeature()
     return
   }
@@ -322,6 +574,13 @@ function renderAccounts(data) {
       badge.className = 'badge'
       badge.textContent = 'BOT'
       btn.append(badge)
+    }
+    const unread = unreadByInst.get(a.instanceId) || 0
+    if (unread > 0) {
+      const n = document.createElement('span')
+      n.className = 'unread'
+      n.textContent = unread > 99 ? '99+' : String(unread)
+      btn.append(n)
     }
     btn.addEventListener('click', () => selectAccount(a.id))
     btn.addEventListener('contextmenu', (ev) => openAccountMenu(ev, a))
@@ -753,6 +1012,11 @@ async function startClient(clientId) {
 
 async function selectAccount(id) {
   if (leavingId && id === leavingId) return
+  if (id !== viewingId) {
+    agentOpenKey = null
+    clearAgentQuote()
+    agentStreamAccount = null
+  }
   viewingId = id
   const acc = accountsOf().find((a) => a.id === id)
   renderAccounts(state)
@@ -790,14 +1054,72 @@ ui.launch?.addEventListener('click', () => startClient(selectedClientId))
 ui.dropBtn?.addEventListener('click', toggleClientMenu)
 ui.dropMenu?.addEventListener('click', (ev) => ev.stopPropagation())
 ui.loginCancel.addEventListener('click', cancelPendingLogin)
-ui.botToggle?.addEventListener('click', () => {
+ui.botToggle?.addEventListener('change', () => {
   const acc = viewedAccount()
   if (!acc) return
-  const phase = botPhase(acc)
-  const enabled = phase !== 'on'
-  toggleBot(acc.id, enabled)
+  toggleBot(acc.id, ui.botToggle.checked)
 })
-ui.botDash?.addEventListener('click', () => openDashboard())
+ui.agenticList?.addEventListener('click', (ev) => {
+  const item = ev.target.closest('[data-key]')
+  if (item?.dataset.key) openAgentSession(item.dataset.key)
+})
+ui.agenticBack?.addEventListener('click', () => {
+  agentOpenKey = null
+  clearAgentQuote()
+  renderAgentic()
+})
+ui.agenticPermBtn?.addEventListener('click', (ev) => {
+  ev.stopPropagation()
+  ui.agenticPermMenu?.classList.toggle('hidden')
+})
+ui.agenticPermMenu?.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('[data-mode]')
+  if (!btn?.dataset.mode) return
+  setAgentMode(btn.dataset.mode)
+  syncPermUi(btn.dataset.mode)
+  closePermMenu()
+})
+ui.agenticAsk?.addEventListener('click', () => agentAskOrSend())
+ui.agenticQuoteClear?.addEventListener('click', () => clearAgentQuote())
+ui.agenticInput?.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter' && !ev.shiftKey) {
+    ev.preventDefault()
+    agentAskOrSend()
+  }
+})
+ui.agenticInput?.addEventListener('input', () => {
+  const el = ui.agenticInput
+  el.style.height = 'auto'
+  el.style.height = `${Math.min(el.scrollHeight, 120)}px`
+})
+ui.agenticThread?.addEventListener('click', (ev) => {
+  const toggle = ev.target.closest('[data-think-toggle]')
+  if (!toggle) return
+  const wrap = toggle.closest('.agentic-think')
+  const id = wrap?.dataset.id
+  if (!id) return
+  const open = wrap.classList.toggle('is-open')
+  if (open) thinkOpen.add(id)
+  else thinkOpen.delete(id)
+})
+document.addEventListener('click', (ev) => {
+  if (ev.target.closest('.agentic-perm')) return
+  closePermMenu()
+})
+ui.agenticDrafts?.addEventListener('click', async (ev) => {
+  const approve = ev.target.closest('[data-approve]')
+  const discard = ev.target.closest('[data-discard]')
+  const id = approve?.dataset.approve || discard?.dataset.discard
+  if (!id) return
+  const path = approve ? '/api/runtime/agent/draft/approve' : '/api/runtime/agent/draft/discard'
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id })
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) alert(body.message || body.error || '操作失败')
+})
 ui.dashClose?.addEventListener('click', () => closeDashboard())
 ui.dashDrawer?.addEventListener('click', (ev) => {
   if (ev.target === ui.dashDrawer) closeDashboard()

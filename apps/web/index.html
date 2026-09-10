@@ -67,38 +67,73 @@
       <div id="im-host" class="im hidden"></div>
     </section>
 
-    <aside id="feature" class="feature hidden" aria-hidden="true">
+    <aside id="feature" class="feature is-agentic hidden" aria-hidden="true">
       <nav id="feature-tabs" class="feature-tabs">
-        <button type="button" data-tab="group" class="is-on">群</button>
-        <button type="button" data-tab="agent">Agent</button>
-        <button type="button" data-tab="bot">Bot</button>
+        <button type="button" data-tab="agentic" class="is-on">Agentic Bot</button>
+        <span id="agentic-status" class="agentic-hosted">未托管</span>
+        <span class="feature-tabs-spacer" aria-hidden="true"></span>
+        <label class="agentic-switch" title="接管当前 QQ">
+          <input id="agentic-switch" type="checkbox" />
+          <span class="agentic-switch-ui"></span>
+        </label>
       </nav>
-      <div id="pane-group" class="feature-pane">
-        <section class="feature-block">
-          <h3>群公告</h3>
-          <div id="group-notices" class="group-notices"></div>
-        </section>
-        <section class="feature-block feature-members">
-          <h3 id="group-member-title">群聊成员</h3>
-          <div id="group-members" class="group-members"></div>
-        </section>
-      </div>
-      <div id="pane-agent" class="feature-pane hidden">
-        <p class="feature-lead">Agent 对话框</p>
-        <p class="hint">在 QQ 会话外和 Bot 对话。先到 Bot 页开启接管，并在 AstrBot 设置里配好模型。</p>
-        <textarea id="agent-input" class="agent-input" placeholder="输入指令，后续接入 AstrBot WebChat" disabled></textarea>
-      </div>
-      <div id="pane-bot" class="feature-pane hidden">
-        <p class="feature-lead">当前账号 Bot</p>
-        <div class="bot-row">
-          <span id="bot-dot" class="bot-dot off"></span>
-          <span id="bot-status" class="bot-status">Bot 未开启</span>
+      <div id="pane-agentic" class="feature-pane">
+        <div id="agentic-list" class="agentic-list is-empty">
+          <p class="agentic-empty">暂无会话/任务</p>
         </div>
-        <div class="row" style="justify-content:flex-start">
-          <button id="btn-bot-toggle" type="button" class="btn bot-toggle">开启 Bot</button>
-          <button id="btn-bot-dash" type="button" class="btn ghost">AstrBot 设置</button>
+        <div id="agentic-detail" class="agentic-detail hidden">
+          <div class="agentic-detail-bar">
+            <button id="agentic-back" type="button" class="btn ghost">返回</button>
+            <div id="agentic-peer" class="agentic-peer"></div>
+          </div>
+          <div id="agentic-thread" class="agentic-thread"></div>
+          <div id="agentic-drafts" class="agentic-drafts"></div>
+          <div class="agentic-composer">
+            <div id="agentic-quote" class="agentic-quote hidden">
+              <span id="agentic-quote-text" class="agentic-quote-text"></span>
+              <button type="button" id="agentic-quote-clear" class="agentic-quote-clear" title="取消引用">×</button>
+            </div>
+            <textarea id="agentic-input" placeholder="给 Bot 发送消息" rows="2"></textarea>
+            <div class="agentic-composer-bar">
+              <div class="agentic-perm">
+                <button type="button" id="agentic-perm-btn" class="agentic-perm-btn is-always" title="回复权限">
+                  <span class="agentic-perm-ico" aria-hidden="true">!</span>
+                  <span id="agentic-perm-label">完全访问</span>
+                </button>
+                <div id="agentic-perm-menu" class="agentic-perm-menu hidden" role="menu">
+                  <button type="button" data-mode="ask" role="menuitem">
+                    <span class="agentic-perm-ico">✋</span>
+                    <span>
+                      <strong>请求批准</strong>
+                      <small>每条 Bot 回复都先给你确认</small>
+                    </span>
+                  </button>
+                  <button type="button" data-mode="auto" role="menuitem">
+                    <span class="agentic-perm-ico">🛡</span>
+                    <span>
+                      <strong>帮我批准</strong>
+                      <small>仅对链接、图片、@全体询问</small>
+                    </span>
+                  </button>
+                  <button type="button" data-mode="always" role="menuitem">
+                    <span class="agentic-perm-ico">!</span>
+                    <span>
+                      <strong>完全访问</strong>
+                      <small>回复直接发给对方，不再询问</small>
+                    </span>
+                  </button>
+                </div>
+              </div>
+              <div class="agentic-composer-actions">
+                <button id="agentic-ask" type="button" class="agentic-send-bot" title="问 Bot">
+                  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                    <path fill="currentColor" d="M8 12.8a.75.75 0 0 1-.75-.75V5.86L5.03 8.08a.75.75 0 1 1-1.06-1.06l3.5-3.5a.75.75 0 0 1 1.06 0l3.5 3.5a.75.75 0 1 1-1.06 1.06L8.75 5.86v6.19A.75.75 0 0 1 8 12.8z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-        <p class="hint">开启后，AstrBot 按规则自动回复；你仍可在聊天区自己发消息。</p>
       </div>
     </aside>
   </div>

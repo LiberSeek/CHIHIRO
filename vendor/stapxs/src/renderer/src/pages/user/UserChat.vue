@@ -454,7 +454,8 @@
                                 @click="selectSQIn"
                                 @input="handleInput"
                                 @compositionstart="handleCompositionStart"
-                                @compositionend="handleCompositionEnd" />
+                                @compositionend="handleCompositionEnd"
+                                @compositioncancel="handleCompositionCancel" />
                     </form>
                     <slot name="main-input-button" />
             </div>
@@ -485,6 +486,10 @@
                     <div v-show="tags.menuDisplay.relpy" @click="menuReplyMsg(true)">
                         <div><font-awesome-icon :icon="['fas', 'message']" /></div>
                         <a>{{ $t('回复') }}</a>
+                    </div>
+                    <div v-show="tags.menuDisplay.askBot" @click="quoteToBot()">
+                        <div><font-awesome-icon :icon="['fas', 'robot']" /></div>
+                        <a>问 Bot</a>
                     </div>
                     <div v-show="tags.menuDisplay.forward" @click="showForWard()">
                         <div><font-awesome-icon :icon="['fas', 'share']" /></div>
@@ -875,6 +880,7 @@ const tags = ref({
         jumpToMsg: false,
         add: true,
         relpy: true,
+        askBot: true,
         forward: true,
         select: true,
         copy: true,
@@ -933,6 +939,9 @@ const msgMenus = ref<any[]>([])
 const NewMsgNum = ref(0)
 const msg = ref('')
 const oldMsg = ref('')
+const IME_ENTER_GUARD_MS = 80
+let imeComposing = false
+let lastImeCompositionEndAt = 0
 const imgCache = ref(new Map<number, string>())
 const sendCache = ref<MsgItemElem[]>([])
 const selectedMsg = ref<{ [key: string]: any } | null>(null)
@@ -1001,6 +1010,8 @@ function resetState() {
     chihiroHistory.query = ''
     chihiroHistory.tab = 'all'
     chihiroHistory.list = []
+    imeComposing = false
+    lastImeCompositionEndAt = 0
     tags.value = {
         sendTag: 'REFUSE',
         showBottomButton: true,
@@ -1016,6 +1027,7 @@ function resetState() {
             jumpToMsg: false,
             add: true,
             relpy: true,
+            askBot: true,
             forward: true,
             select: true,
             copy: true,
@@ -1412,7 +1424,25 @@ function imgLoadedScroll(height: number) {
     }
 }
 
+function isImeInputEvent(event: KeyboardEvent) {
+    if (imeComposing || event.isComposing) return true
+    if (event.keyCode === 229) return true
+    if (tags.value.sendTag === 'PASS') return true
+    if (
+        lastImeCompositionEndAt > 0 &&
+        typeof event.timeStamp === 'number' &&
+        event.timeStamp >= lastImeCompositionEndAt &&
+        event.timeStamp - lastImeCompositionEndAt < IME_ENTER_GUARD_MS
+    ) {
+        return true
+    }
+    return false
+}
+
 function mainKey(event: KeyboardEvent) {
+    // 输入法选词 / 组字中的按键交给 IME，不发送、不抢 @ 列表
+    if (isImeInputEvent(event)) return
+
     if (mainAtKey(event)) return
 
     if(tags.value.onAtFind) return
@@ -1420,52 +1450,9 @@ function mainKey(event: KeyboardEvent) {
     // Chihiro: Enter 发送，Shift+Enter 换行
     if (event.shiftKey) return
     event.preventDefault()
-    if (msg.value !== '' && tags.value.sendTag != 'PASS') {
+    if (msg.value !== '') {
         sendMsg()
     }
-    tags.value.sendTag = 'REFUSE'
-    return
-    let canSend = false
-    switch (settingsStore.sysConfig.send_key) {
-        case 'none':
-            if (event.shiftKey) break
-            if (event.ctrlKey) break
-            if (event.altKey) break
-            if (event.metaKey) break
-            canSend = true
-            break
-        case 'shift':
-            if (!event.shiftKey) break
-            canSend = true
-            break
-        case 'ctrl':
-            if (!event.ctrlKey) break
-            canSend = true
-            break
-        case 'alt':
-            if (!event.altKey) break
-            canSend = true
-            break
-        case 'meta':
-            if (!event.metaKey) break
-            canSend = true
-            break
-    }
-
-    if(canSend && tags.value.sendTag != 'PASS') {
-        tags.value.sendTag = 'READY'
-    }
-
-    if (tags.value.sendTag == 'READY' && msg.value !== '') {
-        event.preventDefault()
-        sendMsg()
-    } else {
-        if(event.key === 'Enter' &&
-            (event.ctrlKey || event.metaKey || event.altKey)) {
-            msg.value += '\n'
-        }
-    }
-
     tags.value.sendTag = 'REFUSE'
 }
 
@@ -1506,12 +1493,23 @@ function mainAtKey(event: KeyboardEvent) {
 }
 
 function handleCompositionStart() {
+    imeComposing = true
     tags.value.sendTag = 'REFUSE'
 }
 
-function handleCompositionEnd() {
+function handleCompositionEnd(event?: CompositionEvent) {
+    imeComposing = false
+    lastImeCompositionEndAt = event?.timeStamp || performance.now()
     tags.value.sendTag = 'PASS'
-    setTimeout(() => { tags.value.sendTag = 'REFUSE' }, 50)
+    window.setTimeout(() => {
+        if (!imeComposing) tags.value.sendTag = 'REFUSE'
+    }, IME_ENTER_GUARD_MS)
+}
+
+function handleCompositionCancel() {
+    imeComposing = false
+    lastImeCompositionEndAt = 0
+    tags.value.sendTag = 'REFUSE'
 }
 
 function mainKeyUp(event: KeyboardEvent) {
@@ -1595,6 +1593,7 @@ function mainKeyUp(event: KeyboardEvent) {
 
 function mainSubmit(event: Event) {
     event.preventDefault()
+    if (imeComposing) return
     if (msg.value != '') {
         sendMsg()
     }
@@ -1834,6 +1833,7 @@ function initMenuDisplay() {
         jumpToMsg: false,
         add: true,
         relpy: true,
+        askBot: true,
         forward: true,
         select: true,
         copy: true,
@@ -1858,6 +1858,29 @@ function menuReplyMsg(closeMenu = true) {
     if (closeMenu) {
         closeMsgMenu()
     }
+}
+
+function quoteToBot() {
+    const msgData = selectedMsg.value
+    if (!msgData) return
+    let text = ''
+    if (tags.value.menuDisplay.copySelect && selectCache.value) {
+        text = String(selectCache.value)
+    } else {
+        text = String(msgData.raw_message || getMsgRawTxt(msgData) || '')
+    }
+    const show = chatStore.chatInfo.show || {}
+    try {
+        window.parent.postMessage({
+            source: 'chihiro-im',
+            kind: 'quote-bot',
+            text: text.trim(),
+            peerId: show.id,
+            type: show.type,
+            title: show.name || String(show.id || '')
+        }, '*')
+    } catch (e) {}
+    closeMsgMenu()
 }
 
 function replyMsg(msgData: any) {

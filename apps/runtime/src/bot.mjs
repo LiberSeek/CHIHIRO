@@ -2,7 +2,7 @@ import { log, logError } from './log.mjs'
 import { setAstrbotClient } from './napcat-ob11.mjs'
 import { astrbotReversePort } from './qq-ports.mjs'
 
-export function createBotController({ store, qq, astrbot }) {
+export function createBotController({ store, qq, astrbot, cfg }) {
   const wired = new Set()
   const failedAt = new Map()
 
@@ -34,7 +34,12 @@ export function createBotController({ store, qq, astrbot }) {
       reversePort: astrbotReversePort(inst.ports),
       enable: true
     })
-    await setAstrbotClient(target, reverse, true, inst.uin)
+    const gwHost = cfg?.gateway?.host || '127.0.0.1'
+    const gwPort = cfg?.gateway?.port || 3100
+    await setAstrbotClient(target, {
+      ...reverse,
+      url: `ws://${gwHost}:${gwPort}/i/${encodeURIComponent(inst.id)}/bot-ob`
+    }, true, inst.uin)
     wired.add(id)
     failedAt.delete(id)
     log('bot', `enabled ${id}`)

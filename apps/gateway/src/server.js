@@ -236,7 +236,12 @@ const server = http.createServer(async (req, res) => {
   const routedPath = stripInstancePrefix(url.pathname)
 
   if (url.pathname.startsWith('/api/runtime')) {
-    if (url.pathname !== '/api/runtime/stream' && url.pathname !== '/api/runtime/state' && url.pathname !== '/api/runtime/qq/qr') {
+    if (
+      url.pathname !== '/api/runtime/stream'
+      && url.pathname !== '/api/runtime/agent/stream'
+      && url.pathname !== '/api/runtime/state'
+      && url.pathname !== '/api/runtime/qq/qr'
+    ) {
       log('gw', req.method, url.pathname)
     }
     const handled = await runtime.handle(req, res, url)
@@ -344,6 +349,13 @@ server.on('upgrade', (req, socket, head) => {
   const url = new URL(req.url || '/', `http://${host}:${port}`)
   const instanceId = instanceIdFromReq(req, url)
   const routedPath = stripInstancePrefix(url.pathname)
+
+  if (routedPath === '/bot-ob' || routedPath.startsWith('/bot-ob')) {
+    if (!runtime.agent?.handleUpgrade?.(req, socket, head, instanceId)) {
+      socket.destroy()
+    }
+    return
+  }
 
   if (
     routedPath.startsWith('/onebot-ws') ||
