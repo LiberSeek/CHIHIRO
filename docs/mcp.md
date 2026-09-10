@@ -1,29 +1,58 @@
-# Chihiro MCP
+# 千寻给 Agent 的手
 
-给外部 Codex / Claude CLI 用的控制面。千寻工作台需已在 `http://127.0.0.1:3100` 运行。
+不用配 MCP JSON。工作台开着时，把这段交给任意能发 HTTP 的 Agent：
 
-```json
-{
-  "mcpServers": {
-    "chihiro": {
-      "command": "node",
-      "args": ["/ABS/CHIHIRO-EE/apps/mcp/server.mjs"]
-    }
-  }
-}
+**链接：** http://127.0.0.1:3100/mcp
+
+或直接粘贴：
+
+```
+# 千寻 QQ 手
+
+本机工作台已打开：http://127.0.0.1:3100
+用 HTTP 操作，不要编造账号或对方 QQ 号。发送、批准草稿前先问我。不要加好友。不要自行生成并乱发图片。
+
+## 看 observe
+GET http://127.0.0.1:3100/api/runtime/agent/observe?kind=KIND
+KIND：accounts | sessions | session | messages | drafts | friends | groups | members
+
+- accounts 不必带账号
+- 其余加 &accountId=qq:QQ号
+- **session / messages**：看某个私聊或群里实际聊了什么（直接桥接 QQ 历史）
+  - 必加 &peerId=对方QQ或群号&type=private|group
+  - 可选 &count=30（默认 30，最大 100）
+  - session 带元数据 + messages（QQ 正文）+ agentMessages
+  - messages 只返回聊天正文
+- members 再加 &groupId=群号
+
+## 发 send
+POST http://127.0.0.1:3100/api/runtime/agent/send
+Content-Type: application/json
+
+{"accountId":"qq:我的QQ","peerId":"对方QQ","type":"private","text":"正文"}
+群聊 type 用 group。可选 "image": "本地路径或URL"（图由你自己生成）。
+
+## 闸门
+改权限：POST /api/runtime/agent/mode
+{"accountId":"qq:我的QQ","mode":"ask"}
+mode：ask / auto / always。可再加 peerId、type。
+
+批准：POST /api/runtime/agent/draft/approve  {"id":"草稿id"}
+丢弃：POST /api/runtime/agent/draft/discard  {"id":"草稿id"}
 ```
 
-可选环境变量 `CHIHIRO_URL`（默认 `http://127.0.0.1:3100`）。
+## 试用
 
-| 工具 | 作用 |
-|---|---|
-| `list_accounts` | QQ 账号、是否在线、Bot 是否接管 |
-| `list_sessions` | 该账号 Bot 处理过的全部会话 |
-| `get_session` | 会话消息与待确认拟稿 |
-| `set_mode` | `ask` / `auto` / `always`（可按会话） |
-| `list_drafts` | 待你确认的出站回复 |
-| `approve_draft` / `discard_draft` | 发送或丢弃拟稿 |
-| `ask_bot` | 操作员指示，不发给对方 QQ |
-| `send_to_peer` | 以当前账号发给对方 |
+先重启网关，登录 QQ，再把上面整段（或链接里的全文）丢给 Agent。
 
-出站闸门在千寻，不在 MCP。`ask` 模式下 Bot 回复会挂起，需 `approve_draft` 或工作台点「发送」。
+摸手：只 observe accounts、groups、friends，不要发消息，中文汇报几个号/群/好友。
+
+读群：observe kind=session（或 messages）+ peerId=群号 + type=group，用返回的 messages 汇报最近聊了什么。
+
+入站：observe drafts，有草稿先念给我，等我点头再 approve。
+
+群画像：observe groups → members，列出 5 个值得加好友的人（user_id + 理由）。不要 send、不要加好友。
+
+逐个私聊：先把原文给我看，确认后再一条一条 send，间隔约 8 秒。
+
+stdio MCP（`npm run mcp`）仍可用，不是默认用法。

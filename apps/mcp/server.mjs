@@ -23,140 +23,91 @@ async function api(method, path, body) {
 
 const tools = [
   {
-    name: 'list_accounts',
-    description: 'List Chihiro QQ accounts (online, bot enabled, pending drafts).',
-    inputSchema: { type: 'object', properties: {} }
-  },
-  {
-    name: 'list_sessions',
-    description: 'List Agentic Bot sessions for an account (all peers the bot has handled).',
+    name: 'observe',
+    description:
+      'Look at Chihiro/QQ. kind=accounts|sessions|session|messages|drafts|friends|groups|members. ' +
+      'session/messages bridge live QQ history (NapCat) for a private or group peer — does not require prior agent tracking. ' +
+      'Codex loops this instead of a task queue.',
     inputSchema: {
       type: 'object',
-      properties: { accountId: { type: 'string', description: 'qq:<uin>' } },
-      required: ['accountId']
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['accounts', 'sessions', 'session', 'messages', 'history', 'drafts', 'friends', 'groups', 'members']
+        },
+        accountId: { type: 'string', description: 'qq:<uin>, required except kind=accounts' },
+        peerId: { type: 'string', description: 'friend uin or group id for session/messages' },
+        type: { type: 'string', enum: ['private', 'group'] },
+        key: { type: 'string' },
+        groupId: { type: 'string', description: 'required for kind=members; also accepted as peer for group session' },
+        count: { type: 'number', description: 'history size for session/messages (default 30, max 100)' }
+      }
     }
   },
   {
-    name: 'get_session',
-    description: 'Get one session thread including messages and pending drafts.',
+    name: 'send',
+    description: 'Send to a QQ peer as this account. Goes through Chihiro, not AstrBot. Optional image is a local path or URL Codex already made.',
     inputSchema: {
       type: 'object',
       properties: {
         accountId: { type: 'string' },
         peerId: { type: 'string' },
         type: { type: 'string', enum: ['private', 'group'] },
-        key: { type: 'string' }
-      }
-    }
-  },
-  {
-    name: 'set_mode',
-    description: 'Set reply permission: ask (hold every reply), auto (send text, hold sensitive), always (send). Omit peerId to set account default.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        accountId: { type: 'string' },
-        peerId: { type: 'string' },
-        type: { type: 'string' },
-        mode: { type: 'string', enum: ['ask', 'auto', 'always'] }
-      },
-      required: ['accountId', 'mode']
-    }
-  },
-  {
-    name: 'list_drafts',
-    description: 'Pending Bot replies waiting for human approval.',
-    inputSchema: {
-      type: 'object',
-      properties: { accountId: { type: 'string' } },
-      required: ['accountId']
-    }
-  },
-  {
-    name: 'approve_draft',
-    description: 'Send a held Bot draft to the QQ peer.',
-    inputSchema: {
-      type: 'object',
-      properties: { id: { type: 'string' } },
-      required: ['id']
-    }
-  },
-  {
-    name: 'discard_draft',
-    description: 'Drop a held Bot draft without sending.',
-    inputSchema: {
-      type: 'object',
-      properties: { id: { type: 'string' } },
-      required: ['id']
-    }
-  },
-  {
-    name: 'ask_bot',
-    description: 'Operator-only instruction to AstrBot for this peer. Never sent to the QQ user. Reply is held as a draft.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        accountId: { type: 'string' },
-        peerId: { type: 'string' },
-        type: { type: 'string' },
         text: { type: 'string' },
-        quote: { type: 'string', description: 'Optional quoted session text' }
+        image: { type: 'string' }
       },
-      required: ['accountId', 'peerId', 'text']
+      required: ['accountId', 'peerId']
     }
   },
   {
-    name: 'send_to_peer',
-    description: 'Send a message to the QQ peer as this account (human send).',
+    name: 'gate',
+    description: 'Human gate: set reply mode, approve a draft, or discard it. mode=ask|auto|always. Add-friend is not automated.',
     inputSchema: {
       type: 'object',
       properties: {
+        action: { type: 'string', enum: ['mode', 'approve', 'discard'] },
         accountId: { type: 'string' },
         peerId: { type: 'string' },
         type: { type: 'string' },
-        text: { type: 'string' }
+        mode: { type: 'string', enum: ['ask', 'auto', 'always'] },
+        id: { type: 'string', description: 'draft id for approve/discard' }
       },
-      required: ['accountId', 'peerId', 'text']
+      required: ['action']
     }
   }
 ]
 
 async function callTool(name, args = {}) {
   switch (name) {
-    case 'list_accounts': {
-      const snap = await api('GET', '/api/runtime/state')
-      const pending = snap.agent?.pendingByAccount || {}
-      return (snap.accounts?.accounts || []).map((a) => ({
-        id: a.id,
-        uin: a.uin,
-        nickname: a.nickname,
-        online: a.online,
-        botEnabled: a.botEnabled,
-        pendingDrafts: pending[a.id] || 0
-      }))
-    }
-    case 'list_sessions':
-      return (await api('GET', `/api/runtime/agent/sessions?accountId=${encodeURIComponent(args.accountId)}`)).sessions
-    case 'get_session': {
+    case 'observe': {
       const q = new URLSearchParams()
-      if (args.key) q.set('key', args.key)
+      q.set('kind', args.kind || 'accounts')
       if (args.accountId) q.set('accountId', args.accountId)
       if (args.peerId) q.set('peerId', args.peerId)
       if (args.type) q.set('type', args.type)
-      return api('GET', `/api/runtime/agent/session?${q}`)
+      if (args.key) q.set('key', args.key)
+      if (args.groupId) q.set('groupId', args.groupId)
+      if (args.count != null && args.count !== '') q.set('count', String(args.count))
+      return api('GET', `/api/runtime/agent/observe?${q}`)
     }
-    case 'set_mode':
-      return api('POST', '/api/runtime/agent/mode', args)
-    case 'list_drafts':
-      return (await api('GET', `/api/runtime/agent/state?accountId=${encodeURIComponent(args.accountId)}`)).drafts
-    case 'approve_draft':
-      return api('POST', '/api/runtime/agent/draft/approve', { id: args.id })
-    case 'discard_draft':
-      return api('POST', '/api/runtime/agent/draft/discard', { id: args.id })
-    case 'ask_bot':
-      return api('POST', '/api/runtime/agent/ask', args)
-    case 'send_to_peer':
-      return api('POST', '/api/runtime/agent/send', args)
+    case 'send':
+      return api('POST', '/api/runtime/agent/send', { ...args, type: args.type || 'private' })
+    case 'gate': {
+      const action = args.action
+      if (action === 'mode') {
+        if (!args.accountId || !args.mode) throw new Error('mode 需要 accountId 和 mode')
+        return api('POST', '/api/runtime/agent/mode', args)
+      }
+      if (action === 'approve') {
+        if (!args.id) throw new Error('approve 需要草稿 id')
+        return api('POST', '/api/runtime/agent/draft/approve', { id: args.id })
+      }
+      if (action === 'discard') {
+        if (!args.id) throw new Error('discard 需要草稿 id')
+        return api('POST', '/api/runtime/agent/draft/discard', { id: args.id })
+      }
+      throw new Error('unknown_gate_action')
+    }
     default:
       throw new Error(`unknown tool ${name}`)
   }
@@ -204,7 +155,12 @@ async function handle(raw) {
       result: {
         protocolVersion: params?.protocolVersion || '2024-11-05',
         capabilities: { tools: {} },
-        serverInfo: { name: 'chihiro', version: '0.1.0' }
+        instructions:
+          'Chihiro QQ hands. Tools: observe, send, gate. ' +
+          'Use observe kind=session|messages with peerId+type to read live QQ chat history (bridged). ' +
+          'Do not invent accountId/peerId. Ask the user before send or gate.approve. Do not add friends. ' +
+          'Image generation is your job; send.image only delivers a file you already have.',
+        serverInfo: { name: 'chihiro', version: '0.2.0' }
       }
     })
     return

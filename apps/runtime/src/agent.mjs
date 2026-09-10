@@ -45,10 +45,39 @@ function messageText(message) {
     if (t === 'image') return '[图片]'
     if (t === 'video') return '[视频]'
     if (t === 'record') return '[语音]'
+    if (t === 'file') {
+      const name = data.name || data.file || ''
+      return name ? `[文件:${name}]` : '[文件]'
+    }
+    if (t === 'reply') return `[回复${data.id || ''}]`
+    if (t === 'forward' || t === 'node') return '[合并转发]'
+    if (t === 'json' || t === 'xml') return '[卡片]'
     if (t === 'at') return `@${data.qq || data.user_id || ''}`
-    if (t === 'face') return '[表情]'
+    if (t === 'face') return `[表情${data.id || ''}]`
+    if (t) return `[${t}]`
     return ''
   }).join('')
+}
+
+function clampCount(n, def = 30, max = 100) {
+  const v = Number(n)
+  if (!Number.isFinite(v) || v <= 0) return def
+  return Math.min(Math.floor(v), max)
+}
+
+function slimHistoryMessage(row) {
+  const sender = row?.sender || {}
+  const userId = String(sender.user_id ?? row?.user_id ?? '')
+  const text = messageText(row?.message) || row?.raw_message || ''
+  return {
+    id: String(row?.message_id ?? row?.message_seq ?? ''),
+    time: Number(row?.time || 0),
+    user_id: userId,
+    nickname: sender.nickname || '',
+    card: sender.card || '',
+    role: sender.role || '',
+    text
+  }
 }
 
 function isSendAction(msg) {
@@ -356,27 +385,229 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     return qq.getInstanceForAccount?.(accountId) || null
   }
 
-  async function napcatSend(accountId, { type, peerId, message }) {
+  async function napcatAction(accountId, action, params = {}) {
     const inst = instForAccount(accountId)
     if (!inst?.ports?.http) throw new Error('账号未在线')
-    const action = type === 'group' ? 'send_group_msg' : 'send_private_msg'
-    const body = type === 'group'
-      ? { group_id: Number(peerId), message }
-      : { user_id: Number(peerId), message }
     const res = await fetch(`http://127.0.0.1:${inst.ports.http}/${action}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${inst.tokens.http}`
       },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(10000)
+      body: JSON.stringify(params),
+      signal: AbortSignal.timeout(15000)
     })
     const json = await res.json().catch(() => ({}))
-    if (!res.ok || (json.status && json.status !== 'ok' && json.retcode && json.retcode !== 0)) {
-      throw new Error(json.message || json.wording || 'send_failed')
+    const ret = json.retcode
+    if (!res.ok || json.status === 'failed' || (ret != null && Number(ret) !== 0)) {
+      throw new Error(json.message || json.wording || json.error || `${action}_failed`)
     }
-    return json
+    return json.data !== undefined ? json.data : json
+  }
+
+  function asList(raw) {
+    if (Array.isArray(raw)) return raw
+    if (!raw || typeof raw !== 'object') return []
+    for (const key of ['list', 'friends', 'friendList', 'groups', 'groupList', 'members', 'memberList']) {
+      if (Array.isArray(raw[key])) return raw[key]
+    }
+    return []
+  }
+
+  function capList(list, n = 400) {
+    const total = list.length
+    const items = list.slice(0, n)
+    return { items, total, truncated: total > n }
+  }
+
+  async function napcatSend(accountId, { type, peerId, message }) {
+    const action = type === 'group' ? 'send_group_msg' : 'send_private_msg'
+    const params = type === 'group'
+      ? { group_id: Number(peerId), message }
+      : { user_id: Number(peerId), message }
+    return napcatAction(accountId, action, params)
+  }
+
+  function slimFriend(row) {
+    return {
+      user_id: String(row.user_id ?? row.uin ?? ''),
+      nickname: row.nickname || row.nick || '',
+      remark: row.remark || ''
+    }
+  }
+
+  function slimGroup(row) {
+    return {
+      group_id: String(row.group_id ?? ''),
+      group_name: row.group_name || row.groupName || '',
+      member_count: Number(row.member_count || row.memberCount || 0)
+    }
+  }
+
+  function slimMember(row) {
+    return {
+      user_id: String(row.user_id ?? ''),
+      nickname: row.nickname || '',
+      card: row.card || '',
+      role: row.role || 'member'
+    }
+  }
+
+  function resolvePeer({ accountId, peerId, type, key, groupId }) {
+    let aid = accountId || ''
+    let typ = type === 'group' ? 'group' : (type === 'private' ? 'private' : '')
+    let peer = String(peerId || groupId || '')
+    if (key) {
+      const parts = String(key).split(':')
+      // key = qq:<uin>:<private|group>:<peerId>
+      if (parts.length >= 4 && parts[0] === 'qq') {
+        aid = aid || `${parts[0]}:${parts[1]}`
+        typ = typ || (parts[2] === 'group' ? 'group' : 'private')
+        peer = peer || parts.slice(3).join(':')
+      }
+    }
+    if (!typ) typ = groupId && !peerId ? 'group' : 'private'
+    if (!peer && groupId) peer = String(groupId)
+    return { accountId: aid, type: typ, peerId: peer, key: aid && peer ? sessionKey(aid, typ, peer) : '' }
+  }
+
+  async function fetchPeerHistory(accountId, type, peerId, count = 30) {
+    const n = clampCount(count)
+    const isGroup = type === 'group'
+    const action = isGroup ? 'get_group_msg_history' : 'get_friend_msg_history'
+    const params = isGroup
+      ? { group_id: String(peerId), count: n }
+      : { user_id: String(peerId), count: n }
+    const data = await napcatAction(accountId, action, params)
+    const raw = Array.isArray(data?.messages) ? data.messages : asList(data)
+    const messages = raw.map(slimHistoryMessage).filter((m) => m.user_id || m.text)
+    return { messages, count: messages.length, requested: n, source: 'qq' }
+  }
+
+  async function resolvePeerTitle(accountId, type, peerId, fallback = '') {
+    if (fallback) return fallback
+    try {
+      if (type === 'group') {
+        const info = await napcatAction(accountId, 'get_group_info', { group_id: Number(peerId) })
+        return info?.group_name || info?.groupName || String(peerId)
+      }
+      const info = await napcatAction(accountId, 'get_stranger_info', { user_id: Number(peerId) })
+      return info?.nickname || info?.nick || String(peerId)
+    } catch {
+      return String(peerId)
+    }
+  }
+
+  async function observeSession(opts = {}) {
+    const resolved = resolvePeer(opts)
+    const { accountId, type, peerId, key } = resolved
+    if (!accountId) throw new Error('missing_account')
+    if (!peerId) throw new Error('missing_peer')
+    const tracked = persist.getSession(key)
+    const drafts = persist.listDrafts(accountId, 'pending').filter((d) => d.sessionKey === key)
+    const title = await resolvePeerTitle(accountId, type, peerId, tracked?.title || '')
+    const history = await fetchPeerHistory(accountId, type, peerId, opts.count)
+    const last = history.messages[history.messages.length - 1]
+    return {
+      kind: 'session',
+      accountId,
+      type,
+      peerId,
+      key,
+      tracked: Boolean(tracked),
+      source: 'qq',
+      session: {
+        key,
+        accountId,
+        type,
+        peerId,
+        title,
+        status: tracked?.status || 'idle',
+        mode: tracked ? persist.sessionMode(tracked) : persist.accountMode(accountId),
+        lastText: last?.text || tracked?.lastText || '',
+        lastAt: last?.time ? last.time * 1000 : (tracked?.lastAt || 0),
+        pendingDrafts: drafts.length,
+        drafts,
+        // QQ 真源聊天内容（桥接 NapCat 历史）
+        messages: history.messages,
+        messageCount: history.count,
+        // Agent 侧流水（思考/草稿/操作员），仅在被追踪时有
+        agentMessages: tracked?.messages || []
+      }
+    }
+  }
+
+  async function observe({ kind = 'accounts', accountId, peerId, type, key, groupId, count } = {}) {
+    const k = String(kind || 'accounts')
+    if (k === 'accounts') {
+      const snap = qq.snapshot()
+      const pending = persist.pendingCounts()
+      return {
+        kind: k,
+        accounts: (snap.accounts?.accounts || []).map((a) => ({
+          id: a.id,
+          uin: a.uin,
+          nickname: a.nickname,
+          online: Boolean(a.online),
+          botEnabled: Boolean(a.botEnabled),
+          pendingDrafts: pending[a.id] || 0
+        }))
+      }
+    }
+    if (!accountId && k !== 'session' && k !== 'messages' && k !== 'history') {
+      throw new Error('missing_account')
+    }
+    if (k === 'sessions') {
+      return {
+        kind: k,
+        accountId,
+        sessions: view(accountId).sessions.map((s) => ({
+          key: s.key,
+          peerId: s.peerId,
+          type: s.type,
+          title: s.title,
+          status: s.status,
+          mode: s.mode,
+          lastText: s.lastText,
+          lastAt: s.lastAt,
+          pendingDrafts: s.pendingDrafts || 0
+        }))
+      }
+    }
+    if (k === 'drafts') {
+      return { kind: k, accountId, drafts: persist.listDrafts(accountId, 'pending') }
+    }
+    // session / messages / history：直接桥接 QQ 历史，不再依赖 Agent 是否追踪过
+    if (k === 'session' || k === 'messages' || k === 'history') {
+      const out = await observeSession({ accountId, peerId, type, key, groupId, count })
+      if (k === 'session') return out
+      return {
+        kind: k,
+        accountId: out.accountId,
+        type: out.type,
+        peerId: out.peerId,
+        key: out.key,
+        title: out.session.title,
+        source: 'qq',
+        count: out.session.messageCount,
+        messages: out.session.messages
+      }
+    }
+    if (k === 'friends') {
+      const { items, total, truncated } = capList(asList(await napcatAction(accountId, 'get_friend_list', {})).map(slimFriend).filter((x) => x.user_id))
+      return { kind: k, accountId, total, truncated, friends: items }
+    }
+    if (k === 'groups') {
+      const { items, total, truncated } = capList(asList(await napcatAction(accountId, 'get_group_list', {})).map(slimGroup).filter((x) => x.group_id))
+      return { kind: k, accountId, total, truncated, groups: items }
+    }
+    if (k === 'members') {
+      const gid = groupId || peerId
+      if (!gid) throw new Error('missing_group')
+      const { items, total, truncated } = capList(asList(await napcatAction(accountId, 'get_group_member_list', { group_id: Number(gid) })).map(slimMember).filter((x) => x.user_id))
+      return { kind: k, accountId, groupId: String(gid), total, truncated, members: items }
+    }
+    throw new Error('unknown_kind')
   }
 
   async function approveDraft(id) {
@@ -428,14 +659,23 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     return persist.getDraft(id)
   }
 
-  async function sendToPeer(accountId, { type = 'private', peerId, text }) {
-    if (!text) throw new Error('empty_text')
+  async function sendToPeer(accountId, { type = 'private', peerId, text, image }) {
+    if (!peerId) throw new Error('missing_peer')
+    type = type === 'group' ? 'group' : 'private'
+    if (!text && !image) throw new Error('empty_text')
+    let message = text || ''
+    if (image) {
+      message = []
+      if (text) message.push({ type: 'text', data: { text } })
+      message.push({ type: 'image', data: { file: String(image) } })
+    }
+    const preview = text || '[图片]'
     const key = sessionKey(accountId, type, peerId)
     persist.upsertSession({
-      key, accountId, type, peerId, lastText: text, lastAt: Date.now(), status: 'replied'
+      key, accountId, type, peerId, lastText: preview, lastAt: Date.now(), status: 'replied'
     })
-    persist.appendMessage(key, { id: `op-send-${Date.now()}`, role: 'operator', text, at: Date.now() })
-    await napcatSend(accountId, { type, peerId, message: text })
+    persist.appendMessage(key, { id: `op-send-${Date.now()}`, role: 'operator', text: preview, at: Date.now() })
+    await napcatSend(accountId, { type, peerId, message })
     emit()
     return { ok: true }
   }
@@ -647,6 +887,22 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
       })
     })
 
+    if (p === '/api/runtime/agent/observe' && method === 'GET') {
+      try {
+        return json(await observe({
+          kind: url.searchParams.get('kind') || 'accounts',
+          accountId,
+          peerId: url.searchParams.get('peerId') || '',
+          type: url.searchParams.get('type') || '',
+          key: url.searchParams.get('key') || '',
+          groupId: url.searchParams.get('groupId') || '',
+          count: url.searchParams.get('count') || ''
+        }))
+      } catch (e) {
+        const status = e.message === 'not_found' ? 404 : 400
+        return json({ error: e.message, message: e.message }, status)
+      }
+    }
     if (p === '/api/runtime/agent/state' && method === 'GET') {
       return json(view(accountId || undefined))
     }
@@ -654,12 +910,19 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
       return json({ sessions: view(accountId || undefined).sessions })
     }
     if (p === '/api/runtime/agent/session' && method === 'GET') {
-      const key = url.searchParams.get('key')
-        || sessionKey(accountId, url.searchParams.get('type') || 'private', url.searchParams.get('peerId'))
-      const session = persist.getSession(key)
-      if (!session) return json({ error: 'not_found' }, 404)
-      const drafts = persist.listDrafts(session.accountId, 'pending').filter((d) => d.sessionKey === key)
-      return json({ session: { ...session, mode: persist.sessionMode(session), drafts } })
+      try {
+        return json(await observeSession({
+          accountId,
+          peerId: url.searchParams.get('peerId') || '',
+          type: url.searchParams.get('type') || '',
+          key: url.searchParams.get('key') || '',
+          groupId: url.searchParams.get('groupId') || '',
+          count: url.searchParams.get('count') || ''
+        }))
+      } catch (e) {
+        const status = e.message === 'not_found' ? 404 : 400
+        return json({ error: e.message, message: e.message }, status)
+      }
     }
     if (p === '/api/runtime/agent/mode' && method === 'POST') {
       const body = await readBody()

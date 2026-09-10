@@ -174,6 +174,7 @@ const mime = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.json': 'application/json; charset=utf-8',
+  '.md': 'text/markdown; charset=utf-8',
   '.webmanifest': 'application/manifest+json; charset=utf-8'
 }
 
@@ -246,6 +247,9 @@ const server = http.createServer(async (req, res) => {
     }
     const handled = await runtime.handle(req, res, url)
     if (handled) return
+    res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' })
+    res.end(JSON.stringify({ error: 'not_found', path: url.pathname }))
+    return
   }
 
   if (routedPath.startsWith('/api/') && routedPath !== '/api/status') {
@@ -336,6 +340,22 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname.startsWith('/astrbot')) {
     req.url = (url.pathname.replace(/^\/astrbot/, '') || '/') + url.search
     proxy.web(req, res, { target: astrbotTarget() })
+    return
+  }
+
+  if (url.pathname === '/agent' || url.pathname === '/agent.md') {
+    res.writeHead(302, { Location: '/mcp' })
+    res.end()
+    return
+  }
+
+  if (url.pathname === '/mcp' || url.pathname === '/mcp.md') {
+    const file = path.join(webDir, 'mcp.md')
+    res.writeHead(200, {
+      'Content-Type': 'text/markdown; charset=utf-8',
+      'Cache-Control': 'no-store'
+    })
+    fs.createReadStream(file).pipe(res)
     return
   }
 
