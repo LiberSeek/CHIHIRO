@@ -16,6 +16,11 @@ const ui = {
   loginCancel: $('login-cancel'),
   loginSteps: $('login-steps'),
   qrHint: $('qr-hint'),
+  qrActions: $('login-qr-actions'),
+  qrRefresh: $('btn-qr-refresh'),
+  deadActions: $('login-dead'),
+  deadRemove: $('btn-dead-remove'),
+  deadRelogin: $('btn-dead-relogin'),
   menu: $('account-menu'),
   menuRemove: $('menu-remove'),
   launch: $('btn-launch'),
@@ -56,13 +61,19 @@ const ui = {
   workspace: $('workspace'),
   feature: $('feature'),
   featureTabs: $('feature-tabs'),
-  leaving: $('leaving')
+  leaving: $('leaving'),
+  leavingTitle: $('leaving-title'),
+  leavingHint: $('leaving-hint')
 }
 
 let clients = []
 let selectedClientId = 'qq'
 let state = null
+const ADDING_ID = '__adding__'
 let viewingId = null
+let cancellingLogin = false
+let gatewayDown = false
+let streamTimer = null
 let localAdding = sessionStorage.getItem('chihiro_adding') === '1'
 let accountsWhenAdding = new Set()
 const imFrames = new Map()
@@ -96,6 +107,10 @@ function show(mode) {
   ui.login.classList.toggle('hidden', mode !== 'login')
   ui.im.classList.toggle('hidden', mode !== 'im')
   ui.leaving?.classList.toggle('hidden', mode !== 'leaving')
+  if (mode !== 'login') {
+    hideDeadActions()
+    hideQrActions()
+  }
   if (mode === 'im') {
     renderBotBar()
     renderFeature()
@@ -558,7 +573,8 @@ function viewedAccount(data = state) {
 
 function renderAccounts(data) {
   const accounts = accountsOf(data)
-  const highlight = viewingId || data?.accounts?.activeId
+  const adding = Boolean(data?.pendingAdd || localAdding)
+  const highlight = viewingId || (adding ? ADDING_ID : data?.accounts?.activeId)
   ui.list.innerHTML = ''
   for (const a of accounts) {
     const btn = document.createElement('button')
@@ -586,6 +602,20 @@ function renderAccounts(data) {
     btn.addEventListener('contextmenu', (ev) => openAccountMenu(ev, a))
     ui.list.appendChild(btn)
   }
+  if (adding) {
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.className = 'avatar pending' + (highlight === ADDING_ID ? ' active' : '')
+    btn.title = '正在登录新账号'
+    btn.dataset.id = ADDING_ID
+    const mark = document.createElement('span')
+    mark.className = 'pending-mark'
+    mark.setAttribute('aria-hidden', 'true')
+    btn.append(mark)
+    btn.addEventListener('click', () => selectAccount(ADDING_ID))
+    ui.list.appendChild(btn)
+  }
+  if (ui.add) ui.add.classList.toggle('is-busy', adding)
 }
 
 function imSrc(acc) {
@@ -689,15 +719,36 @@ function setLoginStatus(text, { error = false } = {}) {
   ui.loginMsg.style.color = error ? '#ff6b6b' : ''
 }
 
-function setQrVisible(showQr, src) {
+function setQrVisible(showQr, src, { hint, hintText, hintError = false } = {}) {
   if (showQr) {
     ui.qr.classList.remove('hidden')
     if (src) ui.qr.src = src
-    ui.qrHint?.classList.remove('hidden')
   } else {
     ui.qr.classList.add('hidden')
-    ui.qrHint?.classList.add('hidden')
   }
+  const showHint = hint ?? Boolean(showQr)
+  if (showHint) {
+    if (ui.qrHint) {
+      ui.qrHint.textContent = hintText || '请使用 QQ 扫描二维码。约两分钟有效。'
+      ui.qrHint.style.color = hintError ? '#ff6b6b' : ''
+      ui.qrHint.classList.remove('hidden')
+    }
+  } else {
+    ui.qrHint?.classList.add('hidden')
+    if (ui.qrHint) ui.qrHint.style.color = ''
+  }
+}
+
+function hideQrActions() {
+  ui.qrActions?.classList.add('hidden')
+}
+
+function accountLabel(snap, accounts, chosen) {
+  const acc = chosen
+    || accounts.find((a) => a.id === snap.accounts?.activeId)
+    || accounts.find((a) => a.uin && snap.uin && String(a.uin) === String(snap.uin))
+    || accounts[0]
+  return acc?.nickname || acc?.uin || snap.nickname || snap.uin || ''
 }
 
 function placeholderProgress() {
@@ -712,29 +763,109 @@ function placeholderProgress() {
   }
 }
 
+function hideDeadActions() {
+  ui.deadActions?.classList.add('hidden')
+}
+
 function showLoginProgress(snap) {
+  hideDeadActions()
+  hideQrActions()
   show('login')
-  const pending = Boolean(snap.pendingAdd)
-  const phase = pending ? snap.phase : 'starting'
-  const progress = pending && snap.progress?.items?.length && snap.progress.step <= snap.progress.total
+  const phase = snap.phase || 'starting'
+  const progress = snap.progress?.items?.length && snap.progress.step <= snap.progress.total
     ? snap.progress
     : placeholderProgress()
   renderLoginSteps(progress)
-  const showQr = pending && phase === 'qr' && snap.qr?.exists
+  const expired = phase === 'qr_expired' || snap.qr?.expired
+  const showQr = phase === 'qr' && snap.qr?.exists && !expired
   if (showQr) {
-    setQrVisible(true, `/api/runtime/qq/qr?t=${snap.qr?.mtime || Date.now()}`)
     setLoginStatus('')
+    setQrVisible(true, `/api/runtime/qq/qr?t=${snap.qr?.mtime || Date.now()}`)
+  } else if (expired) {
+    setLoginStatus('')
+    setQrVisible(false, '', { hint: true, hintText: '二维码已过期', hintError: true })
+    ui.qrActions?.classList.remove('hidden')
   } else {
     setQrVisible(false)
-    setLoginStatus(pending ? (snap.message || '正在启动…') : '正在启动新账号…')
+    setLoginStatus(snap.message || '正在启动…')
   }
+  ui.loginCancel.textContent = '取消'
   ui.loginCancel.classList.remove('hidden')
+}
+
+function showQrScan(snap) {
+  hideDeadActions()
+  show('login')
+  renderLoginSteps(null)
+  const expired = snap.phase === 'qr_expired' || snap.qr?.expired
+  if (expired) {
+    setLoginStatus('')
+    setQrVisible(false, '', { hint: true, hintText: '二维码已过期', hintError: true })
+    ui.qrActions?.classList.remove('hidden')
+  } else if (snap.qr?.exists) {
+    hideQrActions()
+    setLoginStatus('')
+    setQrVisible(true, `/api/runtime/qq/qr?t=${snap.qr?.mtime || Date.now()}`)
+  } else {
+    hideQrActions()
+    setQrVisible(false)
+    setLoginStatus('正在获取二维码…')
+  }
+  ui.loginCancel.textContent = '取消'
+  ui.loginCancel.classList.remove('hidden')
+}
+
+function showRecovering(snap, accounts, chosen) {
+  hideDeadActions()
+  hideQrActions()
+  show('login')
+  renderLoginSteps(null)
+  setQrVisible(false)
+  const name = accountLabel(snap, accounts, chosen)
+  if (snap.phase === 'logging_in' && snap.message) {
+    setLoginStatus(snap.message)
+  } else {
+    setLoginStatus(name ? `正在恢复登录 ${name}` : '正在恢复登录…')
+  }
+  ui.loginCancel.textContent = '取消'
+  ui.loginCancel.classList.remove('hidden')
+}
+
+function showCancelling() {
+  cancellingLogin = true
+  setQrVisible(false)
+  if (ui.qr) {
+    ui.qr.removeAttribute('src')
+    ui.qr.src = ''
+  }
+  hideDeadActions()
+  hideQrActions()
+  if (ui.leavingTitle) ui.leavingTitle.textContent = '正在取消登录'
+  if (ui.leavingHint) ui.leavingHint.textContent = '请稍候…'
+  show('leaving')
+}
+
+function showInstanceDead(snap, accounts, chosen) {
+  hideQrActions()
+  const acc = chosen
+    || accounts.find((a) => a.id === snap.accounts?.activeId)
+    || accounts[0]
+  show('login')
+  renderLoginSteps(null)
+  setQrVisible(false)
+  const name = accountLabel(snap, accounts, chosen)
+  const reason = snap.message || 'QQ 实例已退出'
+  setLoginStatus(name ? `${reason}` : reason, { error: true })
+  ui.loginCancel.classList.add('hidden')
+  ui.deadActions?.classList.remove('hidden')
+  if (acc?.instanceId) discardImFrame(acc.instanceId)
 }
 
 function applyState(snap) {
   state = snap
   const accounts = accountsOf(snap)
-  if (viewingId && !accounts.some((a) => a.id === viewingId)) viewingId = null
+  if (viewingId === ADDING_ID && !snap.pendingAdd && !localAdding) viewingId = null
+  if (viewingId && viewingId !== ADDING_ID && !accounts.some((a) => a.id === viewingId)) viewingId = null
   pruneImFrames(accounts)
 
   if (leavingId) {
@@ -745,24 +876,44 @@ function applyState(snap) {
       showIm(chosen)
       return
     }
+    if (ui.leavingTitle) ui.leavingTitle.textContent = '正在退出账号'
+    if (ui.leavingHint) ui.leavingHint.textContent = '请稍候…'
     show('leaving')
     return
   }
 
-  if (localAdding) {
+  if (cancellingLogin || snap.phase === 'cancelling') {
+    renderAccounts(snap)
+    const aborting = snap.phase === 'cancelling'
+    const stillLogging = snap.pendingAdd || snap.phase === 'qr' || snap.phase === 'qr_expired'
+      || snap.phase === 'starting' || snap.phase === 'logging_in'
+    if (aborting || stillLogging) {
+      showCancelling()
+      return
+    }
+    cancellingLogin = false
+    if (viewingId === ADDING_ID) viewingId = null
+  }
+
+  const adding = Boolean(snap.pendingAdd || localAdding)
+  if (adding) {
     renderAccounts(snap)
     const newborn = accounts.find((a) => a.online && !accountsWhenAdding.has(a.id))
     if (newborn) {
       setAdding(false)
-      viewingId = newborn.id
-    } else if (snap.phase === 'error') {
-      show('login')
-      renderLoginSteps(snap.progress)
-      setQrVisible(false)
-      setLoginStatus(snap.message || '出错了', { error: true })
-      ui.loginCancel.classList.remove('hidden')
-      return
-    } else {
+      if (viewingId === ADDING_ID || !viewingId) viewingId = newborn.id
+    } else if (viewingId === ADDING_ID || !viewingId) {
+      viewingId = ADDING_ID
+      if (snap.phase === 'error') {
+        hideDeadActions()
+        hideQrActions()
+        show('login')
+        renderLoginSteps(snap.progress)
+        setQrVisible(false)
+        setLoginStatus(snap.message || '出错了', { error: true })
+        ui.loginCancel.classList.remove('hidden')
+        return
+      }
       showLoginProgress(snap)
       return
     }
@@ -791,9 +942,19 @@ function applyState(snap) {
   }
 
   if (chosen || accounts.length) {
-    show('login')
-    setQrVisible(false)
-    setLoginStatus(snap.message || '正在恢复登录…')
+    if (snap.pendingAdd) {
+      showLoginProgress(snap)
+      return
+    }
+    if (snap.phase === 'qr' || snap.phase === 'qr_expired') {
+      showQrScan(snap)
+      return
+    }
+    if (snap.phase === 'exited' || snap.phase === 'error') {
+      showInstanceDead(snap, accounts, chosen)
+      return
+    }
+    showRecovering(snap, accounts, chosen)
     return
   }
 
@@ -801,6 +962,35 @@ function applyState(snap) {
 }
 
 let menuAccountId = null
+let imNeedsReload = false
+
+function parkImFrames() {
+  for (const [, frame] of imFrames) {
+    frame.classList.add('hidden')
+    try { frame.src = 'about:blank' } catch { /* ignore */ }
+  }
+}
+
+function reloadImFrames(accounts) {
+  for (const [inst, frame] of imFrames) {
+    const acc = accounts.find((a) => a.instanceId === inst)
+    if (acc) {
+      try { frame.src = imSrc(acc) } catch { /* ignore */ }
+    }
+  }
+  imNeedsReload = false
+}
+
+function showGatewayWaiting() {
+  gatewayDown = true
+  parkImFrames()
+  hideDeadActions()
+  hideQrActions()
+  setQrVisible(false)
+  if (ui.leavingTitle) ui.leavingTitle.textContent = '正在等待恢复'
+  if (ui.leavingHint) ui.leavingHint.textContent = '与服务器的连接已断开，正在尝试重新连接…'
+  show('leaving')
+}
 
 function openAccountMenu(ev, account) {
   ev.preventDefault()
@@ -897,10 +1087,36 @@ async function removeAccount(id) {
   applyState(snap)
 }
 
+async function reloginAccount(id, { refreshQr = false } = {}) {
+  if (!id) return
+  hideDeadActions()
+  hideQrActions()
+  viewingId = id
+  const acc = accountsOf().find((a) => a.id === id)
+  showRecovering(state, accountsOf(), acc)
+  const body = { client: acc?.client || 'qq' }
+  if (acc?.uin) body.uin = acc.uin
+  if (refreshQr) body.refreshQr = true
+  const snap = await (await fetch('/api/runtime/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  })).json()
+  applyState(snap)
+}
+
 async function cancelPendingLogin() {
   setAdding(false)
-  const snap = await (await fetch('/api/runtime/login/cancel', { method: 'POST' })).json()
-  applyState(snap)
+  showCancelling()
+  try {
+    const res = await fetch('/api/runtime/login/cancel', { method: 'POST' })
+    const snap = await res.json()
+    applyState(snap)
+  } catch (err) {
+    cancellingLogin = false
+    show('login')
+    setLoginStatus(err?.message || '取消失败', { error: true })
+  }
 }
 
 function selectedClient() {
@@ -991,6 +1207,7 @@ async function startClient(clientId) {
     return
   }
   ui.modal.classList.add('hidden')
+  viewingId = ADDING_ID
   setAdding(true, accountsOf().map((a) => a.id))
   show('login')
   setLoginStatus('正在启动新账号…')
@@ -1012,6 +1229,11 @@ async function startClient(clientId) {
 
 async function selectAccount(id) {
   if (leavingId && id === leavingId) return
+  if (id === ADDING_ID) {
+    viewingId = ADDING_ID
+    applyState(state)
+    return
+  }
   if (id !== viewingId) {
     agentOpenKey = null
     clearAgentQuote()
@@ -1021,7 +1243,6 @@ async function selectAccount(id) {
   const acc = accountsOf().find((a) => a.id === id)
   renderAccounts(state)
   if (acc?.online && acc.instanceId) {
-    setAdding(false)
     show('im')
     showIm(acc)
   }
@@ -1037,16 +1258,30 @@ function connectStream() {
   const es = new EventSource('/api/runtime/stream')
   es.onmessage = (ev) => {
     try {
-      applyState(JSON.parse(ev.data))
+      const snap = JSON.parse(ev.data)
+      const wasDown = gatewayDown
+      gatewayDown = false
+      if (imNeedsReload || wasDown) reloadImFrames(accountsOf(snap))
+      applyState(snap)
     } catch { /* ignore */ }
   }
   es.onerror = () => {
-    setTimeout(connectStream, 2000)
+    imNeedsReload = true
+    if (!leavingId && !cancellingLogin) showGatewayWaiting()
     es.close()
+    clearTimeout(streamTimer)
+    streamTimer = setTimeout(connectStream, 2000)
   }
 }
 
-ui.add.addEventListener('click', () => ui.modal.classList.remove('hidden'))
+ui.add.addEventListener('click', () => {
+  if (localAdding || state?.pendingAdd) {
+    viewingId = ADDING_ID
+    applyState(state)
+    return
+  }
+  ui.modal.classList.remove('hidden')
+})
 ui.cancel.addEventListener('click', () => ui.modal.classList.add('hidden'))
 ui.ok.addEventListener('click', () => startClient(ui.select.value))
 ui.select.addEventListener('change', updateHint)
@@ -1054,6 +1289,38 @@ ui.launch?.addEventListener('click', () => startClient(selectedClientId))
 ui.dropBtn?.addEventListener('click', toggleClientMenu)
 ui.dropMenu?.addEventListener('click', (ev) => ev.stopPropagation())
 ui.loginCancel.addEventListener('click', cancelPendingLogin)
+ui.qrRefresh?.addEventListener('click', () => {
+  const accounts = accountsOf()
+  const chosen = viewingId ? accounts.find((a) => a.id === viewingId) : null
+  const acc = chosen
+    || accounts.find((a) => a.id === state?.accounts?.activeId)
+    || accounts[0]
+  if (acc?.id) {
+    reloginAccount(acc.id, { refreshQr: true })
+    return
+  }
+  fetch('/api/runtime/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ client: 'qq', refreshQr: true })
+  }).then((res) => res.json()).then((snap) => applyState(snap)).catch(() => {})
+})
+ui.deadRemove?.addEventListener('click', () => {
+  const accounts = accountsOf()
+  const chosen = viewingId ? accounts.find((a) => a.id === viewingId) : null
+  const acc = chosen
+    || accounts.find((a) => a.id === state?.accounts?.activeId)
+    || accounts[0]
+  if (acc?.id) removeAccount(acc.id)
+})
+ui.deadRelogin?.addEventListener('click', () => {
+  const accounts = accountsOf()
+  const chosen = viewingId ? accounts.find((a) => a.id === viewingId) : null
+  const acc = chosen
+    || accounts.find((a) => a.id === state?.accounts?.activeId)
+    || accounts[0]
+  if (acc?.id) reloginAccount(acc.id)
+})
 ui.botToggle?.addEventListener('change', () => {
   const acc = viewedAccount()
   if (!acc) return

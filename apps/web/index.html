@@ -52,15 +52,22 @@
         <ol id="login-steps" class="login-steps hidden"></ol>
         <p id="login-msg" class="login-status hidden">正在准备二维码…</p>
         <img id="qr" class="qr hidden" alt="登录二维码" />
-        <p id="qr-hint" class="hint hidden">请使用 QQ 扫描二维码, 约两分钟有效。</p>
-        <button id="login-cancel" class="btn ghost hidden" type="button">取消这次登录</button>
+        <p id="qr-hint" class="hint hidden">请使用 QQ 扫描二维码。约两分钟有效。</p>
+        <div id="login-qr-actions" class="login-dead hidden">
+          <button id="btn-qr-refresh" type="button" class="btn">刷新二维码</button>
+        </div>
+        <button id="login-cancel" class="btn ghost hidden" type="button">取消</button>
+        <div id="login-dead" class="login-dead hidden">
+          <button id="btn-dead-remove" type="button" class="btn ghost">退出账号</button>
+          <button id="btn-dead-relogin" type="button" class="btn">重新登录</button>
+        </div>
       </div>
 
       <div id="leaving" class="panel leaving-panel hidden">
         <div class="leaving-copy">
           <div class="leaving-spinner" aria-hidden="true"></div>
-          <p class="leaving-title">正在退出账号</p>
-          <p class="hint">请稍候…</p>
+          <p id="leaving-title" class="leaving-title">正在退出账号</p>
+          <p id="leaving-hint" class="hint">请稍候…</p>
         </div>
       </div>
 

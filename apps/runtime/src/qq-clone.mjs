@@ -62,6 +62,30 @@ function rewriteElectronHelperIds(appPath) {
   }
 }
 
+function patchNapcatQuickLogin(napcatMjs) {
+  if (!fs.existsSync(napcatMjs)) return false
+  let src = fs.readFileSync(napcatMjs, 'utf8')
+  const orig = src
+  src = src.replace(
+    `e.logError("快速登录错误：", u), ve.setQQLoginError(u);
+          const { success: l, attempted: d } = await s(r);
+          !l && !d && !t.isLogined && n.getQRCodePicture();`,
+    `e.logError("快速登录错误：", u), ve.setQQLoginError(u);
+          if (/手Q验证/.test(String(u))) { e.log("等待手机 QQ 确认登录"); return; }
+          const { success: l, attempted: d } = await s(r);
+          !l && !d && !t.isLogined && n.getQRCodePicture();`
+  )
+  src = src.replace(
+    `const d = u.loginErrorInfo?.errMsg || \`快速登录失败，错误码: \${u.result}\`;
+        ve.setQQLoginError(d), n.getQRCodePicture(), c({ result: !1, message: d });`,
+    `const d = u.loginErrorInfo?.errMsg || \`快速登录失败，错误码: \${u.result}\`;
+        ve.setQQLoginError(d), /手Q验证/.test(String(d)) || n.getQRCodePicture(), c({ result: !1, message: d });`
+  )
+  if (src === orig) return src.includes('等待手机 QQ 确认登录')
+  fs.writeFileSync(napcatMjs, src)
+  return true
+}
+
 function embedNapcat(appPath) {
   const src = path.join(
     os.homedir(),
@@ -73,6 +97,7 @@ function embedNapcat(appPath) {
   const dest = path.join(appPath, 'Contents/Resources/app/chihiro-napcat')
   fs.mkdirSync(dest, { recursive: true })
   run('rsync', ['-a', '--delete', `${src}/`, `${dest}/`])
+  patchNapcatQuickLogin(path.join(dest, 'napcat.mjs'))
   const loaderPath = path.join(appPath, 'Contents/Resources/app/loadNapCat.cjs')
   fs.writeFileSync(loaderPath, `const path = require('path')
 const loadNapcat = process.argv.includes('--no-sandbox')
@@ -144,6 +169,7 @@ export function ensureQqClone(root) {
     marker?.bundleId === BUNDLE_ID &&
     marker?.fix === CLONE_FIX
   ) {
+    patchNapcatQuickLogin(path.join(paths.app, 'Contents/Resources/app/chihiro-napcat/napcat.mjs'))
     return paths
   }
 

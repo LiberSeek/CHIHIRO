@@ -102,7 +102,7 @@ export function createRuntime({ root, cfg }) {
     }
 
     if (p === '/api/runtime/login/cancel' && method === 'POST') {
-      const snap = await qq.cancelPending()
+      const snap = await qq.cancelLogin()
       snap.astrbot = await astrbot.refreshStatus()
       return json(res, snap)
     }
@@ -122,7 +122,8 @@ export function createRuntime({ root, cfg }) {
       log('api', `start client=${clientId} mode=${body.mode || '-'} uin=${body.uin || '-'}`)
       const snap = await qq.start({
         uin: body.uin,
-        forceNew: body.mode === 'new' || body.forceNew === true
+        forceNew: body.mode === 'new' || body.forceNew === true,
+        refreshQr: body.refreshQr === true
       })
       snap.astrbot = await astrbot.refreshStatus()
       return json(res, snap)
@@ -131,7 +132,7 @@ export function createRuntime({ root, cfg }) {
     if (p === '/api/runtime/qq/qr' && method === 'GET') {
       const snap = qq.snapshot()
       const qr = snap.qr
-      if (!snap.pendingAdd || snap.phase !== 'qr' || !qr.exists) {
+      if (snap.phase !== 'qr' || !qr.exists) {
         res.writeHead(404, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({ error: 'qr_not_ready' }))
         return true

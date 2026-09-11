@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { liveNapcatSecrets, napcatPaths } from './napcat-secrets.mjs'
-import { ensureStapxsSelfEvents } from './napcat-ob11.mjs'
+import { ensureStapxsSelfEvents, checkQQLoginStatus, getQQWebuiLoginInfo } from './napcat-ob11.mjs'
 import { portOpen, portsForSlot, allocateIsolatedPorts, astrbotReversePort } from './qq-ports.mjs'
 import { ensureQqClone } from './qq-clone.mjs'
 import { log, logError } from './log.mjs'
@@ -19,6 +19,7 @@ const LOGIN_STEPS = [
   '等待二维码',
   '等待扫码登录'
 ]
+const QR_TTL_MS = 180000
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
@@ -41,12 +42,25 @@ function token(bytes = 8) {
   return randomBytes(bytes).toString('hex')
 }
 
+function clearQrFile(file) {
+  if (!file) return
+  try { fs.unlinkSync(file) } catch { /* no qr */ }
+}
+
 function qrStat(file) {
   try {
     const st = fs.statSync(file)
-    return { exists: true, mtime: st.mtimeMs, size: st.size, path: file }
+    const age = Date.now() - st.mtimeMs
+    return {
+      exists: true,
+      mtime: st.mtimeMs,
+      size: st.size,
+      path: file,
+      expired: age >= QR_TTL_MS,
+      age
+    }
   } catch {
-    return { exists: false, mtime: 0, size: 0, path: file }
+    return { exists: false, mtime: 0, size: 0, path: file, expired: false, age: 0 }
   }
 }
 
@@ -215,6 +229,29 @@ export function createQqRuntime({ store, logDir, root }) {
     }
   }
 
+  function exitReason(code, signal) {
+    if (signal === 'SIGKILL' || code === 137) return 'QQ 实例被强制结束'
+    if (signal === 'SIGTERM' || code === 143) return 'QQ 实例被结束'
+    if (signal) return `QQ 实例已退出 (${signal})`
+    if (code === 0 || code == null) return 'QQ 实例已退出'
+    return `QQ 实例异常退出 (code=${code})`
+  }
+
+  function markInstanceExited(inst, reason) {
+    if (!inst || inst.stopping || inst.phase === 'idle') return false
+    if (inst.phase === 'exited' && inst.message) return false
+    const firstLogin = pendingId === inst.id && !inst.uin
+    inst.pid = null
+    inst.child = null
+    inst.webuiUp = false
+    inst.onebotUp = false
+    inst.phase = firstLogin ? 'error' : 'exited'
+    inst.message = reason || 'QQ 实例已退出'
+    log('qq', `${inst.phase} ${inst.id} ${inst.message}`)
+    emit()
+    return true
+  }
+
   function viewInstance() {
     if (pendingId && instances.has(pendingId)) return instances.get(pendingId)
     const activeId = store.list().activeId
@@ -268,7 +305,9 @@ export function createQqRuntime({ store, logDir, root }) {
       nickname: view?.nickname || null,
       instanceId: view?.id || null,
       pendingAdd: Boolean(pendingId),
-      qr: view ? qrStat(view.qrPath) : { exists: false, mtime: 0, size: 0, path: '' },
+      qr: view && (view.phase === 'qr' || view.phase === 'qr_expired')
+        ? qrStat(view.qrPath)
+        : { exists: false, mtime: 0, size: 0, path: view?.qrPath || '', expired: false, age: 0 },
       webuiUp: view?.webuiUp || false,
       onebotUp: view?.onebotUp || false,
       webuiToken: view?.tokens?.webui || secrets.webui?.token || '',
@@ -305,10 +344,56 @@ export function createQqRuntime({ store, logDir, root }) {
   }
 
   async function refreshInstance(inst) {
+    if (inst.phase === 'cancelling' || inst.stopping) {
+      inst.qr = qrStat(inst.qrPath)
+      return inst
+    }
     inst.webuiUp = await portOpen(inst.ports.webui)
     inst.onebotUp = await portOpen(inst.ports.http)
     if (inst.kind === 'isolated' && inst.uin) {
       patchOnebotPorts(inst.napcatDir, inst.uin, inst.ports, inst.tokens)
+    }
+    if (
+      inst.kind === 'isolated'
+      && inst.phase === 'ready'
+      && !inst.onebotUp
+      && !inst.webuiUp
+    ) {
+      const alive = inst.pid && listQqCommands().some((r) => r.pid === inst.pid)
+      if (!alive) {
+        markInstanceExited(inst, 'QQ 实例进程已退出')
+        inst.qr = qrStat(inst.qrPath)
+        return inst
+      }
+    }
+    if (inst.webuiUp && inst.phase !== 'ready' && inst.tokens?.webui) {
+      const webui = `http://127.0.0.1:${inst.ports.webui}`
+      const token = inst.tokens.webui
+      try {
+        const st = await checkQQLoginStatus({ webui, token })
+        const wi = inst.qqLoggedIn ? null : await getQQWebuiLoginInfo({ webui, token }).catch(() => null)
+        const webUin = wi?.uin ? String(wi.uin) : ''
+        if (st?.isLogin || webUin) {
+          if (!inst.qqLoggedIn) log('qq', `webui login ${inst.id} uin=${webUin || inst.uin || '-'}`)
+          inst.qqLoggedIn = true
+          if (webUin) inst.uin = webUin
+          if (wi?.nick) inst.nickname = wi.nick
+          if (!inst.onebotUp) {
+            inst.phase = 'logging_in'
+            inst.message = '登录已确认，正在接入…'
+          }
+        } else if (/手Q验证/.test(st?.loginError || '')) {
+          inst.phase = 'logging_in'
+          inst.message = '请在手机 QQ 上确认登录'
+        } else if (st?.loginError && inst.phase !== 'qr') {
+          inst.message = st.loginError
+        } else if (inst.uin && inst.phase !== 'qr' && inst.phase !== 'qr_expired') {
+          inst.phase = 'logging_in'
+          inst.message = '请在手机 QQ 上确认登录'
+        }
+      } catch {
+        /* webui not ready */
+      }
     }
     if (inst.onebotUp) {
       const info = await getLoginInfo({
@@ -321,6 +406,7 @@ export function createQqRuntime({ store, logDir, root }) {
         inst.uin = String(info.user_id)
         inst.nickname = info.nickname || inst.nickname || ''
         inst.message = `已登录 ${inst.nickname} (${inst.uin})`
+        inst.qqLoggedIn = true
         setProgress(inst, LOGIN_STEPS.length + 1, inst.message)
         persistInstance(inst)
         if (becameReady && inst.tokens?.webui) {
@@ -336,6 +422,11 @@ export function createQqRuntime({ store, logDir, root }) {
       }
     }
     inst.qr = qrStat(inst.qrPath)
+    if (inst.phase === 'qr' && inst.qr.expired && !inst.qqLoggedIn) {
+      inst.phase = 'qr_expired'
+      inst.message = '二维码已过期'
+      emit()
+    }
     return inst
   }
 
@@ -436,6 +527,7 @@ export function createQqRuntime({ store, logDir, root }) {
   }
 
   async function stopInstance(inst) {
+    inst.stopping = true
     const first = pidsForInstance(inst)
     log('qq', `stop ${inst.id} pids=${first.join(',') || '-'}`)
     for (const pid of first) killPid(pid, 'SIGTERM')
@@ -452,6 +544,11 @@ export function createQqRuntime({ store, logDir, root }) {
     inst.webuiUp = false
     inst.onebotUp = false
     inst.message = '已退出'
+    inst.stopping = false
+    if (inst.kind !== 'official') {
+      clearQrFile(inst.qrPath)
+      inst.qr = qrStat(inst.qrPath)
+    }
   }
 
   function killOrphanCloneProcesses() {
@@ -560,6 +657,54 @@ export function createQqRuntime({ store, logDir, root }) {
     return snapshot()
   }
 
+  function loginInProgress(inst) {
+    return inst && ['qr', 'qr_expired', 'starting', 'logging_in'].includes(inst.phase)
+  }
+
+  async function abortRelogin() {
+    runSerial += 1
+    pendingId = null
+    const listed = store.list()
+    const acc = listed.accounts.find((a) => a.id === listed.activeId)
+      || listed.accounts[0]
+    const inst = (acc?.instanceId && instances.get(acc.instanceId))
+      || (acc?.uin && [...instances.values()].find((i) => i.uin && String(i.uin) === String(acc.uin)))
+      || viewInstance()
+      || [...instances.values()].find((i) => loginInProgress(i))
+    if (!inst) {
+      log('qq', 'abort relogin: no instance')
+      emit()
+      return snapshot()
+    }
+    log('qq', `abort relogin ${inst.id} phase=${inst.phase}`)
+    inst.stopping = true
+    inst.phase = 'cancelling'
+    inst.message = '正在取消登录'
+    clearQrFile(inst.qrPath)
+    inst.qr = qrStat(inst.qrPath)
+    emit()
+    await stopInstance(inst)
+    clearQrFile(inst.qrPath)
+    inst.qr = qrStat(inst.qrPath)
+    inst.phase = 'exited'
+    inst.message = '已取消重新登录'
+    emit()
+    return snapshot()
+  }
+
+  async function cancelLogin() {
+    const pending = pendingId && instances.get(pendingId)
+    const view = viewInstance()
+    const inst = pending
+      || view
+      || [...instances.values()].find((i) => loginInProgress(i))
+    const firstLogin = Boolean(pending && !pending.uin)
+    log('qq', `cancel login inst=${inst?.id || '-'} phase=${inst?.phase || '-'} pending=${pendingId || '-'} first=${firstLogin}`)
+    if (firstLogin || (pending && !inst?.uin)) return cancelPending()
+    if (inst) return abortRelogin()
+    return cancelPending()
+  }
+
   async function spawnInstance(inst, { uin } = {}) {
     fs.mkdirSync(logDir, { recursive: true })
     const logPath = path.join(logDir, `qq-${inst.id}.log`)
@@ -581,11 +726,14 @@ export function createQqRuntime({ store, logDir, root }) {
     fs.closeSync(logFd)
     inst.pid = child.pid
     inst.child = child
+    inst.qqLoggedIn = false
     log('qq', `spawn ${inst.id} pid=${child.pid} bin=${inst.bin}`)
     log('qq', `  ports webui=${inst.ports.webui} http=${inst.ports.http} ws=${inst.ports.ws}`)
     log('qq', `  log ${logPath}`)
     child.on('exit', (code, signal) => {
       log('qq', `exit ${inst.id} pid=${child.pid} code=${code} signal=${signal}`)
+      if (inst.pid && inst.pid !== child.pid) return
+      markInstanceExited(inst, exitReason(code, signal))
     })
     if (!inst.progress) setProgress(inst, 3, uin ? `正在快速登录 ${uin}` : '启动 QQ 进程')
     else inst.message = uin ? `正在快速登录 ${uin}` : inst.message
@@ -594,11 +742,12 @@ export function createQqRuntime({ store, logDir, root }) {
   }
 
   async function waitForInstance(inst, { acceptSame = true, previousUin = null, serial = runSerial, qrAfter = 0 } = {}) {
-    const deadline = Date.now() + 120000
+    let deadline = Date.now() + 120000
+    let qrAnnounced = false
     while (Date.now() < deadline) {
-      if (serial !== runSerial || !instances.has(inst.id)) return snapshot()
+      if (serial !== runSerial || !instances.has(inst.id) || inst.phase === 'cancelling' || inst.stopping) return snapshot()
       await refreshInstance(inst)
-      if (serial !== runSerial || !instances.has(inst.id)) return snapshot()
+      if (serial !== runSerial || !instances.has(inst.id) || inst.phase === 'cancelling' || inst.stopping) return snapshot()
       if (inst.phase === 'ready') {
         if (!acceptSame && previousUin && inst.uin === previousUin) {
           inst.phase = 'logging_in'
@@ -608,17 +757,27 @@ export function createQqRuntime({ store, logDir, root }) {
           return snapshot()
         }
       }
-      const qr = qrStat(inst.qrPath)
-      const qrFresh = qr.exists && qr.mtime >= qrAfter && Date.now() - qr.mtime < 180000
-      if (qrFresh) {
-        inst.phase = 'qr'
-        setProgress(inst, 6, '请使用手机 QQ 扫描二维码')
-        log('qq', `qr ready ${inst.id}`)
+      if (inst.qqLoggedIn) {
+        deadline = Math.max(deadline, Date.now() + 120000)
         emit()
-        return snapshot()
+        await sleep(1000)
+        continue
+      }
+      const qr = qrStat(inst.qrPath)
+      const qrFresh = qr.exists && !qr.expired && qr.mtime >= qrAfter
+      if (qrFresh) {
+        deadline = Math.max(deadline, Date.now() + 180000)
+        inst.phase = 'qr'
+        setProgress(inst, 6, '请使用 QQ 扫描二维码。约两分钟有效。')
+        if (!qrAnnounced) {
+          log('qq', `qr ready ${inst.id}`)
+          qrAnnounced = true
+        }
+        emit()
       } else if (inst.webuiUp && !inst.onebotUp) {
         inst.phase = 'logging_in'
-        setProgress(inst, 5, '等待二维码')
+        setProgress(inst, 5, inst.uin ? '请在手机 QQ 上确认登录' : '等待二维码')
+        if (inst.uin) deadline = Math.max(deadline, Date.now() + 180000)
         emit()
       } else if (!inst.webuiUp) {
         setProgress(inst, 4, '等待 WebUI')
@@ -626,10 +785,15 @@ export function createQqRuntime({ store, logDir, root }) {
       }
       await sleep(1000)
     }
-    if (serial !== runSerial || !instances.has(inst.id)) return snapshot()
+    if (serial !== runSerial || !instances.has(inst.id) || inst.phase === 'cancelling' || inst.stopping) return snapshot()
     if (inst.phase !== 'ready') {
-      inst.phase = qrStat(inst.qrPath).exists ? 'qr' : 'error'
-      if (inst.phase === 'error') inst.message = '启动超时，请重试'
+      if (inst.qqLoggedIn) {
+        inst.phase = 'logging_in'
+        inst.message = '登录已确认，正在接入…'
+      } else {
+        inst.phase = qrStat(inst.qrPath).exists ? 'qr' : 'error'
+        if (inst.phase === 'error') inst.message = '启动超时，请重试'
+      }
       emit()
     }
     return snapshot()
@@ -677,27 +841,54 @@ export function createQqRuntime({ store, logDir, root }) {
     }
   }
 
-  async function start({ uin, forceNew = false } = {}) {
+  async function start({ uin, forceNew = false, refreshQr = false } = {}) {
     await refreshPorts()
+
+    if (refreshQr && !forceNew) {
+      const inst = (uin
+        ? [...instances.values()].find((i) => i.uin && String(i.uin) === String(uin))
+        : null)
+        || (pendingId ? instances.get(pendingId) : null)
+        || viewInstance()
+      if (inst?.kind === 'isolated') {
+        if (inst.pid) await stopInstance(inst)
+        inst.phase = 'starting'
+        setProgress(inst, 3, '正在刷新二维码')
+        emit()
+        const clone = ensureQqClone(root)
+        inst.bin = clone.bin
+        try { fs.unlinkSync(inst.qrPath) } catch { /* no stale qr */ }
+        await spawnInstance(inst, { uin: uin || inst.uin })
+        return waitForInstance(inst, { qrAfter: Date.now() })
+      }
+    }
 
     if (!forceNew && uin) {
       const existing = [...instances.values()].find((i) => i.uin && String(i.uin) === String(uin))
-      if (existing?.phase === 'ready') {
+      if (existing?.phase === 'ready' && !refreshQr) {
         store.setActive(`qq:${uin}`)
-        pendingId = null
         emit()
         return snapshot()
       }
       if (existing?.kind === 'isolated') {
         pendingId = null
         store.setActive(`qq:${uin}`)
-        if (!existing.pid || !listQqCommands().some((r) => r.pid === existing.pid)) {
+        const dead = !existing.pid || !listQqCommands().some((r) => r.pid === existing.pid)
+        const relogin = refreshQr
+          || dead
+          || existing.phase === 'exited'
+          || existing.phase === 'qr'
+          || existing.phase === 'qr_expired'
+        if (relogin) {
+          if (existing.pid) await stopInstance(existing)
           existing.phase = 'starting'
-          setProgress(existing, 3, `正在恢复 ${uin}`)
+          setProgress(existing, 3, refreshQr ? '正在刷新二维码' : `正在恢复 ${uin}`)
           emit()
           const clone = ensureQqClone(root)
           existing.bin = clone.bin
+          try { fs.unlinkSync(existing.qrPath) } catch { /* no stale qr */ }
           await spawnInstance(existing, { uin })
+          return waitForInstance(existing, { qrAfter: Date.now() })
         }
         return waitForInstance(existing)
       }
@@ -723,8 +914,8 @@ export function createQqRuntime({ store, logDir, root }) {
   }
 
   function setActiveAccount(accountId) {
-    pendingId = null
     log('qq', `switch active=${accountId}`)
+    store.setActive(accountId)
     emit()
   }
 
@@ -845,6 +1036,8 @@ export function createQqRuntime({ store, logDir, root }) {
     setActiveAccount,
     removeAccount,
     cancelPending,
+    abortRelogin,
+    cancelLogin,
     getInstanceProxy,
     getReadyProxy,
     getInstanceForAccount,

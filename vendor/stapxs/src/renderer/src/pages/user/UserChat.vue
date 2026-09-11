@@ -1090,7 +1090,7 @@ onMounted(() => {
             updateList(newIds.length, oldIds.length)
         },
     )
-    watch(() => chat.info.jin_info.list.length, () => {
+    watch(() => chat.info.jin_info?.list?.length ?? 0, () => {
             tags.value.isJinLoading = false
         },
     )

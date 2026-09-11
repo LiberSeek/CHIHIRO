@@ -151,4 +151,24 @@ export async function setAstrbotClient({ webui, token }, reverse, enabled, uin) 
   return { changed: true, config }
 }
 
+export async function checkQQLoginStatus({ webui, token }) {
+  return withAuth(webui, token, async (credential) => {
+    const { unwrap: data } = await napcatFetch(webui, '/api/QQLogin/CheckLoginStatus', {
+      credential,
+      json: {}
+    })
+    return data || {}
+  })
+}
+
+export async function getQQWebuiLoginInfo({ webui, token }) {
+  return withAuth(webui, token, async (credential) => {
+    const { unwrap: data } = await napcatFetch(webui, '/api/QQLogin/GetQQLoginInfo', {
+      credential,
+      json: {}
+    })
+    return data || {}
+  })
+}
+
 export { CLIENT_NAME }
