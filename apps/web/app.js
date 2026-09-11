@@ -23,6 +23,11 @@ const ui = {
   deadRelogin: $('btn-dead-relogin'),
   menu: $('account-menu'),
   menuRemove: $('menu-remove'),
+  settings: $('btn-settings'),
+  settingsMenu: $('settings-menu'),
+  menuImSettings: $('menu-im-settings'),
+  menuNapcat: $('menu-napcat'),
+  menuAstrbot: $('menu-astrbot'),
   launch: $('btn-launch'),
   drop: $('client-dropdown'),
   dropBtn: $('client-drop-btn'),
@@ -1007,6 +1012,51 @@ function hideAccountMenu() {
   menuAccountId = null
 }
 
+function hideSettingsMenu() {
+  ui.settingsMenu?.classList.add('hidden')
+  ui.settings?.setAttribute('aria-expanded', 'false')
+  ui.settings?.classList.remove('is-on')
+}
+
+function currentImFrame() {
+  const acc = viewedAccount()
+  if (!acc?.instanceId) return null
+  return imFrames.get(acc.instanceId) || null
+}
+
+function openImSettings() {
+  const frame = currentImFrame()
+  if (!frame || frame.classList.contains('hidden')) {
+    alert('请先进入一个已登录账号，再打开设置。')
+    return
+  }
+  try {
+    frame.contentWindow.postMessage({ source: 'chihiro-shell', kind: 'open-options' }, '*')
+  } catch {
+    alert('无法打开设置')
+  }
+}
+
+function openSettingsMenu(ev) {
+  ev.stopPropagation()
+  hideAccountMenu()
+  const menu = ui.settingsMenu
+  if (!menu || !ui.settings) return
+  const opening = menu.classList.contains('hidden')
+  if (!opening) {
+    hideSettingsMenu()
+    return
+  }
+  menu.classList.remove('hidden')
+  ui.settings.setAttribute('aria-expanded', 'true')
+  ui.settings.classList.add('is-on')
+  const rect = ui.settings.getBoundingClientRect()
+  const h = menu.offsetHeight
+  const w = menu.offsetWidth
+  menu.style.left = `${Math.min(window.innerWidth - w - 8, rect.right + 8)}px`
+  menu.style.top = `${Math.min(window.innerHeight - h - 8, Math.max(8, rect.top))}px`
+}
+
 function askConfirm({ title, body, okText = '确定' }) {
   return new Promise((resolve) => {
     if (!ui.confirm) {
@@ -1401,8 +1451,29 @@ ui.menuRemove.addEventListener('click', async () => {
   hideAccountMenu()
   if (id) await removeAccount(id)
 })
+ui.settings?.addEventListener('click', openSettingsMenu)
+ui.settingsMenu?.addEventListener('click', (ev) => ev.stopPropagation())
+ui.menuImSettings?.addEventListener('click', () => {
+  hideSettingsMenu()
+  openImSettings()
+})
+ui.menuNapcat?.addEventListener('click', () => {
+  hideSettingsMenu()
+  const src = napcatSettingsUrl()
+  if (!src) {
+    alert('请先登录一个 QQ 账号，再打开 NapCat 设置。')
+    return
+  }
+  if (ui.dashFrame) ui.dashFrame.dataset.loaded = ''
+  openDrawer({ title: 'NapCat 设置', hint: '当前 QQ 实例的 OneBot / 网络配置', src })
+})
+ui.menuAstrbot?.addEventListener('click', () => {
+  hideSettingsMenu()
+  openDashboard()
+})
 document.addEventListener('click', () => {
   hideAccountMenu()
+  hideSettingsMenu()
   closeClientMenu()
 })
 ui.menu.addEventListener('click', (ev) => ev.stopPropagation())

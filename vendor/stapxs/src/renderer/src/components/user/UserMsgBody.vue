@@ -422,14 +422,14 @@ const contactStore = useContactStore()
 const chatStore = useChatStore()
 const settingsStore = useSettingsStore()
 import Emoji from '@renderer/function/model/emoji'
-import EmojiFace from '@renderer/components/EmojiFace.vue'
-import LazyLottie from '@renderer/components/LazyLottie.vue'
+import EmojiFace from '@renderer/components/user/UserEmojiFace.vue'
+import LazyLottie from '@renderer/components/user/UserLazyLottie.vue'
 import { Img } from '@renderer/function/model/img'
 import { dbGetImage, hashUrl } from '@renderer/function/utils/localHistoryUtil'
-import JsonSegComp from '@renderer/components/msg-component/JsonSegComp.vue'
-import XmlSegComp from '@renderer/components/msg-component/XmlSegComp.vue'
-import VoiceMsg from '@renderer/components/VoiceMsg.vue'
-import { addMusic, MusicInfo } from '@renderer/components/MusicPlayer.vue'
+import JsonSegComp from '@renderer/components/user/UserJsonSegComp.vue'
+import XmlSegComp from '@renderer/components/user/UserXmlSegComp.vue'
+import VoiceMsg from '@renderer/components/user/UserVoiceMsg.vue'
+import { addMusic, MusicInfo } from '@renderer/components/user/UserMusicPlayer.vue'
 
 type Msg = any
 type IUser = any

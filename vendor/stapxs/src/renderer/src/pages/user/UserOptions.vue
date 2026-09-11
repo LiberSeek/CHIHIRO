@@ -86,13 +86,13 @@
     import packageInfo from '../../../../../package.json'
 
     import BcTab from 'vue3-bcui/packages/bc-tab'
-    import OptAccount from '@renderer/pages/options/OptAccount.vue'
-    import OptView from '@renderer/pages/options/OptView.vue'
-    import OptDev from '@renderer/pages/options/OptDev.vue'
-    import OptFunction from '@renderer/pages/options/OptFunction.vue'
-    import OptAddon from '@renderer/pages/options/OptAddon.vue'
+    import OptAccount from '@renderer/pages/user/UserOptAccount.vue'
+    import OptView from '@renderer/pages/user/UserOptView.vue'
+    import OptDev from '@renderer/pages/user/UserOptDev.vue'
+    import OptFunction from '@renderer/pages/user/UserOptFunction.vue'
+    import OptAddon from '@renderer/pages/user/UserOptAddon.vue'
 
-    import AboutPan from '@renderer/components/AboutPan.vue'
+    import AboutPan from '@renderer/components/user/UserAboutPan.vue'
 
     defineOptions({ name: 'UserOptions' })
 

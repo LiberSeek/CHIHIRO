@@ -344,11 +344,11 @@ import Options from '@renderer/pages/user/UserOptions.vue'
 import Friends from '@renderer/pages/user/UserFriends.vue'
 import Messages from '@renderer/pages/user/UserMessages.vue'
 import Qzone from '@renderer/pages/user/UserQzone.vue'
-import MusicPlayer, { getCurrentMusic } from './components/MusicPlayer.vue'
-import FileManager, { panelVisible, closePanel, getDownloadTasks, getUploadTasks } from './components/FileManager.vue'
-import GlobalSessionSearchBar from './components/GlobalSessionSearchBar.vue'
-import NtViewer from './components/ViewerCom.vue'
-import Tooltips from './components/tooltip/Tooltips.vue'
+import MusicPlayer, { getCurrentMusic } from './components/user/UserMusicPlayer.vue'
+import FileManager, { panelVisible, closePanel, getDownloadTasks, getUploadTasks } from './components/user/UserFileManager.vue'
+import GlobalSessionSearchBar from './components/user/UserGlobalSessionSearchBar.vue'
+import NtViewer from './components/user/UserViewerCom.vue'
+import Tooltips from './components/user/tooltip/UserTooltips.vue'
 import { useQzoneStore } from './state/qzone'
 
 // 注册组件实例
@@ -405,6 +405,14 @@ const tags = shallowReactive({
     chihiroMenu: false,
 })
 document.addEventListener('click', () => { tags.chihiroMenu = false })
+window.addEventListener('message', (ev) => {
+    const data = ev.data
+    if (!data || data.source !== 'chihiro-shell') return
+    if (data.kind === 'open-options') {
+        if (tags.page === 'Options') changeTab('信息', 'Messages', true)
+        else changeTab('设置', 'Options', false)
+    }
+})
 function toggleChihiroMenu() {
     tags.chihiroMenu = !tags.chihiroMenu
 }

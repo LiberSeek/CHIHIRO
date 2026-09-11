@@ -44,14 +44,16 @@ html.chihiro-settings-only .main-body > div {
 }
 
 .user-skin.chat-pan > div.more {
-    background: var(--color-card) !important;
+    background: var(--color-bg) !important;
     transition: background 0.3s;
     pointer-events: all;
     position: absolute;
     bottom: 0px;
     width: 100%;
-    border-top: 1px solid var(--color-card-2) !important;
-    box-shadow: 0 -1px 0 var(--color-card-2);
+    box-sizing: border-box !important;
+    border-top: 0 !important;
+    box-shadow: none !important;
+    padding: 8px 16px 14px !important;
 }
 .user-skin.chat-pan > div.more > div:nth-child(2) {
     display: block !important;
@@ -63,75 +65,101 @@ html.chihiro-settings-only .main-body > div {
     background: transparent !important;
     border-radius: 0 !important;
 }
-.user-skin.chat-pan > div.more > div:nth-child(2) > div > form,
-.user-skin.chat-pan > div.more > div:nth-child(2) > form,
-.chihiro-composer-form {
-    width: 100% !important;
-    display: block !important;
-    align-items: stretch !important;
-    flex: none !important;
-}
-.user-skin.chat-pan > div.more > div:nth-child(2) > div > form > input,
-.user-skin.chat-pan > div.more > div:nth-child(2) > div > form > textarea,
-.user-skin.chat-pan > div.more > div:nth-child(2) > form > input,
-.user-skin.chat-pan > div.more > div:nth-child(2) > form > textarea,
-.chihiro-composer-form input,
-.chihiro-composer-form textarea {
-    width: 100% !important;
-    min-height: 112px !important;
-    height: auto !important;
-    max-height: 28vh !important;
-    margin: 0 0 8px 0 !important;
-    padding: 10px 20px 16px !important;
-    background: transparent !important;
-    border: 0 !important;
-    outline: none !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
-    color: var(--color-font) !important;
-    font-size: 14px !important;
-    line-height: 1.6 !important;
-    resize: none !important;
-    overflow-y: auto;
-    caret-color: var(--color-font);
-}
-.user-skin.chat-pan > div.more > div:nth-child(2) > div > form > input:disabled,
-.user-skin.chat-pan > div.more > div:nth-child(2) > div > form > textarea:disabled,
-.chihiro-composer-form input:disabled,
-.chihiro-composer-form textarea:disabled {
-    background: transparent !important;
-    outline: none !important;
-    color: var(--color-font-2);
-    opacity: 0.7;
-    text-align: left;
-    font-size: 0.85rem;
-}
 .chihiro-composer {
     display: flex;
     flex-direction: column;
     width: 100%;
     background: transparent;
 }
+.chihiro-composer-row {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 36px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    cursor: default !important;
+    flex: none !important;
+}
+.user-skin.chat-pan > div.more > .chihiro-composer {
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    background: transparent !important;
+    cursor: default !important;
+}
+.user-skin.chat-pan > div.more > .chihiro-composer > .chihiro-composer-row {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 36px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+.user-skin.chat-pan > div.more > .chihiro-composer > .chihiro-composer-row > .chihiro-plus-wrap {
+    width: 36px !important;
+    height: 36px !important;
+    margin: 0 !important;
+}
+.chihiro-composer-form {
+    position: relative;
+    flex: 1 !important;
+    align-self: center !important;
+    min-width: 0;
+    width: auto !important;
+    min-height: 36px;
+    display: flex !important;
+    align-items: center !important;
+}
+.chihiro-composer-form input,
+.chihiro-composer-form textarea {
+    width: 100% !important;
+    height: 36px;
+    min-height: 36px !important;
+    max-height: 120px !important;
+    margin: 0 !important;
+    padding: 0 40px 0 14px !important;
+    background: var(--color-card-1) !important;
+    border: 1px solid rgba(127, 127, 127, 0.22) !important;
+    outline: none !important;
+    box-shadow: none !important;
+    border-radius: 18px !important;
+    color: var(--color-font) !important;
+    font-size: 14px !important;
+    line-height: 34px !important;
+    resize: none !important;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box !important;
+    caret-color: var(--color-font);
+    align-content: center;
+    vertical-align: middle;
+}
+.chihiro-composer-form textarea.is-multiline {
+    padding: 8px 40px 8px 14px !important;
+    line-height: 18px !important;
+    align-content: start;
+}
+.chihiro-composer-form input:focus,
+.chihiro-composer-form textarea:focus {
+    border-color: rgba(0, 122, 255, 0.45) !important;
+}
+.chihiro-composer-form input:disabled,
+.chihiro-composer-form textarea:disabled {
+    background: var(--color-card-1) !important;
+    outline: none !important;
+    color: var(--color-font-2);
+    opacity: 0.7;
+    text-align: left;
+    font-size: 0.85rem;
+}
 .chihiro-composer-form textarea::placeholder,
 .chihiro-composer-form input::placeholder {
     color: var(--color-font-2);
     opacity: 0.65;
-}
-.chihiro-toolbar {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between;
-    width: 100% !important;
-    height: 44px !important;
-    min-height: 44px !important;
-    max-height: 44px !important;
-    margin: 0 !important;
-    padding: 2px 10px 0 !important;
-    border-top: none !important;
-    border-bottom: none !important;
-    box-sizing: border-box;
-    background: transparent !important;
-    border-radius: 0 !important;
 }
 .chihiro-tools,
 .chihiro-tools-right {
@@ -139,16 +167,17 @@ html.chihiro-settings-only .main-body > div {
     align-items: center;
     gap: 2px;
     width: auto !important;
-    height: auto !important;
+    height: 36px !important;
     margin: 0 !important;
     background: transparent !important;
+    flex: 0 0 auto;
 }
 .chihiro-tools > div,
 .chihiro-tools-right > div {
-    width: 36px !important;
-    height: 36px !important;
+    width: 32px !important;
+    height: 32px !important;
     margin: 0 !important;
-    border-radius: 6px !important;
+    border-radius: 50% !important;
     display: grid !important;
     place-items: center;
     cursor: pointer;
@@ -162,17 +191,17 @@ html.chihiro-settings-only .main-body > div {
 }
 .chihiro-composer svg,
 .user-skin.chat-pan > div.more > div:nth-child(2) svg {
-    width: 18px !important;
-    height: 18px !important;
+    width: 16px !important;
+    height: 16px !important;
     margin: 0 !important;
     color: var(--color-font-1) !important;
     fill: currentColor;
 }
 .chihiro-feature-btn {
-    width: 36px !important;
-    height: 36px !important;
+    width: 32px !important;
+    height: 32px !important;
     border: 0 !important;
-    border-radius: 6px !important;
+    border-radius: 50% !important;
     background: transparent !important;
 }
 .chihiro-feature-btn:hover {
@@ -183,33 +212,171 @@ html.chihiro-settings-only .main-body > div {
     height: 14px !important;
     color: var(--color-font-1) !important;
 }
-
 .chihiro-tools > div.active,
 .chihiro-face-btn.active {
     background: var(--color-card-1) !important;
 }
+.chihiro-send {
+    appearance: none;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    align-self: center;
+    border: 0;
+    border-radius: 50%;
+    background: #007aff;
+    color: #fff;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+}
+.chihiro-send:hover { filter: brightness(1.08); }
+.chihiro-send svg {
+    width: 16px !important;
+    height: 16px !important;
+    color: #fff !important;
+}
+.chihiro-plus-wrap {
+    position: relative;
+    flex: 0 0 36px !important;
+    align-self: center !important;
+    width: 36px !important;
+    height: 36px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    cursor: default !important;
+}
+.chihiro-plus-wrap:hover {
+    background: transparent !important;
+}
+.chihiro-plus {
+    appearance: none;
+    width: 36px !important;
+    height: 36px !important;
+    margin: 0 !important;
+    border: 0;
+    border-radius: 50%;
+    background: transparent !important;
+    color: var(--color-font-1);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    padding: 0;
+}
+.chihiro-plus:hover {
+    background: transparent !important;
+    color: var(--color-font) !important;
+}
+.chihiro-plus.active {
+    background: rgba(127, 127, 127, 0.16) !important;
+    color: var(--color-font) !important;
+}
+.chihiro-plus-menu {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 8px);
+    min-width: 148px;
+    padding: 6px;
+    background: var(--color-card);
+    border: 1px solid var(--color-card-2);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.42);
+    z-index: 40;
+}
+.chihiro-plus-menu button {
+    appearance: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin: 0;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--color-font);
+    font-size: 13px;
+    cursor: pointer;
+    text-align: left;
+}
+.chihiro-plus-menu button:hover {
+    background: var(--color-card-1);
+}
+.chihiro-plus-menu button svg {
+    width: 14px !important;
+    height: 14px !important;
+    color: var(--color-font-1) !important;
+}
+.chihiro-input-face {
+    appearance: none;
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-font-1);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    padding: 0;
+}
+.chihiro-input-face:hover,
+.chihiro-input-face.active {
+    background: rgba(127, 127, 127, 0.18);
+}
+.chihiro-input-face svg {
+    width: 15px !important;
+    height: 15px !important;
+    color: var(--color-font-1) !important;
+}
+.chihiro-file-input {
+    display: none;
+}
+.user-skin .more-detail {
+    display: none !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+.user-skin.chat-pan > div.new-msg {
+    display: none !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
+}
 .chihiro-head-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
     pointer-events: all;
     flex: 0 0 auto;
+    margin-right: 0;
 }
-.chihiro-history-btn,
-.chihiro-head-actions .more {
-    background: var(--color-card-2);
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-history-btn,
+.user-skin.chat-pan > div.info > .chihiro-head-actions .more {
+    background: transparent;
     border-radius: 50%;
     cursor: pointer;
-    height: 45px;
-    width: 45px;
+    height: 32px !important;
+    width: 32px !important;
+    margin: 0 !important;
     display: grid;
     place-items: center;
 }
-.chihiro-history-btn svg,
-.chihiro-head-actions .more svg {
-    color: var(--color-main);
-    height: 22px !important;
-    width: 22px !important;
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-history-btn svg,
+.user-skin.chat-pan > div.info > .chihiro-head-actions .more svg {
+    color: var(--color-font-1) !important;
+    height: 16px !important;
+    width: 16px !important;
     margin: 0 !important;
 }
 .chihiro-history-btn:hover,
@@ -386,10 +553,11 @@ html.chihiro-settings-only .main-body > div {
     background: var(--color-card) !important;
     transform: none !important;
     position: absolute !important;
-    left: 12px !important;
+    left: auto !important;
+    right: 16px !important;
     bottom: 100% !important;
     top: auto !important;
-    margin: 0 0 8px 0 !important;
+    margin: 0 0 6px 0 !important;
     height: min(372px, 55vh) !important;
     width: min(520px, calc(100% - 24px)) !important;
     padding: 0 !important;
@@ -505,4 +673,776 @@ html.chihiro-settings-only .main-body > div {
 }
 .user-skin .face-pan .custom-face-bar .face {
     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+}
+
+/* Beeper current-v4 visual language */
+:root {
+    --color-main: #007aff;
+    --color-main-0: #007aff;
+    --color-font-r: #ffffff;
+    --color-font-1-r: rgba(255, 255, 255, 0.78);
+    --chihiro-list-width: 280px;
+}
+html, body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif !important;
+    background: var(--color-bg) !important;
+}
+html.bp-dark {
+    --color-bg: #1c1c1e;
+    --color-card: #2c2c2e;
+    --color-card-1: #3a3a3c;
+    --color-card-2: #48484a;
+    --color-bg-rgb: 28, 28, 30;
+    --color-card-rgb: 44, 44, 46;
+    --color-card-1-rgb: 58, 58, 60;
+    --color-card-2-rgb: 72, 72, 74;
+    --color-font: #f5f5f7;
+    --color-font-1: #c7c7cc;
+    --color-font-2: #8e8e93;
+    --color-shader: #00000066;
+}
+html.bp-light {
+    --color-bg: #ffffff;
+    --color-card: #ffffff;
+    --color-card-1: #f3f3f3;
+    --color-card-2: #e8e8e8;
+    --color-bg-rgb: 255, 255, 255;
+    --color-card-rgb: 255, 255, 255;
+    --color-card-1-rgb: 243, 243, 243;
+    --color-card-2-rgb: 232, 232, 232;
+    --color-font: #171717;
+    --color-font-1: #595959;
+    --color-font-2: #858585;
+    --color-shader: #00000026;
+}
+
+#base-app {
+    position: relative;
+}
+#base-app .app-msg {
+    left: 0;
+    right: 0;
+    top: 0;
+    width: 100%;
+    height: auto;
+    max-height: 100%;
+    padding: 20px 24px 0 !important;
+    box-sizing: border-box;
+    flex-direction: column !important;
+    justify-content: flex-start;
+    align-items: center;
+    pointer-events: none;
+    z-index: 20;
+}
+#base-app .app-msg > div {
+    max-width: min(420px, calc(100% - 24px));
+    margin: 4px 0;
+}
+#base-app #side-bar {
+    display: none !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+#base-app .chat-pan,
+#base-app .chat-pan.withBar {
+    left: var(--chihiro-list-width) !important;
+    top: 0 !important;
+    height: 100% !important;
+    background-color: var(--color-bg) !important;
+}
+#base-app .friend-list-container {
+    width: var(--chihiro-list-width);
+    flex: 0 0 var(--chihiro-list-width);
+    max-width: var(--chihiro-list-width);
+    overflow: hidden;
+}
+#base-app .friend-list {
+    width: var(--chihiro-list-width) !important;
+    flex: 0 0 var(--chihiro-list-width);
+    min-width: var(--chihiro-list-width);
+    max-width: var(--chihiro-list-width);
+    background: var(--color-card-1) !important;
+    box-sizing: border-box;
+}
+#base-app .group-assist-message-list {
+    margin-right: calc(-1 * var(--chihiro-list-width)) !important;
+}
+#base-app .group-assist-message-list.show {
+    margin-left: calc(-1 * var(--chihiro-list-width)) !important;
+    margin-right: 0 !important;
+}
+#base-app .friend-list-space {
+    background: var(--color-card-1) !important;
+}
+#base-app .friend-list > div:last-child {
+    width: 100% !important;
+    padding: 0 6px 8px !important;
+    box-sizing: border-box;
+}
+#base-app .friend-list > div:first-child {
+    margin: 0 !important;
+    padding: 4px 8px 0 !important;
+}
+#base-app .friend-list > div:first-child > div.base {
+    height: 44px;
+    padding: 0 8px !important;
+    border-radius: 0 !important;
+}
+#base-app .friend-list > div:first-child > div.base > span {
+    font-size: 15px;
+    font-weight: 650;
+}
+#base-app .friend-list > div:first-child > div.base > svg {
+    margin: 0 4px;
+    width: 14px;
+    color: var(--color-font-1);
+    cursor: pointer;
+}
+.chihiro-inbox-tabs {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 8px 8px;
+    border-bottom: 1px solid rgba(127, 127, 127, 0.14);
+}
+.chihiro-inbox-tabs button {
+    appearance: none;
+    background: none;
+    border: 0;
+    color: var(--color-font-2);
+    font-size: 13px;
+    padding: 4px 0 8px;
+    cursor: pointer;
+    position: relative;
+}
+.chihiro-inbox-tabs button.is-on {
+    color: var(--color-font);
+    font-weight: 600;
+}
+.chihiro-inbox-tabs button.is-on::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--color-main);
+    border-radius: 2px;
+}
+
+#base-app .friend-list > div:first-child > label,
+#base-app .friend-list > div:first-child > label.chihiro-contact-search {
+    height: 32px !important;
+    min-height: 32px;
+    margin: 8px 8px 10px !important;
+    padding: 0 12px !important;
+    width: auto !important;
+    align-items: center;
+    display: flex;
+    box-sizing: border-box;
+    background: rgba(127, 127, 127, 0.12) !important;
+    border: 1px solid transparent !important;
+    border-bottom: 1px solid transparent !important;
+    border-radius: 16px !important;
+    opacity: 1 !important;
+}
+#base-app .friend-list > div:first-child > label:focus-within,
+#base-app .friend-list > div:first-child > label.chihiro-contact-search:focus-within {
+    border-color: rgba(0, 122, 255, 0.45) !important;
+    background: var(--color-card) !important;
+}
+#base-app .friend-list > div:first-child label > svg {
+    order: -1;
+    margin: 0 8px 0 0 !important;
+    height: 12px !important;
+    width: 12px;
+    color: var(--color-font-2) !important;
+    flex-shrink: 0;
+}
+#base-app .friend-list > div:first-child label > input {
+    background: transparent !important;
+    font-size: 13px !important;
+    padding: 0 !important;
+    height: 100% !important;
+    width: 100%;
+    margin: 0;
+    border: 0;
+    color: var(--color-font);
+    outline: none;
+}
+#base-app .friend-list > div:first-child label > input::placeholder {
+    color: var(--color-font-2);
+    opacity: 0.85;
+}
+
+#base-app .exp-header {
+    margin: 4px 8px 2px !important;
+    padding: 6px 10px !important;
+    border-radius: 8px !important;
+    min-height: 32px;
+}
+#base-app .exp-header > span {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-font-2);
+}
+#base-app .exp-header > a {
+    font-size: 11px !important;
+}
+
+#base-app .friend-body {
+    margin: 2px 8px !important;
+    padding: 6px 8px !important;
+    min-height: 54px;
+    align-items: center;
+    border-radius: 10px !important;
+}
+#base-app .friend-body img,
+#base-app .friend-body > svg {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    border: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+}
+#base-app .friend-body > svg {
+    padding: 8px !important;
+    background: var(--color-card-2) !important;
+}
+#base-app .friend-body > div:nth-child(1) {
+    display: none !important;
+}
+#base-app .friend-body > div {
+    margin-left: 10px;
+}
+#base-app .friend-body p {
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 0 !important;
+}
+#base-app .friend-body > div > div a {
+    font-size: 12px;
+}
+#base-app .friend-body.active {
+    background: var(--color-main) !important;
+    color: #fff !important;
+}
+#base-app .friend-body.active p,
+#base-app .friend-body.active a,
+#base-app .friend-body.active > div > div a,
+#base-app .friend-body.active > a {
+    color: #fff !important;
+}
+#base-app .friend-body.active > svg {
+    background: rgba(255, 255, 255, 0.2) !important;
+    color: #fff !important;
+}
+#base-app .friend-body:hover {
+    background: rgba(127, 127, 127, 0.16) !important;
+}
+#base-app .friend-body.active:hover {
+    background: var(--color-main) !important;
+}
+
+.user-skin.chat-pan > div.info {
+    margin: 0 !important;
+    width: 100% !important;
+    height: 48px !important;
+    min-height: 48px;
+    padding: 0 20px 0 16px !important;
+    box-sizing: border-box !important;
+    border-radius: 0 !important;
+    background: var(--color-bg) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    border-bottom: 1px solid rgba(127, 127, 127, 0.12);
+}
+.user-skin.chat-pan > div.info > img {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 50% !important;
+    border: 0 !important;
+    margin-right: 8px !important;
+}
+.user-skin.chat-pan > div.info > div.info p {
+    font-size: 14px !important;
+    font-weight: 600;
+}
+.user-skin.chat-pan > div.info > div.info span {
+    display: none;
+}
+.user-skin.chat-pan > div.info > svg.back {
+    width: 16px !important;
+    height: 16px !important;
+    padding: 8px !important;
+    margin-right: 8px !important;
+    border-radius: 50% !important;
+    background: transparent !important;
+}
+
+.message {
+    width: calc(100% - 24px);
+    padding: 2px 12px 6px;
+    margin: 2px 0;
+}
+.message > img {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 50% !important;
+    margin: 8px 8px 0 0 !important;
+}
+.message.me > img {
+    margin: 8px 0 0 8px !important;
+}
+.message-body > div {
+    border-radius: 18px !important;
+    padding: 8px 12px !important;
+    background: var(--color-card-1);
+}
+.message-body.me > div,
+.message-mine {
+    background: #007aff !important;
+    color: #fff !important;
+}
+.note-base {
+    padding: 4px 10px !important;
+    font-size: 11px !important;
+    border-radius: 999px !important;
+    background: var(--color-card-1) !important;
+}
+
+.opt-main {
+    background: var(--color-bg) !important;
+    padding: 12px !important;
+}
+.ss-card {
+    border-radius: 12px !important;
+    border: 1px solid rgba(127, 127, 127, 0.12);
+}
+
+.chat-info-pan {
+    background: rgba(0, 0, 0, 0.38);
+    z-index: 40;
+}
+.chat-info.ss-card,
+.chat-info {
+    width: min(420px, calc(100% - 48px)) !important;
+    min-width: 0 !important;
+    max-height: min(80%, 640px) !important;
+    padding: 0 !important;
+    border-radius: 16px !important;
+    background: var(--color-card) !important;
+    border: 1px solid rgba(127, 127, 127, 0.14);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32) !important;
+    overflow: hidden;
+}
+.chat-info.ss-card:hover,
+.chat-info:hover {
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32) !important;
+}
+.chat-info > header {
+    height: 48px;
+    min-height: 48px;
+    margin: 0 !important;
+    padding: 0 16px !important;
+    align-items: center;
+    border-bottom: 1px solid rgba(127, 127, 127, 0.12);
+    letter-spacing: 0 !important;
+    font-weight: 650;
+}
+.chat-info > header > span {
+    font-size: 15px !important;
+    font-weight: 650;
+    letter-spacing: 0;
+}
+.chat-info > header > svg {
+    width: 14px !important;
+    height: 14px !important;
+    padding: 7px;
+    border-radius: 50%;
+    box-sizing: content-box;
+}
+.chat-info > header > svg:hover {
+    background: rgba(127, 127, 127, 0.16);
+}
+.chat-info-base,
+.chat-info-base.user {
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 16px 16px 8px !important;
+    border-radius: 0 !important;
+}
+.chat-info-base > div:first-child,
+.chat-info-base.user > div:first-child {
+    background: transparent !important;
+    border-radius: 0 !important;
+    width: auto !important;
+    margin: 0 0 8px !important;
+    padding: 0 !important;
+    gap: 12px;
+}
+.chat-info-base > div:first-child > img {
+    width: 48px !important;
+    height: 48px !important;
+    margin: 0 !important;
+    border: 0 !important;
+    outline: none !important;
+    border-radius: 50% !important;
+}
+.chat-info-base > div:first-child > div:nth-child(2) {
+    margin-left: 0 !important;
+}
+.chat-info-base > div:first-child > div:nth-child(2) > a {
+    font-size: 16px !important;
+    font-weight: 650;
+    line-height: 1.3;
+}
+.chat-info-base > div:first-child > div:nth-child(2) > span {
+    font-size: 12px !important;
+    color: var(--color-font-2) !important;
+    margin-top: 2px;
+}
+.chat-info-base > div:first-child > div:nth-child(3) {
+    width: 32px !important;
+    height: 32px !important;
+    padding: 0 !important;
+    background: rgba(127, 127, 127, 0.12) !important;
+    border-radius: 50% !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.chat-info-base > div:first-child > div:nth-child(3) > svg {
+    width: 13px;
+    height: 13px;
+}
+.chat-info-base > div:last-child {
+    padding: 4px 0 0 !important;
+}
+.chat-info-base > div:last-child > header {
+    color: var(--color-font-2) !important;
+    font-size: 11px !important;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin-top: 12px !important;
+    padding-bottom: 4px !important;
+}
+.chat-info-base > div:last-child > span {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--color-font);
+}
+.chat-info-base > div:last-child > div.tags {
+    margin-top: 8px !important;
+    gap: 6px;
+}
+.chat-info-base > div:last-child > div.tags > div {
+    margin: 0 !important;
+    padding: 3px 10px !important;
+    border-radius: 999px !important;
+    font-size: 12px !important;
+}
+.chat-info-base > div:last-child > div.outher > span {
+    font-size: 13px;
+    margin: 4px 0;
+}
+.chat-info-tab {
+    margin-top: 4px !important;
+}
+.chat-info-tab > div:first-child {
+    min-height: 40px;
+}
+.chat-info-tab .tab-bar {
+    --bc-tab-margin: 0px;
+    padding: 0 16px !important;
+    border-bottom: 1px solid rgba(127, 127, 127, 0.12);
+}
+.chat-info-tab .tab-bar > li span {
+    font-size: 13px !important;
+    font-weight: 600;
+}
+.chat-info .search-view > input {
+    height: 36px !important;
+    border: 1px solid transparent !important;
+    border-bottom: 1px solid transparent !important;
+    border-radius: 18px !important;
+    font-size: 13px !important;
+}
+.chat-info .ss-input {
+    height: 32px;
+    border-radius: 10px;
+    font-size: 13px;
+    background: rgba(127, 127, 127, 0.12);
+}
+.chat-info .ss-input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.35);
+}
+.chat-info .ss-button {
+    height: 36px;
+    border-radius: 10px;
+    font-size: 13px;
+}
+.user-config {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-top: 48px !important;
+    border-radius: 16px 16px 0 0 !important;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.18) !important;
+}
+.user-config > div:first-child {
+    background: transparent !important;
+    border-radius: 0 !important;
+    padding: 16px !important;
+    margin: 0 !important;
+    border-bottom: 1px solid rgba(127, 127, 127, 0.12);
+}
+.user-config > div:first-child > img {
+    width: 36px !important;
+    height: 36px !important;
+    border: 0 !important;
+    outline: none !important;
+    border-radius: 50% !important;
+}
+.user-config > div:last-child {
+    padding: 8px 16px 20px !important;
+    margin-top: 0 !important;
+}
+.user-config button {
+    width: calc(100% - 32px) !important;
+    margin: 16px !important;
+    height: 36px;
+    border-radius: 10px;
+}
+.bulletins {
+    padding: 8px 12px !important;
+}
+.bulletins > div {
+    border-radius: 10px !important;
+    padding: 10px 12px !important;
+}
+.group-files {
+    padding: 8px 12px;
+}
+
+.viewer-bar {
+    width: 100% !important;
+    max-width: none;
+    margin: 0 !important;
+    left: 0;
+    right: 0;
+}
+.viewer-bar::before,
+.viewer-bar::after {
+    content: none;
+    display: none;
+}
+.viewer-tool-config-bar {
+    bottom: calc(44px + var(--safe-area-bottom, 0px)) !important;
+    height: 40px;
+    padding: 0 16px;
+    justify-content: center;
+    background: #1c1c1e;
+    border: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0;
+    box-sizing: border-box;
+}
+.viewer-tool-config-bar > div.color {
+    width: 18px;
+    height: 18px;
+    margin: 0 8px;
+    border: 2px solid rgba(255, 255, 255, 0.75);
+    border-radius: 50%;
+}
+.viewer-tool-config-bar > div.color:hover,
+.viewer-tool-config-bar > div.line-width:hover {
+    transform: none;
+}
+.viewer-tool-config-bar > div.line-width,
+.viewer-tool-config-bar > svg.rect-is-fill {
+    width: 18px;
+    height: 18px;
+    padding: 4px;
+    margin: 0 6px;
+    background-color: transparent;
+    border-radius: 6px;
+}
+.viewer-tool-config-bar > svg.rect-is-fill {
+    color: rgba(255, 255, 255, 0.85);
+}
+.viewer-tool-config-bar > div.active {
+    border-radius: 50%;
+    outline: 2px solid #fff;
+    outline-offset: 1px;
+}
+.viewer-tool-config-bar > hr {
+    height: 14px;
+    margin: 0 10px;
+    border: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.18);
+}
+.viewer-button-bar {
+    bottom: 0 !important;
+    height: 44px;
+    padding: 0 16px;
+    padding-bottom: var(--safe-area-bottom, 0px);
+    opacity: 1;
+    justify-content: center;
+    gap: 2px;
+    background: #1c1c1e;
+    border: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0;
+    align-items: center;
+    box-sizing: content-box;
+}
+.viewer-button-bar.force-show,
+.viewer-button-bar:hover {
+    opacity: 1;
+}
+.viewer-button-bar > svg {
+    width: 16px !important;
+    height: 16px !important;
+    margin: 0 4px !important;
+    padding: 8px 10px !important;
+    background: transparent !important;
+    color: rgba(255, 255, 255, 0.82) !important;
+    border-radius: 6px !important;
+    box-sizing: content-box;
+}
+.viewer-button-bar > svg:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #fff !important;
+}
+.viewer-button-bar > svg.active {
+    background: rgba(255, 255, 255, 0.12) !important;
+    color: #fff !important;
+    border-radius: 6px !important;
+}
+.viewer-button-bar > hr {
+    height: 14px !important;
+    width: 0 !important;
+    margin: 0 10px !important;
+    border: 0 !important;
+    border-left: 1px solid rgba(255, 255, 255, 0.18) !important;
+    opacity: 1;
+    flex-shrink: 0;
+}
+
+@media (max-width: 700px) {
+    /* Stapxs 小屏会把列表收成 80px 图标栏、顶出 50px 蓝块，并给隐藏的底栏留 75px。千寻没有那条底栏，改成列表铺满、聊天全屏盖住。 */
+    #base-app .main-body {
+        flex-direction: row !important;
+    }
+    #base-app .main-body > div {
+        height: 100% !important;
+        width: 100% !important;
+    }
+    #base-app .friend-view {
+        width: 100% !important;
+    }
+    #base-app .friend-list-container,
+    #base-app .friend-list,
+    #base-app .friend-list.open {
+        width: 100% !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+    }
+    #base-app .friend-list-space {
+        display: none !important;
+    }
+    #base-app .friend-list > div:first-child > div.base {
+        display: flex !important;
+    }
+    #base-app .friend-list > div:first-child > div.small,
+    #base-app .friend-list.open > div:first-child > div.small,
+    #base-app .friend-list .small {
+        display: none !important;
+    }
+    #base-app .friend-body {
+        justify-content: flex-start !important;
+        margin: 2px 8px !important;
+        padding: 6px 8px !important;
+        min-height: 54px;
+    }
+    #base-app .friend-body > div {
+        display: block !important;
+        flex: 1;
+        overflow: hidden;
+        margin-left: 10px;
+    }
+    #base-app .friend-body > div:nth-child(1) {
+        display: none !important;
+    }
+    #base-app .friend-body img,
+    #base-app .friend-body > svg {
+        width: 36px !important;
+        height: 36px !important;
+    }
+    #base-app .chat-pan,
+    #base-app .chat-pan.withBar,
+    #base-app .chat-pan.open {
+        left: 0 !important;
+        right: 0 !important;
+        top: 0 !important;
+        width: auto !important;
+        height: 100% !important;
+        transform: none !important;
+    }
+    #base-app .group-assist-message-list {
+        margin-right: -100% !important;
+    }
+    #base-app .group-assist-message-list.show {
+        margin-left: -100% !important;
+        margin-right: 0 !important;
+    }
+    .chat-info.ss-card,
+    .chat-info {
+        width: calc(100% - 32px) !important;
+        max-width: 420px !important;
+        min-width: 0 !important;
+        height: auto !important;
+        max-height: 80% !important;
+        margin: 50vh 0 0 50% !important;
+        bottom: auto !important;
+        transform: translate(-50%, -50%) !important;
+        border-radius: 16px !important;
+    }
+    .chat-info-pan {
+        height: 100% !important;
+    }
+    .viewer-bar,
+    .viewer-button-bar,
+    .viewer-tool-config-bar {
+        width: 100% !important;
+        max-width: none !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap;
+        top: auto !important;
+        left: 0 !important;
+        right: 0 !important;
+        margin: 0 !important;
+    }
+    .viewer-button-bar {
+        bottom: 0 !important;
+        height: 44px !important;
+    }
+    .viewer-button-bar > svg {
+        margin: 0 2px !important;
+    }
+    .viewer-button-bar > hr {
+        width: 0 !important;
+        height: 14px !important;
+        transform: none !important;
+        margin: 0 8px !important;
+    }
+    .viewer-tool-config-bar {
+        bottom: calc(44px + var(--safe-area-bottom, 0px)) !important;
+        justify-content: center;
+    }
 }

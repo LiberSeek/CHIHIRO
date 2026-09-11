@@ -373,17 +373,11 @@
                         :title="$t('图片')"
                         @click="runSelectImg">
                         <font-awesome-icon :icon="['fas', 'image']" />
-                        <input id="choice-pic" type="file" style="display: none"
-                            @change="selectImg">
-                        <label for="choice-pic" class="sr-only">{{ $t('选择图片') }}</label>
                     </div>
                     <div
                         :title="$t('文件')"
                         @click="runSelectFile">
                         <font-awesome-icon :icon="['fas', 'folder']" />
-                        <input id="choice-file" type="file"
-                            style="display: none" @change="selectFile">
-                        <label for="choice-file" class="sr-only">{{ $t('选择文件') }}</label>
                     </div>
                     <div
                         :title="$t('表情')"
@@ -408,56 +402,71 @@
             </div>
             <!-- 消息发送框 -->
             <div class="chihiro-composer">
-                <div class="chihiro-toolbar">
-                    <div class="chihiro-tools">
-                        <div class="chihiro-face-btn" :class="{ active: details[1].open }" :title="$t('表情')"
+                <div class="chihiro-composer-row">
+                    <div class="chihiro-plus-wrap">
+                        <button type="button"
+                            class="chihiro-plus"
+                            :class="{ active: chihiroPlusOpen }"
+                            :title="$t('更多')"
+                            @click.stop="toggleChihiroPlus">
+                            <font-awesome-icon :icon="['fas', 'plus']" />
+                        </button>
+                        <div v-if="chihiroPlusOpen" class="chihiro-plus-menu" @click.stop>
+                            <button type="button" @click="pickChihiroImage">
+                                <font-awesome-icon :icon="['fas', 'image']" />
+                                <span>{{ $t('图片') }}</span>
+                            </button>
+                            <button type="button" @click="pickChihiroFile">
+                                <font-awesome-icon :icon="['fas', 'folder']" />
+                                <span>{{ $t('文件') }}</span>
+                            </button>
+                        </div>
+                    </div>
+                    <form class="chihiro-composer-form" @submit.prevent="mainSubmit">
+                        <label for="main-input-ex" class="sr-only">{{ $t('消息输入框') }}</label>
+                        <textarea id="main-input-ex"
+                            ref="mainInput"
+                            v-model="msg"
+                            rows="1"
+                            :disabled="uiStore.openSideBar || chat.info.me_info.shut_up_timestamp > 0"
+                            :placeholder="
+                                chat.info.me_info.shut_up_timestamp > 0
+                                    ? $t('已被禁言至：{time}', {
+                                        time: Intl.DateTimeFormat(
+                                            trueLang, getTimeConfig(
+                                                new Date(chat.info.me_info.shut_up_timestamp * 1000),
+                                            ),
+                                        ).format(new Date(chat.info.me_info.shut_up_timestamp * 1000)),
+                                    }) : $t('发送消息')"
+                            @paste="addImg"
+                            @keydown="mainKey"
+                            @keyup="mainKeyUp"
+                            @click="selectSQIn"
+                            @input="handleInput"
+                            @compositionstart="handleCompositionStart"
+                            @compositionend="handleCompositionEnd"
+                            @compositioncancel="handleCompositionCancel" />
+                        <button type="button"
+                            class="chihiro-input-face"
+                            :class="{ active: details[1].open }"
+                            :title="$t('表情')"
                             @click.stop="toggleChihiroFace">
                             <font-awesome-icon :icon="['fas', 'face-laugh']" />
-                        </div>
-                        <div :title="$t('图片')" @click="runSelectImg">
-                            <font-awesome-icon :icon="['fas', 'image']" />
-                        </div>
-                        <div :title="$t('文件')" @click="runSelectFile">
-                            <font-awesome-icon :icon="['fas', 'folder']" />
-                        </div>
-                        <div v-if="chat.show.type === 'user'" :title="$t('戳一戳')" @click="sendPoke(chat.show.id)">
-                            <font-awesome-icon :icon="['fas', 'fa-hand-point-up']" />
-                        </div>
-                        <div v-if="chat.show.type === 'group'" :title="$t('精华消息')" @click="showJin">
-                            <font-awesome-icon :icon="['fas', 'star']" />
-                        </div>
-                    </div>
-                    <div class="chihiro-tools-right">
-                        <div title="功能区" class="chihiro-feature-btn" @click="toggleChihiroFeature">
-                            <font-awesome-icon :icon="['fas', 'table-columns']" />
-                        </div>
-                    </div>
-                </div>
-                <form class="chihiro-composer-form" @submit.prevent="mainSubmit">
-                            <label for="main-input-ex" class="sr-only">{{ $t('消息输入框') }}</label>
-                            <textarea id="main-input-ex"
-                                ref="mainInput"
-                                v-model="msg"
-                                :disabled="uiStore.openSideBar || chat.info.me_info.shut_up_timestamp > 0"
-                                :placeholder="
-                                    chat.info.me_info.shut_up_timestamp > 0
-                                        ? $t('已被禁言至：{time}', {
-                                            time: Intl.DateTimeFormat(
-                                                trueLang, getTimeConfig(
-                                                    new Date(chat.info.me_info.shut_up_timestamp * 1000),
-                                                ),
-                                            ).format(new Date(chat.info.me_info.shut_up_timestamp * 1000)),
-                                        }) : ''"
-                                @paste="addImg"
-                                @keydown="mainKey"
-                                @keyup="mainKeyUp"
-                                @click="selectSQIn"
-                                @input="handleInput"
-                                @compositionstart="handleCompositionStart"
-                                @compositionend="handleCompositionEnd"
-                                @compositioncancel="handleCompositionCancel" />
+                        </button>
                     </form>
                     <slot name="main-input-button" />
+                    <button type="button" class="chihiro-send" :title="$t('发送')" @click="sendMsg()">
+                        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                            <path fill="currentColor" d="M8 12.8a.75.75 0 0 1-.75-.75V5.86L5.03 8.08a.75.75 0 1 1-1.06-1.06l3.5-3.5a.75.75 0 0 1 1.06 0l3.5 3.5a.75.75 0 1 1-1.06 1.06L8.75 5.86v6.19A.75.75 0 0 1 8 12.8z"/>
+                        </svg>
+                    </button>
+                </div>
+                <input id="choice-pic" type="file" accept="image/*" class="chihiro-file-input"
+                    @change="selectImg">
+                <label for="choice-pic" class="sr-only">{{ $t('选择图片') }}</label>
+                <input id="choice-file" type="file" class="chihiro-file-input"
+                    @change="selectFile">
+                <label for="choice-file" class="sr-only">{{ $t('选择文件') }}</label>
             </div>
             <div />
         </div>
@@ -665,7 +674,7 @@ import { backend } from '@renderer/runtime/backend'
 import { toBackgroundImageStyle } from '@renderer/function/utils/backgroundUtil'
 import { dbGetBefore, dbGetBeforeByTime, dbSearchMessages } from '@renderer/function/utils/localHistoryUtil'
 import Emoji from '@renderer/function/model/emoji'
-import EmojiFace from '@renderer/components/EmojiFace.vue'
+import EmojiFace from '@renderer/components/user/UserEmojiFace.vue'
 import { Img } from '@renderer/function/model/img'
 import { useSessionHistoryStore } from '@renderer/state/sessionHistory'
 import { useConnectionStore } from '@renderer/state/connection'
@@ -674,7 +683,7 @@ import { useSettingsStore } from '@renderer/state/settings'
 import { useAuthStore } from '@renderer/state/auth'
 import { useChatStore } from '@renderer/state/chat'
 import { useContactStore } from '@renderer/state/contact'
-import { addUploadTask, failUploadTask } from '@renderer/components/FileManager.vue'
+import { addUploadTask, failUploadTask } from '@renderer/components/user/UserFileManager.vue'
 
 defineOptions({ name: 'UserChat' })
 
@@ -689,9 +698,28 @@ const { chat, list } = defineProps<{
 function toggleChihiroFeature() {
     try { window.parent.postMessage({ source: 'chihiro-im', kind: 'toggle-feature' }, '*') } catch (e) {}
 }
+function toggleChihiroPlus() {
+    chihiroPlusOpen.value = !chihiroPlusOpen.value
+    if (chihiroPlusOpen.value) {
+        details.value[1].open = false
+        tags.value.showMoreDetail = false
+    }
+}
+function closeChihiroPlus() {
+    chihiroPlusOpen.value = false
+}
+function pickChihiroImage() {
+    closeChihiroPlus()
+    runSelectImg()
+}
+function pickChihiroFile() {
+    closeChihiroPlus()
+    runSelectFile()
+}
 function toggleChihiroFace() {
     details.value[1].open = !details.value[1].open
     tags.value.showMoreDetail = false
+    chihiroPlusOpen.value = false
     if (details.value[1].open) chihiroHistory.open = false
 }
 function closeChihiroFace() {
@@ -718,6 +746,7 @@ function toggleChihiroHistory() {
     }
     details.value[1].open = false
     tags.value.showMoreDetail = false
+    chihiroPlusOpen.value = false
     chihiroHistory.open = true
     chihiroHistory.query = ''
     chihiroHistory.tab = 'all'
@@ -920,15 +949,26 @@ const chihiroHistory = reactive({
     tab: 'all',
     list: [] as any[],
 })
+const chihiroPlusOpen = ref(false)
 function onChihiroDocClick(e: Event) {
     const t = e.target as HTMLElement | null
-    if (t && typeof t.closest === 'function' && (t.closest('.face-pan') || t.closest('.chihiro-face-btn'))) return
+    if (t && typeof t.closest === 'function' && (
+        t.closest('.face-pan') ||
+        t.closest('.chihiro-face-btn') ||
+        t.closest('.chihiro-input-face')
+    )) return
+    if (t && typeof t.closest === 'function' && t.closest('.chihiro-plus-wrap')) return
     if (details.value[1].open) details.value[1].open = false
+    if (chihiroPlusOpen.value) chihiroPlusOpen.value = false
 }
 function onChihiroDocKey(e: KeyboardEvent) {
     if (e.key !== 'Escape') return
     if (chihiroHistory.open) {
         closeChihiroHistory()
+        return
+    }
+    if (chihiroPlusOpen.value) {
+        chihiroPlusOpen.value = false
         return
     }
     if (details.value[1].open) details.value[1].open = false
@@ -1129,8 +1169,7 @@ let resizeMainInputFrame: number | null = null
 let chatPaddingFrame: number | null = null
 let sendMoreResizeObserver: ResizeObserver | null = null
 let chatPaddingAfterUpdate: Array<() => void> = []
-// scrollHeight includes a small browser-dependent inner gap for this textarea style.
-// Keep the existing compact visual height, but make the adjustment explicit.
+const COMPOSER_INPUT_HEIGHT = 36
 const TEXTAREA_SCROLL_HEIGHT_COMPACT_OFFSET = 4
 
 function scheduleResizeMainInput(target?: HTMLTextAreaElement | HTMLInputElement | null, keepBottom = false) {
@@ -1200,47 +1239,35 @@ function setupChatPaddingObserver() {
 function resizeMainInput(target?: HTMLTextAreaElement | HTMLInputElement | null) {
     const input = target ?? mainInput.value
     if (!input) return
-    if (!Option.get('use_breakline')) {
-        input.style.height = ''
-        return
-    }
     if (!(input instanceof HTMLTextAreaElement)) {
         input.style.height = ''
+        input.classList.remove('is-multiline')
         return
     }
-    const computed = getComputedStyle(input)
-    const lineHeight = Number.parseFloat(computed.lineHeight)
-    const fontSize = Number.parseFloat(computed.fontSize)
-    const baseLineHeight = Number.isFinite(lineHeight) ? lineHeight : fontSize
-    const paddingTop = Number.parseFloat(computed.paddingTop) || 0
-    const paddingBottom = Number.parseFloat(computed.paddingBottom) || 0
-    const borderTop = Number.parseFloat(computed.borderTopWidth) || 0
-    const borderBottom = Number.parseFloat(computed.borderBottomWidth) || 0
-    let minHeight = (Number.isFinite(baseLineHeight) ? baseLineHeight : 0) + paddingTop + paddingBottom + borderTop + borderBottom
-    if (minHeight <= 0) {
-        const fallback = input.offsetHeight || Number.parseFloat(computed.height) || fontSize
-        if (fallback && Number.isFinite(fallback)) {
-            minHeight = fallback
-        }
-    }
-    if (!input.dataset.baseHeight) {
-        input.dataset.baseHeight = String(minHeight)
+    if (!Option.get('use_breakline')) {
+        input.style.height = COMPOSER_INPUT_HEIGHT + 'px'
+        input.classList.remove('is-multiline')
+        return
     }
 
     const oldTransition = input.style.transition
     input.style.transition = 'none'
-    const oldOverflow = input.style.overflow
 
-    const baseHeight = Number.parseFloat(input.dataset.baseHeight) || minHeight
-    // Fast-path: if content is empty, reset directly to baseHeight without measuring
     if (input.value === '') {
-        input.style.height = baseHeight + 'px'
+        input.classList.remove('is-multiline')
+        input.style.height = COMPOSER_INPUT_HEIGHT + 'px'
     } else {
-        // Set overflow:hidden so scrollHeight correctly reflects content height
+        const oldOverflow = input.style.overflow
+        input.classList.add('is-multiline')
         input.style.overflow = 'hidden'
         input.style.height = '0px'
-        const targetHeight = Math.max(input.scrollHeight - TEXTAREA_SCROLL_HEIGHT_COMPACT_OFFSET, baseHeight)
-        input.style.height = targetHeight + 'px'
+        const targetHeight = Math.max(
+            input.scrollHeight - TEXTAREA_SCROLL_HEIGHT_COMPACT_OFFSET,
+            COMPOSER_INPUT_HEIGHT,
+        )
+        const multiline = targetHeight > COMPOSER_INPUT_HEIGHT + 1
+        input.classList.toggle('is-multiline', multiline)
+        input.style.height = (multiline ? targetHeight : COMPOSER_INPUT_HEIGHT) + 'px'
         input.style.overflow = oldOverflow
     }
 

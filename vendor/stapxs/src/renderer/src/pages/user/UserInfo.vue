@@ -105,7 +105,7 @@
                         v-slot="{ item }"
                         class="member-scroller"
                         :items="number_cache.length > 0 ? number_cache : chat.info.group_members"
-                        :item-size="60"
+                        :item-size="56"
                         key-field="user_id">
                         <div class="member-item edit">
                             <img alt="nk" loading="lazy"
@@ -230,9 +230,9 @@
 
 <script setup lang="ts">
 import app, { i18n } from '@renderer/main'
-import BulletinBody from '@renderer/components/BulletinBody.vue'
-import FileBody from '@renderer/components/FileBody.vue'
-import OptInfo from '@renderer/pages/options/OptInfo.vue'
+import BulletinBody from '@renderer/components/user/UserBulletinBody.vue'
+import FileBody from '@renderer/components/user/UserFileBody.vue'
+import OptInfo from '@renderer/pages/user/UserOptInfo.vue'
 import BcTab from 'vue3-bcui/packages/bc-tab'
 import { RecycleScroller } from 'vue-virtual-scroller'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
@@ -575,16 +575,24 @@ function canEditMember(role: string) {
 <style scoped>
     .search-view {
         background: transparent !important;
-        padding: 0 20px;
-        margin-bottom: 10px;
+        padding: 8px 16px 6px;
+        margin-bottom: 4px;
     }
     .search-view > input {
-        background: var(--color-card-1);
-        border-radius: 7px;
-        padding: 0 10px;
-        height: 35px;
+        background: rgba(127, 127, 127, 0.12);
+        border-radius: 18px;
+        padding: 0 14px;
+        height: 36px;
         width: 100%;
-        border: 0;
+        border: 1px solid transparent;
+        box-sizing: border-box;
+        font-size: 13px;
+        color: var(--color-font);
+        outline: none;
+    }
+    .search-view > input:focus {
+        border-color: rgba(0, 122, 255, 0.45);
+        background: var(--color-card-1);
     }
 
     div[name="成员"] {
@@ -599,24 +607,26 @@ function canEditMember(role: string) {
 
     /* 成员项样式 */
     .member-item {
-        transition: background 0.3s;
-        margin: 0 20px -10px 20px;
+        transition: background 0.2s;
+        margin: 0 8px 2px;
         align-items: center;
-        border-radius: 7px;
+        border-radius: 10px;
         cursor: pointer;
         display: flex;
-        padding: 10px;
+        padding: 8px 10px;
+        min-height: 52px;
+        box-sizing: border-box;
     }
 
     .member-item:hover {
-        background: var(--color-card-1);
+        background: rgba(127, 127, 127, 0.12);
     }
 
     .member-item > img {
-        border-radius: 100%;
+        border-radius: 50%;
         margin-right: 10px;
-        height: 30px;
-        width: 30px;
+        height: 36px;
+        width: 36px;
     }
 
     .member-item > div {
@@ -633,6 +643,8 @@ function canEditMember(role: string) {
         max-width: 80%;
         overflow: hidden;
         cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
     }
 
     .member-item > div > svg {
@@ -645,6 +657,7 @@ function canEditMember(role: string) {
         color: var(--color-font-2);
         transition: all .2s;
         opacity: 1;
+        font-size: 12px;
     }
 
     .member-item.edit:hover > span {

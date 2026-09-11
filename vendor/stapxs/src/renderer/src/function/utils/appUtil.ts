@@ -5,10 +5,10 @@ import semver from 'semver'
 import appInfo from '../../../../../package.json'
 import Umami from '@stapxs/umami-logger-typescript'
 
-import AboutPan from '@renderer/components/AboutPan.vue'
-import UpdatePan from '@renderer/components/UpdatePan.vue'
-import WelPan from '@renderer/components/WelPan.vue'
-import MealHungryPan from '@renderer/components/notice-component/MealHungryPan.vue'
+import AboutPan from '@renderer/components/user/UserAboutPan.vue'
+import UpdatePan from '@renderer/components/user/UserUpdatePan.vue'
+import WelPan from '@renderer/components/user/UserWelPan.vue'
+import MealHungryPan from '@renderer/components/user/notice-component/MealHungryPan.vue'
 
 import { KeyboardInfo } from '@capacitor/keyboard'
 import { LogType, Logger, PopInfo, PopType } from '@renderer/function/base'
@@ -1123,7 +1123,7 @@ export function checkNotice() {
                                 popInfo = {
                                     title: info.title,
                                     template: markRaw(defineAsyncComponent(
-                                        () => import(`@renderer/components/notice-component/${info.template}.vue`),
+                                        () => import(`@renderer/components/user/notice-component/${info.template}.vue`),
                                     )),
                                     templateValue: markRaw(info.template_data ? info.template_data : {}),
                                     button: button

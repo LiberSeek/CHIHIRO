@@ -486,6 +486,8 @@ function changeColorMode(mode: string) {
     }
     // 记录
     settingsStore.darkMode = mode === 'dark'
+    document.documentElement.classList.toggle('bp-dark', mode === 'dark')
+    document.documentElement.classList.toggle('bp-light', mode !== 'dark')
     // Capacitor: 状态栏颜色（Android）
     if(backend.isMobile()) {
         backend.call('StatusBar', 'setStyle', false, { style: mode.toUpperCase() })
@@ -528,7 +530,10 @@ function changeTheme(id: number) {
  */
 function changeChatView(name: string | undefined) {
     const uiStore = useUIStore()
-    const safeName = (name || '').toString().replaceAll(/(^['"])|(['"]$)/g, '').trim()
+    let safeName = (name || '').toString().replaceAll(/(^['"])|(['"]$)/g, '').trim()
+    if (safeName === 'SystemNotice') {
+        safeName = 'UserSystemNotice'
+    }
     if (safeName.startsWith('User')) {
         uiStore.pageView.chatView = markRaw(
             defineAsyncComponent(

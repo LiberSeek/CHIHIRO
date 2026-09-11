@@ -18,6 +18,10 @@
                     <div style="flex: 1" />
                     <font-awesome-icon :icon="['fas', 'rotate-right']" @click="reloadUser" />
                 </div>
+                <div class="chihiro-inbox-tabs">
+                    <button type="button" @click="goMessages">{{ $t('消息') }}</button>
+                    <button type="button" class="is-on">{{ $t('联系人') }}</button>
+                </div>
                 <div
                     id="friend-small-search"
                     class="small">
@@ -36,7 +40,7 @@
                         <font-awesome-icon :icon="['fas', 'bars-staggered']" />
                     </div>
                 </div>
-                <label>
+                <label class="chihiro-contact-search">
                     <input
                         id="friend-search"
                         v-model="searchInfo"
@@ -211,6 +215,10 @@
         uiStore.openSideBar = !uiStore.openSideBar
     }
 
+    function goMessages() {
+        document.getElementById('bar-msg')?.click()
+    }
+
     function classClick(id: string) {
         if (classStatus.value[id]) {
             classStatus.value[id] = !classStatus.value[id]
@@ -309,40 +317,49 @@
     }
     .exp-body.open > header > div {
         transform: scaleY(1);
-        margin-right: 10px;
-        width: 5px;
+        margin-right: 8px;
+        width: 3px;
     }
 
     .exp-header {
-        color: var(--color-font);
+        color: var(--color-font-2);
         align-items: center;
-        border-radius: 7px;
+        border-radius: 8px;
         cursor: pointer;
-        margin: 0 10px;
-        padding: 10px;
+        margin: 4px 8px 2px;
+        padding: 6px 10px;
+        min-height: 32px;
         display: flex;
+        box-sizing: border-box;
     }
     .exp-header:hover {
-        background: var(--color-card-2);
+        background: rgba(127, 127, 127, 0.12);
     }
     .exp-header > div {
         background: var(--color-main);
-        margin-right: 10px;
-        border-radius: 7px;
-        height: 1rem;
-        width: 5px;
+        margin-right: 8px;
+        border-radius: 2px;
+        height: 12px;
+        width: 3px;
     }
     .exp-header > span {
         flex: 1;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
     }
     .exp-header > a {
         color: var(--color-font-2);
-        font-size: 0.9rem;
+        font-size: 11px;
+        background: rgba(127, 127, 127, 0.12);
+        border-radius: 999px;
+        padding: 1px 7px;
+        line-height: 16px;
     }
 
     @media (max-width: 700px) {
         .exp-header:not(.open) {
-            display: none;
+            display: flex;
         }
     }
     @media (max-width: 500px) {

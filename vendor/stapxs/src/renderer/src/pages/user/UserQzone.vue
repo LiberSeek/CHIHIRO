@@ -184,7 +184,7 @@
 
 <script setup lang="ts">
     import { computed, inject, markRaw, onMounted, reactive, ref } from 'vue'
-    import QzonePermissionPan from '@renderer/components/QzonePermissionPan.vue'
+    import QzonePermissionPan from '@renderer/components/user/UserQzonePermissionPan.vue'
     import { PopInfo, PopType } from '@renderer/function/base'
     import { Connector } from '@renderer/function/connect'
     import { Img } from '@renderer/function/model/img'

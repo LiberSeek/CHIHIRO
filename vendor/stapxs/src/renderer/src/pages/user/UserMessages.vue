@@ -25,6 +25,10 @@
                             @click="openHistory" />
                         <font-awesome-icon :icon="['fas', 'trash-can']" @click="cleanList" />
                     </div>
+                    <div class="chihiro-inbox-tabs">
+                        <button type="button" class="is-on">{{ $t('消息') }}</button>
+                        <button type="button" @click="goFriends">{{ $t('联系人') }}</button>
+                    </div>
                     <div class="small">
                         <span>{{ $t('消息') }}</span>
                         <div v-if="showGroupAssist"
@@ -216,7 +220,7 @@
     import { Notify } from '@renderer/function/notify'
     import { refreshFavicon } from '@renderer/function/favicon'
     import { backend } from '@renderer/runtime/backend'
-    import History from '@renderer/components/History.vue'
+    import History from '@renderer/components/user/UserHistory.vue'
     import { useUIStore } from '@renderer/state/ui'
     import { useAuthStore } from '@renderer/state/auth'
     import { useContactStore } from '@renderer/state/contact'
@@ -347,8 +351,8 @@
             name: '系统消息',
         }
         emit('userClick', back)
-        settingsStore.sysConfig.chatview_name = 'SystemNotice'
-        runOpt('chatview_name', 'SystemNotice')
+        settingsStore.sysConfig.chatview_name = 'UserSystemNotice'
+        runOpt('chatview_name', 'UserSystemNotice')
     }
 
     /**
@@ -356,6 +360,10 @@
      */
     function openLeftBar() {
         uiStore.openSideBar = !uiStore.openSideBar
+    }
+
+    function goFriends() {
+        document.getElementById('bar-friends')?.click()
     }
 
     /**
