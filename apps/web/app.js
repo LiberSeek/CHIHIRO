@@ -67,6 +67,12 @@ const ui = {
   workspace: $('workspace'),
   feature: $('feature'),
   featureTabs: $('feature-tabs'),
+  featureOpenBtn: $('feature-open'),
+  featureExpand: $('feature-expand'),
+  featureCollapse: $('feature-collapse'),
+  featureResize: $('feature-resize'),
+  featureTitle: $('feature-title'),
+  featureBadge: $('feature-badge'),
   leaving: $('leaving'),
   leavingTitle: $('leaving-title'),
   leavingHint: $('leaving-hint')
@@ -85,7 +91,13 @@ let accountsWhenAdding = new Set()
 const imFrames = new Map()
 let botBusyId = null
 let botBusyOn = false
-let featureOpen = false
+const FEATURE_KEY = 'chihiro-feature-panel'
+const FEATURE_DEFAULT_WIDTH = 400
+const FEATURE_MIN_WIDTH = 300
+const FEATURE_MAX_WIDTH = 560
+let featureOnStage = false
+let featureStatus = 'open'
+let featureWidth = FEATURE_DEFAULT_WIDTH
 let featureTab = 'agentic'
 let imChat = null
 let leavingId = null
@@ -118,11 +130,10 @@ function show(mode) {
     hideQrActions()
   }
   if (mode === 'im') {
-    renderBotBar()
-    renderFeature()
+    setFeatureStage(true)
     connectAgentStream()
   } else {
-    setFeatureOpen(false)
+    setFeatureStage(false)
     stopAgentStream()
   }
 }
@@ -229,24 +240,154 @@ function napcatSettingsUrl() {
   return next.pathname + next.search
 }
 
+function clampFeatureWidth(width) {
+  return Math.min(FEATURE_MAX_WIDTH, Math.max(FEATURE_MIN_WIDTH, Math.round(Number(width) || FEATURE_DEFAULT_WIDTH)))
+}
+
+function loadFeaturePrefs() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(FEATURE_KEY) || '{}')
+    if (raw.status === 'close' || raw.status === 'open' || raw.status === 'expanded') {
+      featureStatus = raw.status
+    }
+    if (raw.width) featureWidth = clampFeatureWidth(raw.width)
+  } catch { /* ignore */ }
+}
+
+function saveFeaturePrefs() {
+  try {
+    localStorage.setItem(FEATURE_KEY, JSON.stringify({
+      status: featureStatus,
+      width: featureWidth
+    }))
+  } catch { /* ignore */ }
+}
+
+function postFeatureStatus(frame = currentImFrame()) {
+  try {
+    frame?.contentWindow?.postMessage({
+      source: 'chihiro-shell',
+      kind: 'feature-status',
+      status: featureOnStage ? featureStatus : 'off'
+    }, '*')
+  } catch { /* ignore */ }
+}
+
+function featureHasBadge() {
+  const acc = viewedAccount()
+  if (!acc) return false
+  return (agentState.drafts || []).some((d) => {
+    if (d.accountId && d.accountId === acc.id) return true
+    const session = (agentState.sessions || []).find((s) => s.key === d.sessionKey)
+    return session?.accountId === acc.id
+  })
+}
+
+function applyFeatureLayout() {
+  if (!ui.workspace || !ui.feature) return
+  const status = featureOnStage ? featureStatus : 'off'
+  ui.workspace.dataset.feature = status
+  ui.workspace.style.setProperty('--feature-width', `${featureWidth}px`)
+  ui.feature.dataset.status = status
+  ui.feature.setAttribute('aria-hidden', status === 'open' || status === 'expanded' ? 'false' : 'true')
+  if (ui.featureExpand) {
+    const expanded = status === 'expanded'
+    ui.featureExpand.title = expanded ? '还原' : '全展开'
+    ui.featureExpand.setAttribute('aria-label', expanded ? '还原功能区' : '全展开功能区')
+  }
+  const badge = featureHasBadge()
+  ui.featureBadge?.classList.toggle('hidden', !badge)
+  ui.featureBadge?.setAttribute('aria-hidden', badge ? 'false' : 'true')
+  if (featureOnStage && status !== 'close') renderFeature()
+  postFeatureStatus()
+}
+
+function setFeatureStage(on) {
+  featureOnStage = Boolean(on)
+  applyFeatureLayout()
+}
+
+function setFeatureStatus(status) {
+  if (status !== 'close' && status !== 'open' && status !== 'expanded') return
+  featureStatus = status
+  saveFeaturePrefs()
+  applyFeatureLayout()
+}
+
+function setFeatureWidth(width) {
+  featureWidth = clampFeatureWidth(width)
+  ui.workspace?.style.setProperty('--feature-width', `${featureWidth}px`)
+}
+
 function setFeatureOpen(on) {
-  featureOpen = Boolean(on)
-  ui.feature?.classList.toggle('hidden', !featureOpen)
-  ui.feature?.setAttribute('aria-hidden', featureOpen ? 'false' : 'true')
-  if (featureOpen) renderFeature()
+  setFeatureStatus(on ? (featureStatus === 'expanded' ? 'expanded' : 'open') : 'close')
+}
+
+function toggleFeatureVisible() {
+  setFeatureStatus(featureStatus === 'close' ? 'open' : 'close')
+}
+
+function toggleFeatureExpanded() {
+  if (featureStatus === 'close') {
+    setFeatureStatus('expanded')
+    return
+  }
+  setFeatureStatus(featureStatus === 'expanded' ? 'open' : 'expanded')
+}
+
+function collapseFeature() {
+  setFeatureStatus(featureStatus === 'expanded' ? 'open' : 'close')
+}
+
+function bindFeatureResize() {
+  const handle = ui.featureResize
+  if (!handle) return
+  handle.addEventListener('pointerdown', (ev) => {
+    if (featureStatus !== 'open') return
+    ev.preventDefault()
+    handle.setPointerCapture?.(ev.pointerId)
+    const startX = ev.clientX
+    const startW = featureWidth
+    ui.feature?.classList.add('is-resizing')
+    ui.workspace?.classList.add('is-resizing')
+    const onMove = (e) => {
+      setFeatureWidth(startW + (startX - e.clientX))
+    }
+    const onUp = () => {
+      ui.feature?.classList.remove('is-resizing')
+      ui.workspace?.classList.remove('is-resizing')
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      saveFeaturePrefs()
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  })
 }
 
 function setFeatureTab(tab) {
   featureTab = 'agentic'
+  ui.featureTabs?.querySelectorAll('button[data-tab]').forEach((btn) => {
+    btn.classList.toggle('is-on', btn.dataset.tab === 'agentic')
+  })
   ui.paneAgentic?.classList.remove('hidden')
-  ui.feature?.classList.add('is-agentic')
+  updateFeatureTitle()
   if (tab === 'agentic') renderAgentic()
+}
+
+function updateFeatureTitle() {
+  if (!ui.featureTitle) return
+  if (agentOpenKey) {
+    const session = (agentState.sessions || []).find((s) => s.key === agentOpenKey)
+    ui.featureTitle.textContent = session?.title || '功能区'
+    return
+  }
+  ui.featureTitle.textContent = '功能区'
 }
 
 function renderFeature() {
   renderBotBar()
   setFeatureTab('agentic')
-  renderAgentic()
 }
 
 function escapeHtml(s) {
@@ -370,6 +511,10 @@ function connectAgentStream() {
 
 function renderAgentic() {
   if (!ui.agenticList) return
+  const badge = featureHasBadge()
+  ui.featureBadge?.classList.toggle('hidden', !badge)
+  ui.featureBadge?.setAttribute('aria-hidden', badge ? 'false' : 'true')
+  updateFeatureTitle()
   const acc = viewedAccount()
   const inDetail = Boolean(agentOpenKey)
   ui.agenticList.classList.toggle('hidden', inDetail)
@@ -505,7 +650,7 @@ function applyQuoteFromChat(data) {
   const peerId = String(data.peerId || '')
   if (!peerId) return
   const key = `${acc.id}:${type}:${peerId}`
-  setFeatureOpen(true)
+  if (featureStatus === 'close') setFeatureStatus('open')
   setFeatureTab('agentic')
   agentOpenKey = key
   const list = agentState.sessions || []
@@ -536,7 +681,12 @@ function onImMessage(ev) {
     return
   }
   if (data.kind === 'toggle-feature') {
-    setFeatureOpen(!featureOpen)
+    toggleFeatureVisible()
+    return
+  }
+  if (data.kind === 'feature-sync') {
+    const frame = ev.source && [...imFrames.values()].find((f) => f.contentWindow === ev.source)
+    postFeatureStatus(frame || currentImFrame())
     return
   }
   if (data.kind === 'quote-bot') {
@@ -551,6 +701,7 @@ function onImMessage(ev) {
   if (data.kind === 'theme-ready') {
     const frame = ev.source && [...imFrames.values()].find((f) => f.contentWindow === ev.source)
     postImTheme(frame || currentImFrame())
+    postFeatureStatus(frame || currentImFrame())
     return
   }
   if (data.kind === 'open-settings') {
@@ -1049,6 +1200,7 @@ function postImTheme(frame) {
   try {
     frame?.contentWindow?.postMessage({ source: 'chihiro-shell', kind: 'set-theme', mode }, '*')
   } catch { /* ignore */ }
+  postFeatureStatus(frame)
 }
 
 function broadcastImTheme() {
@@ -1346,6 +1498,7 @@ async function selectAccount(id) {
     agentOpenKey = null
     clearAgentQuote()
     agentStreamAccount = null
+    if (featureStatus === 'expanded') setFeatureStatus('open')
   }
   viewingId = id
   const acc = accountsOf().find((a) => a.id === id)
@@ -1503,6 +1656,11 @@ ui.featureTabs?.addEventListener('click', (ev) => {
   const btn = ev.target.closest('button[data-tab]')
   if (btn?.dataset.tab) setFeatureTab(btn.dataset.tab)
 })
+ui.featureOpenBtn?.addEventListener('click', () => setFeatureStatus('open'))
+ui.featureExpand?.addEventListener('click', () => toggleFeatureExpanded())
+ui.featureCollapse?.addEventListener('click', () => collapseFeature())
+bindFeatureResize()
+loadFeaturePrefs()
 window.addEventListener('message', onImMessage)
 ui.menuRemove.addEventListener('click', async () => {
   const id = menuAccountId

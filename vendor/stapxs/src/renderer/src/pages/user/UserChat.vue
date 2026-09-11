@@ -14,6 +14,7 @@
         v-move="chatMoveOptions"
         :class="'chat-pan user-skin' +
             (uiStore.openSideBar ? ' open' : '') +
+            (multipleSelectList.length > 0 ? ' is-multiselect' : '') +
             (['linux', 'win32'].includes(backend.platform ?? '') ? ' withBar' : '')"
         :style="{
             'background-image': toBackgroundImageStyle(!settingsStore.sysConfig.chat_more_blur ? settingsStore.sysConfig.chat_background : ''),
@@ -58,6 +59,9 @@
             </div>
             <div class="space" />
             <div class="chihiro-head-actions">
+                <div class="chihiro-feature-btn" :class="{ active: chihiroFeatureOpen }" title="AI 功能区" @click.stop="toggleChihiroFeature">
+                    <font-awesome-icon :icon="['fas', 'wand-magic-sparkles']" />
+                </div>
                 <div class="chihiro-history-btn" :class="{ active: chihiroHistory.open }" :title="$t('搜索消息')" @click.stop="toggleChihiroHistory">
                     <font-awesome-icon :icon="['fas', 'clock-rotate-left']" />
                 </div>
@@ -143,7 +147,8 @@
                                      msgIndex.post_type === 'message_sent') &&
                                      msgIndex.message.length > 0"
                             :key="msgIndex.fake_message_id ?? msgIndex.message_id"
-                            :selected="multipleSelectList.includes(msgIndex.message_id) || tags.menuDisplay.menuSelectedMsgId == msgIndex.message_id"
+                            :selected="multipleSelectList.includes(msgIndex.message_id)"
+                            :selecting="multipleSelectList.length > 0"
                             :data="msgIndex"
                             :image-list-header="chatImg"
                             @click="msgClick($event, msgIndex)"
@@ -151,7 +156,8 @@
                             @scroll-to-msg="scrollToMsg"
                             @image-loaded="imgLoadedScroll"
                             @left-move="replyMsg"
-                            @send-poke="sendPoke" />
+                            @send-poke="sendPoke"
+                            @open-profile="openProfilePop" />
                         <!-- 其他通知消息 -->
                         <NoticeBody v-else-if="msgIndex.post_type === 'notice'"
                             :id="uuid()"
@@ -176,12 +182,14 @@
                                      msgIndex.post_type === 'message_sent') &&
                                      msgIndex.message.length > 0"
                             :key="msgIndex.fake_message_id ?? msgIndex.message_id"
-                            :selected="multipleSelectList.includes(msgIndex.message_id) || tags.menuDisplay.menuSelectedMsgId == msgIndex.message_id"
+                            :selected="multipleSelectList.includes(msgIndex.message_id)"
+                            :selecting="multipleSelectList.length > 0"
                             :data="msgIndex"
                             @scroll-to-msg="scrollToMsg"
                             @show-menu="showMsgMeun"
                             @image-loaded="imgLoadedScroll"
-                            @left-move="replyMsg" />
+                            @left-move="replyMsg"
+                            @open-profile="openProfilePop" />
                     </template>
                 </TransitionGroup>
             </template>
@@ -269,37 +277,6 @@
                             </div>
                         </div>
                     </Transition>
-                </div>
-                <!-- 多选指示器 -->
-                <div :class=" multipleSelectList.length > 0 ? 'select-tag show' : 'select-tag'">
-                    <div>
-                        <font-awesome-icon :icon="['fas', 'share-from-square']" @click="showForWard('individual-messages')" />
-                        <span>{{ $t('逐条转发') }}</span>
-                    </div>
-                    <div>
-                        <font-awesome-icon :icon="['fas', 'share']" @click="showForWard('merged-messages')" />
-                        <span>{{ $t('合并转发') }}</span>
-                    </div>
-                    <div>
-                        <font-awesome-icon :icon="['fas', 'scissors']" />
-                        <span>{{ $t('截图') }}</span>
-                    </div>
-                    <div>
-                        <font-awesome-icon :icon="['fas', 'trash-can']" @click="delMsgs" />
-                        <span>{{ $t('删除') }}</span>
-                    </div>
-                    <div>
-                        <font-awesome-icon :icon="['fas', 'copy']" @click="copyMsgs" />
-                        <span>{{ $t('复制') }}</span>
-                    </div>
-                    <div>
-                        <font-awesome-icon :icon="['fas', 'xmark']" @click="recallMsgs" />
-                        <span>{{ $t('撤回') }}</span>
-                    </div>
-                    <div>
-                        <span @click="multipleSelectList = []">{{ multipleSelectList.length }}</span>
-                        <span>{{ $t('取消') }}</span>
-                    </div>
                 </div>
                 <!-- 图片指示器 -->
                 <Transition name="img-pan">
@@ -391,7 +368,30 @@
             </div>
             <!-- 消息发送框 -->
             <div class="chihiro-composer">
-                <div class="chihiro-composer-row">
+                <div v-if="multipleSelectList.length > 0" class="chihiro-select-bar">
+                    <div class="chihiro-select-actions">
+                        <button type="button" @click="showForWard('individual-messages')">
+                            <font-awesome-icon :icon="['fas', 'share-from-square']" />
+                            <span>{{ $t('逐条转发') }}</span>
+                        </button>
+                        <button type="button" @click="showForWard('merged-messages')">
+                            <font-awesome-icon :icon="['fas', 'share']" />
+                            <span>{{ $t('合并转发') }}</span>
+                        </button>
+                        <button type="button" @click="copyMsgs">
+                            <font-awesome-icon :icon="['fas', 'copy']" />
+                            <span>{{ $t('复制') }}</span>
+                        </button>
+                        <button type="button" class="is-danger" @click="delMsgs">
+                            <font-awesome-icon :icon="['fas', 'trash-can']" />
+                            <span>{{ $t('删除') }}</span>
+                        </button>
+                    </div>
+                    <button type="button" class="chihiro-select-cancel" @click="exitMultipleSelect">
+                        {{ $t('取消') }}
+                    </button>
+                </div>
+                <div v-else class="chihiro-composer-row">
                     <div class="chihiro-plus-wrap">
                         <button type="button"
                             class="chihiro-plus"
@@ -563,6 +563,13 @@
                 </div>
             </div>
         </Teleport>
+        <UserProfilePop
+            v-if="profilePop"
+            :user-id="profilePop.userId"
+            :nickname="profilePop.nickname"
+            :card="profilePop.card"
+            :anchor="profilePop.anchor"
+            @close="closeProfilePop" />
         <!-- 群 / 好友信息弹窗 -->
         <Transition name="chat-info-float" :duration="{ enter: 220, leave: 180 }">
             <Info v-if="tags.openChatInfo" ref="infoRef" :chat="chat" :tags="tags"
@@ -615,6 +622,7 @@ import SendUtil from '@renderer/function/sender'
 import Option, { get } from '@renderer/function/option'
 import Info from '@renderer/pages/user/UserInfo.vue'
 import MsgBody from '@renderer/components/user/UserMsgBody.vue'
+import UserProfilePop from '@renderer/components/user/UserProfilePop.vue'
 import NoticeBody from '@renderer/components/user/UserNoticeBody.vue'
 import FacePan from '@renderer/components/user/UserFacePan.vue'
 import MergePan from '@renderer/components/user/UserMergePan.vue'
@@ -693,6 +701,12 @@ const { chat, list } = defineProps<{
     list: any[]
     imgView?: any
 }>()
+const chihiroFeatureOpen = ref(false)
+function onChihiroFeatureStatus(ev: MessageEvent) {
+    const data = ev.data
+    if (!data || data.source !== 'chihiro-shell' || data.kind !== 'feature-status') return
+    chihiroFeatureOpen.value = data.status === 'open' || data.status === 'expanded'
+}
 function toggleChihiroFeature() {
     try { window.parent.postMessage({ source: 'chihiro-im', kind: 'toggle-feature' }, '*') } catch (e) {}
 }
@@ -891,6 +905,20 @@ const mainInput = useTemplateRef<HTMLInputElement | HTMLTextAreaElement>('mainIn
 type ForwardAction = 'single-message' | 'individual-messages' | 'merged-messages'
 
 const multipleSelectList = ref<string[]>([])
+const profilePop = ref<null | {
+    userId: number
+    nickname?: string
+    card?: string
+    anchor: {
+        top: number
+        left: number
+        right: number
+        bottom: number
+        width: number
+        height: number
+    }
+}>(null)
+watch(() => chat.show?.id, () => { profilePop.value = null })
 const selectedForwardAction = ref<ForwardAction>('single-message')
 const tags = ref({
     sendTag: 'REFUSE' as 'READY' | 'PASS' | 'REFUSE',
@@ -962,6 +990,16 @@ function onChihiroDocClick(e: Event) {
 function onChihiroDocKey(e: KeyboardEvent) {
     if (e.key !== 'Escape') return
     if (tags.value.openChatInfo) return
+    if (profilePop.value) {
+        profilePop.value = null
+        e.preventDefault()
+        return
+    }
+    if (multipleSelectList.value.length > 0) {
+        exitMultipleSelect()
+        e.preventDefault()
+        return
+    }
     if (chihiroHistory.open) {
         closeChihiroHistory()
         return
@@ -1148,11 +1186,14 @@ onMounted(() => {
     window.addEventListener('chihiro-viewer-forward', onViewerForward as EventListener)
     window.addEventListener('chihiro-viewer-delete', onViewerDelete as EventListener)
     window.addEventListener('chihiro-viewer-edit-send', onViewerEditSend as EventListener)
+    window.addEventListener('message', onChihiroFeatureStatus)
+    try { window.parent.postMessage({ source: 'chihiro-im', kind: 'feature-sync' }, '*') } catch (e) {}
 })
 
 onBeforeUnmount(() => {
     document.removeEventListener('click', onChihiroDocClick)
     document.removeEventListener('keydown', onChihiroDocKey)
+    window.removeEventListener('message', onChihiroFeatureStatus)
     window.removeEventListener('chihiro-viewer-forward', onViewerForward as EventListener)
     window.removeEventListener('chihiro-viewer-delete', onViewerDelete as EventListener)
     window.removeEventListener('chihiro-viewer-edit-send', onViewerEditSend as EventListener)
@@ -1197,6 +1238,9 @@ function updateChatPadding() {
     const padding = chatPadding.value
     const chatPan = msgPan.value
     if (!morePan || !padding || !chatPan) return
+
+    const scrollbarGap = 12
+    chatPan.style.marginBottom = `${morePan.offsetHeight + scrollbarGap}px`
 
     const contentBlocks = Array.from(morePan.children)
         .flatMap(child => Array.from(child.children))
@@ -2027,7 +2071,35 @@ function intoMultipleSelect() {
     if (selectedMsg.value) {
         multipleSelectList.value.push(selectedMsg.value.message_id)
     }
+    profilePop.value = null
+    chihiroPlusOpen.value = false
+    details.value[1].open = false
     closeMsgMenu()
+}
+
+function closeProfilePop() {
+    profilePop.value = null
+}
+
+function openProfilePop(payload: {
+    userId: number
+    nickname?: string
+    card?: string
+    anchor: {
+        top: number
+        left: number
+        right: number
+        bottom: number
+        width: number
+        height: number
+    }
+}) {
+    if (multipleSelectList.value.length > 0) return
+    profilePop.value = payload
+}
+
+function exitMultipleSelect() {
+    multipleSelectList.value = []
 }
 
 function cloneMessagePayload<T>(payload: T): T {

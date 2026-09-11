@@ -71,6 +71,88 @@ html.chihiro-settings-only .main-body > div {
     width: 100%;
     background: transparent;
 }
+.user-skin .select-tag {
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+.user-skin.chat-pan > div.more > .chihiro-composer > .chihiro-select-bar,
+.chihiro-select-bar {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 24px !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 36px !important;
+    margin: 0 !important;
+    padding: 0 8px !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+    cursor: default !important;
+    flex: none !important;
+}
+.user-skin.chat-pan > div.more > .chihiro-composer > .chihiro-select-bar > .chihiro-select-actions,
+.chihiro-select-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 20px !important;
+    width: auto !important;
+    height: auto !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    flex: 1 1 auto !important;
+    overflow: visible !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    cursor: default !important;
+}
+.chihiro-select-bar button {
+    appearance: none;
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 6px 14px !important;
+    border: 0 !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+    color: var(--color-font);
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0 !important;
+}
+.chihiro-select-bar button:hover {
+    background: rgba(127, 127, 127, 0.16);
+}
+.chihiro-select-bar button svg {
+    width: 14px !important;
+    height: 14px !important;
+    margin: 0 !important;
+    color: inherit !important;
+}
+.chihiro-select-bar button.is-danger {
+    color: #ff453a;
+}
+.chihiro-select-cancel {
+    flex: 0 0 auto;
+    margin-left: auto;
+    color: var(--color-font-1) !important;
+}
+.user-skin .message > img[name="avatar"] {
+    cursor: pointer;
+}
 .chihiro-composer-row {
     display: flex !important;
     flex-direction: row !important;
@@ -305,8 +387,8 @@ html.chihiro-settings-only .main-body > div {
     background: var(--color-card-1) !important;
 }
 .chihiro-feature-btn svg {
-    width: 14px !important;
-    height: 14px !important;
+    width: 16px !important;
+    height: 16px !important;
     color: var(--color-font-1) !important;
 }
 .chihiro-tools > div.active,
@@ -456,6 +538,9 @@ html.chihiro-settings-only .main-body > div {
     pointer-events: none !important;
     opacity: 0 !important;
 }
+.user-skin.chat-pan > div.chat {
+    margin-bottom: 70px;
+}
 .chihiro-head-actions {
     display: flex;
     align-items: center;
@@ -464,6 +549,7 @@ html.chihiro-settings-only .main-body > div {
     flex: 0 0 auto;
     margin-right: 0;
 }
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-feature-btn,
 .user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-history-btn,
 .user-skin.chat-pan > div.info > .chihiro-head-actions .more {
     background: transparent;
@@ -475,6 +561,7 @@ html.chihiro-settings-only .main-body > div {
     display: grid;
     place-items: center;
 }
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-feature-btn svg,
 .user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-history-btn svg,
 .user-skin.chat-pan > div.info > .chihiro-head-actions .more svg {
     color: var(--color-font-1) !important;
@@ -482,6 +569,8 @@ html.chihiro-settings-only .main-body > div {
     width: 16px !important;
     margin: 0 !important;
 }
+.chihiro-feature-btn:hover,
+.chihiro-feature-btn.active,
 .chihiro-history-btn:hover,
 .chihiro-history-btn.active,
 .chihiro-head-actions .more:hover {
@@ -1087,9 +1176,42 @@ html.bp-light {
 }
 
 .message {
+    position: relative;
     width: calc(100% - 24px);
     padding: 2px 12px 6px;
     margin: 2px 0;
+    transition: width 0.22s ease;
+}
+.user-skin .message.selected {
+    background: transparent !important;
+    backdrop-filter: none !important;
+}
+.user-skin .message.selected header a.time {
+    display: none;
+}
+.user-skin.chat-pan.is-multiselect .message:not(.body-only) {
+    width: calc(100% - 24px - 40px);
+}
+.chihiro-msg-check {
+    position: absolute;
+    right: -24px;
+    top: 14px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #007aff;
+    color: #fff;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    pointer-events: none;
+    z-index: 2;
+}
+.chihiro-msg-check svg {
+    width: 11px !important;
+    height: 11px !important;
+    margin: 0 !important;
+    color: #fff !important;
 }
 .message > img {
     width: 28px !important;

@@ -27,10 +27,10 @@
         @mouseleave="hiddenUserInfo">
         <template v-if="type != 'body'">
             <img v-menu.prevent="event => $emit('showMenu', event, data)"
-                v-user-tooltip="() => getUserById(data.sender.user_id)"
                 name="avatar"
                 :src="'https://q1.qlogo.cn/g?b=qq&s=0&nk=' + data.sender.user_id"
                 :alt="data.sender.card ? data.sender.card : data.sender.nickname"
+                @click="onAvatarClick"
                 @dblclick="sendPoke">
             <div v-if="data.fake_msg == true"
                 :class="'sending left' + (isMe ? ' me' : '')">
@@ -137,9 +137,9 @@
                         </span>
                         <div v-else-if="item.type == 'at'"
                             :class="getAtClass(item.qq)">
-                            <a v-user-tooltip="() => getAtMember(item.qq)"
-                                :data-id="item.qq"
-                                :data-group="data.group_id">
+                            <a :data-id="item.qq"
+                                :data-group="data.group_id"
+                                @click="onAtClick($event, item)">
                                 {{ getAtName(item) }}
                             </a>
                         </div>
@@ -362,6 +362,9 @@
             :class="'sending right' + (isMe ? ' me' : '')">
             <font-awesome-icon :icon="['fas', 'spinner']" />
         </div>
+        <span v-if="selected && type != 'body'" class="chihiro-msg-check" aria-hidden="true">
+            <font-awesome-icon :icon="['fas', 'check']" />
+        </span>
         <div v-if="data.emoji_like"
             :class="'emoji-like' + (isMe ? ' me' : '')">
             <div class="emoji-like-body">
@@ -400,7 +403,6 @@ import {
 	vMove,
 	VMoveOptions,
 } from '@renderer/function/utils/appUtil'
-import { vUserTooltip } from '@renderer/function/tooltip'
 import {
     getForegroundToneGridFromImageUrl,
     getSizeFromBytes,
@@ -444,12 +446,14 @@ const {
     type,
     globalMe,
     imageListHeader,
+    selecting,
 } = defineProps<{
     data: any
     selected?: boolean
     type?: 'merge' | 'body'
     globalMe?: string
     imageListHeader?: Img | undefined
+    selecting?: boolean
 }>()
 
 provide('message-content', data)
@@ -463,6 +467,19 @@ const emit = defineEmits<{
     leftMove: [msg: Msg]
     rightMove: [msg: Msg]
     showMenu: [event: MenuEventData, msg: Msg]
+    openProfile: [payload: {
+        userId: number
+        nickname?: string
+        card?: string
+        anchor: {
+            top: number
+            left: number
+            right: number
+            bottom: number
+            width: number
+            height: number
+        }
+    }]
 }>()
 
 const msgMain = useTemplateRef<HTMLDivElement>('msgMain')
@@ -518,10 +535,6 @@ const pendingImageLoads = ref({} as Record<string, boolean>)
 
 //#region == 工具函数 ================================================================
 
-function getAtMember(id: number): IUser | number {
-    const re = getUserById(id) ?? id
-    return re
-}
 function getUserById(id: number): IUser | undefined {
     if (chatStore.chatInfo.show.type === 'group') {
         if (!chatStore.chatInfo.info.group_members) return id
@@ -1035,6 +1048,47 @@ function hasMarkdown() {
 
 function sendPoke() {
     emit('sendPoke', data.sender.user_id)
+}
+
+function rectOf(el: EventTarget | null) {
+    const node = el as HTMLElement | null
+    if (!node || typeof node.getBoundingClientRect !== 'function') {
+        return { top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 }
+    }
+    const r = node.getBoundingClientRect()
+    return { top: r.top, left: r.left, right: r.right, bottom: r.bottom, width: r.width, height: r.height }
+}
+
+function emitOpenProfile(event: MouseEvent, userId: number, nickname?: string, card?: string) {
+    if (selecting) return
+    if (!userId) return
+    event.stopPropagation()
+    emit('openProfile', {
+        userId,
+        nickname,
+        card,
+        anchor: rectOf(event.currentTarget),
+    })
+}
+
+function onAvatarClick(event: MouseEvent) {
+    emitOpenProfile(
+        event,
+        Number(data.sender.user_id),
+        data.sender.nickname,
+        data.sender.card,
+    )
+}
+
+function onAtClick(event: MouseEvent, item: { [key: string]: any }) {
+    if (item.qq == 'all') return
+    const user = getUserById(Number(item.qq))
+    emitOpenProfile(
+        event,
+        Number(item.qq),
+        typeof user === 'object' ? user?.nickname : undefined,
+        typeof user === 'object' ? user?.card : undefined,
+    )
 }
 
 async function showPock() {

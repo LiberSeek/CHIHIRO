@@ -36,7 +36,12 @@ friend_info:
     name: get_stranger_info
     source: $.data
     list:
+        user_id: /user_id
+        nickname: /nickname
+        remark: /remark
+        status: /status
         longNick: /longNick             # 签名
+        long_nick: /long_nick
         qid: /qid                       # 个性 QQ 账号
         country: /country               # 国家
         province: /province             # 省份

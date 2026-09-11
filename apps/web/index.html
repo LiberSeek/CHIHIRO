@@ -52,7 +52,7 @@
     </button>
   </nav>
 
-  <div id="workspace" class="workspace">
+  <div id="workspace" class="workspace" data-feature="off">
     <section id="stage" class="stage">
       <div id="empty" class="panel empty-panel">
         <div class="empty-copy">
@@ -105,17 +105,43 @@
       <div id="im-host" class="im hidden"></div>
     </section>
 
-    <aside id="feature" class="feature is-agentic hidden" aria-hidden="true">
-      <nav id="feature-tabs" class="feature-tabs">
-        <button type="button" data-tab="agentic" class="is-on">Agentic Bot</button>
-        <span id="agentic-status" class="agentic-hosted">未托管</span>
-        <span class="feature-tabs-spacer" aria-hidden="true"></span>
-        <label class="agentic-switch" title="接管当前 QQ">
-          <input id="agentic-switch" type="checkbox" />
-          <span class="agentic-switch-ui"></span>
-        </label>
-      </nav>
-      <div id="pane-agentic" class="feature-pane">
+    <aside id="feature" class="feature" data-status="off" aria-hidden="true">
+      <div id="feature-collapsed" class="feature-collapsed">
+        <button id="feature-open" type="button" class="feature-open-btn" title="打开 AI 功能区" aria-label="打开 AI 功能区">
+          <img src="/icon.png" alt="" />
+          <span id="feature-badge" class="feature-badge hidden" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div id="feature-shell" class="feature-shell">
+        <div id="feature-resize" class="feature-resize" role="separator" aria-orientation="vertical" aria-label="调整功能区宽度"></div>
+        <header class="feature-head">
+          <p id="feature-title" class="feature-title">功能区</p>
+          <div class="feature-head-actions">
+            <button id="feature-expand" type="button" class="feature-icon-btn" title="全展开" aria-label="全展开功能区">
+              <svg class="ico-max" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+              </svg>
+              <svg class="ico-min" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/>
+              </svg>
+            </button>
+            <button id="feature-collapse" type="button" class="feature-icon-btn" title="收回" aria-label="收回功能区">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M9 6l6 6-6 6"/>
+              </svg>
+            </button>
+          </div>
+        </header>
+        <nav id="feature-tabs" class="feature-tabs">
+          <button type="button" data-tab="agentic" class="is-on">Agentic</button>
+          <span id="agentic-status" class="agentic-hosted">未托管</span>
+          <span class="feature-tabs-spacer" aria-hidden="true"></span>
+          <label class="agentic-switch" title="接管当前 QQ">
+            <input id="agentic-switch" type="checkbox" />
+            <span class="agentic-switch-ui"></span>
+          </label>
+        </nav>
+        <div id="pane-agentic" class="feature-pane">
         <div id="agentic-list" class="agentic-list is-empty">
           <p class="agentic-empty">暂无会话/任务</p>
         </div>
@@ -172,6 +198,7 @@
             </div>
           </div>
         </div>
+      </div>
       </div>
     </aside>
   </div>

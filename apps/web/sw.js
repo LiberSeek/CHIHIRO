@@ -1,4 +1,4 @@
-const CACHE = 'chihiro-web-v5'
+const CACHE = 'chihiro-web-v7'
 const PRECACHE = [
   '/',
   '/index.html',
