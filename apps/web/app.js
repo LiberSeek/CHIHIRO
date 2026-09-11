@@ -25,6 +25,7 @@ const ui = {
   menuRemove: $('menu-remove'),
   settings: $('btn-settings'),
   settingsMenu: $('settings-menu'),
+  theme: $('btn-theme'),
   menuImSettings: $('menu-im-settings'),
   menuNapcat: $('menu-napcat'),
   menuAstrbot: $('menu-astrbot'),
@@ -547,6 +548,11 @@ function onImMessage(ev) {
     renderFeature()
     return
   }
+  if (data.kind === 'theme-ready') {
+    const frame = ev.source && [...imFrames.values()].find((f) => f.contentWindow === ev.source)
+    postImTheme(frame || currentImFrame())
+    return
+  }
   if (data.kind === 'open-settings') {
     if (data.target === 'astrbot') {
       openDashboard()
@@ -679,6 +685,7 @@ function ensureImFrame(acc) {
     frame.title = acc.nickname || acc.uin || '千寻 IM'
     frame.dataset.instance = inst
     frame.src = imSrc(acc)
+    frame.addEventListener('load', () => postImTheme(frame))
     ui.im.appendChild(frame)
     imFrames.set(inst, frame)
   }
@@ -1016,6 +1023,57 @@ function hideSettingsMenu() {
   ui.settingsMenu?.classList.add('hidden')
   ui.settings?.setAttribute('aria-expanded', 'false')
   ui.settings?.classList.remove('is-on')
+}
+
+const THEME_KEY = 'chihiro-theme'
+const THEME_MODES = ['light', 'dark', 'system']
+const THEME_LABEL = { light: '浅色', dark: '深色', system: '跟随系统' }
+
+function systemPrefersDark() {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+}
+
+function readThemeMode() {
+  let mode = 'dark'
+  try { mode = localStorage.getItem(THEME_KEY) || 'dark' } catch { /* ignore */ }
+  if (!THEME_MODES.includes(mode)) mode = 'dark'
+  return mode
+}
+
+function resolvedTheme(mode = readThemeMode()) {
+  return mode === 'system' ? (systemPrefersDark() ? 'dark' : 'light') : mode
+}
+
+function postImTheme(frame) {
+  const mode = document.documentElement.dataset.themeMode || readThemeMode()
+  try {
+    frame?.contentWindow?.postMessage({ source: 'chihiro-shell', kind: 'set-theme', mode }, '*')
+  } catch { /* ignore */ }
+}
+
+function broadcastImTheme() {
+  for (const [, frame] of imFrames) postImTheme(frame)
+}
+
+function applyTheme(mode) {
+  if (!THEME_MODES.includes(mode)) mode = 'dark'
+  try { localStorage.setItem(THEME_KEY, mode) } catch { /* ignore */ }
+  const resolved = resolvedTheme(mode)
+  document.documentElement.dataset.theme = resolved
+  document.documentElement.dataset.themeMode = mode
+  const meta = document.querySelector('meta[name="theme-color"]')
+  if (meta) meta.setAttribute('content', resolved === 'dark' ? '#1c1c1e' : '#f2f2f7')
+  if (ui.theme) {
+    ui.theme.title = THEME_LABEL[mode]
+    ui.theme.setAttribute('aria-label', '主题：' + THEME_LABEL[mode])
+  }
+  broadcastImTheme()
+}
+
+function cycleTheme() {
+  const current = readThemeMode()
+  const next = THEME_MODES[(THEME_MODES.indexOf(current) + 1) % THEME_MODES.length]
+  applyTheme(next)
 }
 
 function currentImFrame() {
@@ -1453,6 +1511,13 @@ ui.menuRemove.addEventListener('click', async () => {
 })
 ui.settings?.addEventListener('click', openSettingsMenu)
 ui.settingsMenu?.addEventListener('click', (ev) => ev.stopPropagation())
+ui.theme?.addEventListener('click', cycleTheme)
+try {
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (readThemeMode() === 'system') applyTheme('system')
+  })
+} catch { /* ignore */ }
+applyTheme(readThemeMode())
 ui.menuImSettings?.addEventListener('click', () => {
   hideSettingsMenu()
   openImSettings()

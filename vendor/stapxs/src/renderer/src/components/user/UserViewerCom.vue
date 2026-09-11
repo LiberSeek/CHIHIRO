@@ -48,32 +48,41 @@
                         <!-- 普通栏 -->
                         <div v-if="!edit"
                             key="1"
-                            class="viewer-bar viewer-button-bar"
-                            :class="{
-                                'force-show': forceShowButton || moveTimeout,
-                                dragging: dragging,
-                            }"
+                            class="viewer-bar viewer-button-bar chihiro-viewer-bar force-show"
+                            :class="{ dragging: dragging }"
                             @click.stop>
-                            <font-awesome-icon v-hide="!prev"
-                                :icon="['fas', 'angle-left']"
-                                @click.stop="prevImg" />
-                            <font-awesome-icon v-hide="!next"
-                                :icon="['fas', 'angle-right']"
-                                @click.stop="nextImg" />
-                            <hr>
-                            <font-awesome-icon :icon="['fas', 'share']" style="transform: rotateY(180deg);"
-                                @click.stop="rotate(-90)" />
-                            <font-awesome-icon :icon="['fas', 'share']"
-                                @click.stop="rotate(90)" />
-                            <hr>
-                            <font-awesome-icon v-if="canCors" :icon="['fas', 'pen-to-square']"
-                                @click.stop="editImg" />
-                            <font-awesome-icon :icon="['fas', 'undo']"
-                                @click.stop="resetModify" />
-                            <font-awesome-icon :icon="['fas', 'download']"
-                                @click.stop="download" />
-                            <font-awesome-icon v-if="canCors" :icon="['fas', 'clipboard']"
-                                @click.stop="copy" />
+                            <div v-if="sourceMsg" class="chihiro-viewer-sender">
+                                <img :src="senderAvatar" alt="">
+                                <div class="chihiro-viewer-sender-text">
+                                    <span class="chihiro-viewer-sender-name">{{ senderName }}</span>
+                                    <span class="chihiro-viewer-sender-time">{{ senderTime }}</span>
+                                </div>
+                            </div>
+                            <div class="chihiro-viewer-actions">
+                                <font-awesome-icon :icon="['fas', 'magnifying-glass-minus']"
+                                    @click.stop="zoomOut" />
+                                <font-awesome-icon :icon="['fas', 'magnifying-glass-plus']"
+                                    @click.stop="zoomIn" />
+                                <font-awesome-icon :icon="['fas', 'rotate-right']"
+                                    @click.stop="rotate(90)" />
+                                <hr>
+                                <font-awesome-icon :icon="['fas', 'download']"
+                                    @click.stop="download" />
+                                <font-awesome-icon :icon="['fas', 'share']"
+                                    @click.stop="forwardImg" />
+                                <div class="chihiro-viewer-more">
+                                    <font-awesome-icon :icon="['fas', 'ellipsis']"
+                                        @click.stop="toggleViewerMore" />
+                                    <div v-if="viewerMoreOpen" class="chihiro-viewer-more-menu" @click.stop>
+                                        <button type="button" @click.stop="saveAs">{{ $t('另存为') }}</button>
+                                        <button type="button" @click.stop="copyImage">{{ $t('拷贝图像') }}</button>
+                                        <button v-if="sourceMsg" type="button" @click.stop="locateInChat">{{ $t('定位对话') }}</button>
+                                        <button v-if="sourceMsg" type="button" @click.stop="shareImage">{{ $t('分享图像') }}</button>
+                                        <button v-if="isOwnImage" type="button" @click.stop="editAndSend">{{ $t('编辑与发送') }}</button>
+                                        <button v-if="isOwnImage" type="button" class="is-danger" @click.stop="deleteImage">{{ $t('删除') }}</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <!-- 编辑栏 -->
                         <div v-else
@@ -106,7 +115,7 @@
                             <hr>
                             <font-awesome-icon :icon="['fas', 'xmark']"
                                 @click.stop="editExit" />
-                            <font-awesome-icon v-if="currentImgInfo?.editMode" :icon="['fas', 'check']"
+                            <font-awesome-icon v-if="currentImgInfo?.editMode || sendAfterEdit" :icon="['fas', 'check']"
                                 @click.stop="editFinish" />
                         </div>
                     </Transition>
@@ -182,9 +191,10 @@
 import { PopInfo, PopType } from '@renderer/function/base'
 import { mousemoveMask } from '@renderer/function/input'
 import { Img } from '@renderer/function/model/img'
-import { copyToClipboard } from '@renderer/function/utils/systemUtil'
+import { copyToClipboard, getTrueLang, getViewTime } from '@renderer/function/utils/systemUtil'
 import {
 	downloadFile,
+    scrollToMsg,
     vEsc,
     vHide,
     vMove,
@@ -202,8 +212,12 @@ import {
 } from 'vue'
 import { backend } from '@renderer/runtime/backend'
 import { useUIStore } from '@renderer/state/ui'
+import { useChatStore } from '@renderer/state/chat'
+import { useAuthStore } from '@renderer/state/auth'
 
 const uiStore = useUIStore()
+const chatStore = useChatStore()
+const authStore = useAuthStore()
 
 type EditToolType = 'hand' | 'pen' | 'rect'
 
@@ -269,6 +283,44 @@ const scrollBarDrag = shallowRef<undefined | 'x' | 'y'>()
 const changeViewerCssName = shallowRef('next')
 
 const forceShowButton = shallowRef(false)
+const viewerMoreOpen = shallowRef(false)
+const sendAfterEdit = shallowRef(false)
+const trueLang = getTrueLang()
+
+const sourceMsg = computed(() => {
+    const img = currentImg.value
+    if (!img) return undefined
+    const raw = img._src
+    const proxied = img.src
+    return chatStore.messageList.find((item: any) =>
+        item.message?.some((seg: any) =>
+            seg.type === 'image' && (seg.url === raw || seg.url === proxied),
+        ),
+    )
+})
+const senderName = computed(() => {
+    const sender = sourceMsg.value?.sender
+    if (!sender) return ''
+    return sender.card || sender.nickname || ''
+})
+const senderAvatar = computed(() => {
+    const id = sourceMsg.value?.sender?.user_id
+    if (!id) return ''
+    return `https://q1.qlogo.cn/g?b=qq&s=0&nk=${id}`
+})
+const senderTime = computed(() => {
+    const time = sourceMsg.value?.time
+    if (!time) return ''
+    return Intl.DateTimeFormat(trueLang, {
+        hour: 'numeric',
+        minute: 'numeric',
+    }).format(new Date(getViewTime(time)))
+})
+const isOwnImage = computed(() => {
+    const msg = sourceMsg.value
+    if (!msg?.sender) return false
+    return Number(msg.sender.user_id) === Number(authStore.loginInfo.uin)
+})
 
 let canCors: boolean = false
 setTimeout(()=>{
@@ -436,6 +488,8 @@ function init() {
     img.onload = loadFinish
     loading.value = true
     mouseMoveInfo.value = undefined
+    viewerMoreOpen.value = false
+    sendAfterEdit.value = false
 }
 function closeClick() {
     // 太容易误触了,干脆编辑模式禁止通过这样退出吧
@@ -450,6 +504,8 @@ function close() {
     if (edit.value) editExit()
     currentImg.value = undefined
     forceShowButton.value = false
+    viewerMoreOpen.value = false
+    sendAfterEdit.value = false
 }
 //#region == 顶部按钮 ===============================================
 /**
@@ -501,6 +557,73 @@ function rotate(deg: number) {
     const oldRotate = modify.rotate
     modify.rotate = oldRotate + deg
     stdFit()
+}
+
+function zoomIn() {
+    if (loading.value) return
+    modify.scale /= 0.9
+}
+
+function zoomOut() {
+    if (loading.value) return
+    modify.scale *= 0.9
+}
+
+function toggleViewerMore() {
+    viewerMoreOpen.value = !viewerMoreOpen.value
+}
+
+function saveAs() {
+    viewerMoreOpen.value = false
+    download()
+}
+
+function copyImage() {
+    viewerMoreOpen.value = false
+    copy()
+}
+
+function locateInChat() {
+    const msg = sourceMsg.value
+    viewerMoreOpen.value = false
+    if (!msg?.message_id) {
+        new PopInfo().add(PopType.INFO, $t('无法定位'))
+        return
+    }
+    const id = msg.message_id
+    close()
+    setTimeout(() => {
+        scrollToMsg('chat-' + id, true)
+    }, 50)
+}
+
+function shareImage() {
+    viewerMoreOpen.value = false
+    forwardImg()
+}
+
+function editAndSend() {
+    viewerMoreOpen.value = false
+    sendAfterEdit.value = true
+    editImg()
+}
+
+function deleteImage() {
+    const msg = sourceMsg.value
+    viewerMoreOpen.value = false
+    if (!msg) return
+    window.dispatchEvent(new CustomEvent('chihiro-viewer-delete', { detail: toRaw(msg) }))
+    close()
+}
+
+function forwardImg() {
+    const msg = sourceMsg.value
+    if (!msg) {
+        new PopInfo().add(PopType.INFO, $t('无法转发'))
+        return
+    }
+    window.dispatchEvent(new CustomEvent('chihiro-viewer-forward', { detail: toRaw(msg) }))
+    close()
 }
 
 /**
@@ -574,6 +697,7 @@ function editExit() {
     edit.value = false
     currentTool.value = 'hand'
     editHistory = []
+    sendAfterEdit.value = false
 
     // 如果是编辑模式打开的图片，返回结果
     const info = currentImgInfo.value
@@ -590,6 +714,14 @@ function editFinish() {
     edit.value = false
     currentTool.value = 'hand'
     editHistory = []
+
+    if (sendAfterEdit.value) {
+        const dataurl = canvas.value!.toDataURL('image/png')
+        sendAfterEdit.value = false
+        window.dispatchEvent(new CustomEvent('chihiro-viewer-edit-send', { detail: dataurl }))
+        close()
+        return
+    }
 
     // 如果是编辑模式打开的图片，返回结果
     if (currentImgInfo.value?.editMode) {
@@ -1276,6 +1408,7 @@ async function getBlob(): Promise<Blob|undefined> {
         if (canCors)
             tmpImg.crossOrigin = 'anonymous'
         tmpImg.src = tmpUrl
+        tmpImg.onerror = () => resolve(undefined)
         tmpImg.onload = () => {
             newCtx.translate(newCanvas.width / 2, newCanvas.height / 2)
             newCtx.rotate(modify.rotate * Math.PI / 180)

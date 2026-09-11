@@ -337,17 +337,6 @@
                         <font-awesome-icon :icon="['fas', 'xmark']" />
                     </div>
                 </div>
-                <!-- 回复指示器 -->
-                <div :class="tags.isReply ? 'replay-tag show' : 'replay-tag'">
-                    <font-awesome-icon :icon="['fas', 'reply']" />
-                    <span>{{
-                        selectedMsg === null ?
-                            '' : selectedMsg.sender.nickname + ': ' + getMsgRawTxt(selectedMsg)
-                    }}</span>
-                    <div @click="cancelReply">
-                        <font-awesome-icon :icon="['fas', 'xmark']" />
-                    </div>
-                </div>
                 <!-- At 指示器 -->
                 <div
                     :class="atFindList != null ? 'at-tag show' : 'at-tag'"
@@ -422,7 +411,16 @@
                             </button>
                         </div>
                     </div>
-                    <form class="chihiro-composer-form" @submit.prevent="mainSubmit">
+                    <form class="chihiro-composer-form" :class="{ 'is-reply': tags.isReply }" @submit.prevent="mainSubmit">
+                        <div v-if="tags.isReply" class="chihiro-reply-preview">
+                            <div class="chihiro-reply-copy">
+                                <div class="chihiro-reply-title">{{ $t('回复') }} {{ selectedMsg?.sender?.card || selectedMsg?.sender?.nickname || '' }}</div>
+                                <div class="chihiro-reply-text">{{ selectedMsg ? getMsgRawTxt(selectedMsg) : '' }}</div>
+                            </div>
+                            <button type="button" class="chihiro-reply-close" :title="$t('取消')" @click.stop="cancelReply">
+                                <font-awesome-icon :icon="['fas', 'xmark']" />
+                            </button>
+                        </div>
                         <label for="main-input-ex" class="sr-only">{{ $t('消息输入框') }}</label>
                         <textarea id="main-input-ex"
                             ref="mainInput"
@@ -566,8 +564,8 @@
             </div>
         </Teleport>
         <!-- 群 / 好友信息弹窗 -->
-        <Transition name="chat-info-float" :duration="{ enter: 300, leave: 200 }">
-            <Info ref="infoRef" :chat="chat" :tags="tags"
+        <Transition name="chat-info-float" :duration="{ enter: 220, leave: 180 }">
+            <Info v-if="tags.openChatInfo" ref="infoRef" :chat="chat" :tags="tags"
                 @close="openChatInfoPan" />
         </Transition>
         <!-- 转发面板 -->
@@ -963,6 +961,7 @@ function onChihiroDocClick(e: Event) {
 }
 function onChihiroDocKey(e: KeyboardEvent) {
     if (e.key !== 'Escape') return
+    if (tags.value.openChatInfo) return
     if (chihiroHistory.open) {
         closeChihiroHistory()
         return
@@ -1146,11 +1145,17 @@ onMounted(() => {
         setupChatPaddingObserver()
         scheduleResizeMainInput()
     })
+    window.addEventListener('chihiro-viewer-forward', onViewerForward as EventListener)
+    window.addEventListener('chihiro-viewer-delete', onViewerDelete as EventListener)
+    window.addEventListener('chihiro-viewer-edit-send', onViewerEditSend as EventListener)
 })
 
 onBeforeUnmount(() => {
     document.removeEventListener('click', onChihiroDocClick)
     document.removeEventListener('keydown', onChihiroDocKey)
+    window.removeEventListener('chihiro-viewer-forward', onViewerForward as EventListener)
+    window.removeEventListener('chihiro-viewer-delete', onViewerDelete as EventListener)
+    window.removeEventListener('chihiro-viewer-edit-send', onViewerEditSend as EventListener)
     if (resizeMainInputFrame !== null) {
         cancelAnimationFrame(resizeMainInputFrame)
         resizeMainInputFrame = null
@@ -1957,6 +1962,38 @@ function searchForward(event: Event) {
             )
         },
     )
+}
+
+function onViewerForward(event: Event) {
+    const msg = (event as CustomEvent).detail
+    if (!msg) return
+    selectedMsg.value = msg
+    showForWard()
+}
+
+function onViewerDelete(event: Event) {
+    const msg = (event as CustomEvent).detail
+    if (!msg) return
+    selectedMsg.value = msg
+    revokeMsg()
+}
+
+async function onViewerEditSend(event: Event) {
+    const dataurl = (event as CustomEvent).detail
+    if (!dataurl || typeof dataurl !== 'string') return
+    const file = dataUrlToFile(dataurl)
+    await setImg(file)
+    sendMsg()
+}
+
+function dataUrlToFile(dataurl: string, name = 'image.png') {
+    const arr = dataurl.split(',')
+    const mime = /:(.*?);/.exec(arr[0])?.[1] || 'image/png'
+    const bstr = atob(arr[1] || '')
+    let n = bstr.length
+    const u8 = new Uint8Array(n)
+    while (n--) u8[n] = bstr.charCodeAt(n)
+    return new File([u8], name, { type: mime })
 }
 
 function showForWard(action: ForwardAction = 'single-message') {

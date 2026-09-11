@@ -6,7 +6,7 @@
 -->
 
 <template>
-    <div v-if="tags.openChatInfo"
+    <div v-esc="onChatInfoEsc"
         class="chat-info-pan">
         <div class="ss-card chat-info">
             <header>
@@ -241,6 +241,7 @@ import { Connector } from '@renderer/function/connect'
 import { PopInfo, PopType } from '@renderer/function/base'
 import { toRaw, ref, nextTick } from 'vue'
 import { delay, getTrueLang } from '@renderer/function/utils/systemUtil'
+import { vEsc } from '@renderer/function/utils/appUtil'
 import { useAuthStore } from '@renderer/state/auth'
 import { useContactStore } from '@renderer/state/contact'
 import { useChatStore } from '@renderer/state/chat'
@@ -488,6 +489,14 @@ function checkNumber(event: Event) {
 function closeChatInfoPan() {
     showUserConfig.value = {}
     emit('close')
+}
+
+function onChatInfoEsc() {
+    if (Object.keys(showUserConfig.value).length > 0) {
+        showUserConfig.value = {}
+        return
+    }
+    closeChatInfoPan()
 }
 
 /**

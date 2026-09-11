@@ -405,12 +405,25 @@ const tags = shallowReactive({
     chihiroMenu: false,
 })
 document.addEventListener('click', () => { tags.chihiroMenu = false })
+function applyChihiroTheme(mode: string) {
+    try {
+        if (mode === 'system') {
+            Option.runAS('opt_auto_dark', true)
+        } else if (mode === 'dark' || mode === 'light') {
+            Option.runAS('opt_auto_dark', false)
+            Option.runAS('opt_dark', mode === 'dark')
+        }
+    } catch (e) { /* option store may not be ready */ }
+}
 window.addEventListener('message', (ev) => {
     const data = ev.data
     if (!data || data.source !== 'chihiro-shell') return
     if (data.kind === 'open-options') {
         if (tags.page === 'Options') changeTab('信息', 'Messages', true)
         else changeTab('设置', 'Options', false)
+    }
+    if (data.kind === 'set-theme' && typeof data.mode === 'string') {
+        applyChihiroTheme(data.mode)
     }
 })
 function toggleChihiroMenu() {
@@ -969,6 +982,13 @@ onMounted(() => {
         Option.run('opt_dark', Option.get('opt_dark'))
         Option.run('opt_auto_dark', Option.get('opt_auto_dark'))
         Option.run('theme_color', Option.get('theme_color'))
+        try {
+            const chihiroTheme = localStorage.getItem('chihiro-theme')
+            if (chihiroTheme) applyChihiroTheme(chihiroTheme)
+        } catch (e) {}
+        try {
+            window.parent.postMessage({ source: 'chihiro-im', kind: 'theme-ready' }, '*')
+        } catch (e) {}
         // 流体玻璃样式附加设置
         if (Option.get('glass_effect')) {
             const app = document.getElementById('app')
