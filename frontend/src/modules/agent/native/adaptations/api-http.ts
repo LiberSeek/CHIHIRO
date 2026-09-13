@@ -1,5 +1,6 @@
 import axios, {
   type AxiosError,
+  type AxiosStatic,
   type AxiosInstance,
   type InternalAxiosRequestConfig,
 } from 'axios';
@@ -10,7 +11,17 @@ const LOCALE_HEADER = 'Accept-Language';
 let configured = false;
 let hosted = false;
 
-export const httpClient = axios.create();
+// The generated 0.2 client requires AxiosStatic but invokes only the callable
+// request interface. Preserve static helpers on a private instance for compatibility.
+export const httpClient = Object.assign(axios.create(), {
+  Axios: axios.Axios, AxiosError: axios.AxiosError, AxiosHeaders: axios.AxiosHeaders,
+  Cancel: axios.Cancel, CancelToken: axios.CancelToken, CanceledError: axios.CanceledError,
+  isCancel: axios.isCancel, isAxiosError: axios.isAxiosError,
+  toFormData: axios.toFormData, formToJSON: axios.formToJSON,
+  all: axios.all, spread: axios.spread, mergeConfig: axios.mergeConfig,
+  getAdapter: axios.getAdapter, HttpStatusCode: axios.HttpStatusCode,
+  VERSION: axios.VERSION, create: axios.create,
+}) as AxiosStatic;
 export const apiV1Client = axios.create({ baseURL: '/api/v1' });
 
 export function isHosted(): boolean {
