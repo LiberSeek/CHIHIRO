@@ -1,18 +1,19 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onUnmounted, watch } from 'vue'
 import { useShellStore } from '@/stores/shell'
-import { createImClient, type ImConversation, type ImMessage } from './im-client'
-const shell = useShellStore(); const client = createImClient(); const conversations = ref<ImConversation[]>([]); const messages = ref<ImMessage[]>([]); const active = ref<ImConversation | null>(null); const error = ref(''); const draft = ref(''); const sending = ref(false)
-async function load() { active.value = null; messages.value = []; if (!shell.activeAccountId) { conversations.value = []; return } try { conversations.value = await client.conversations(shell.activeAccountId) } catch (e) { error.value = e instanceof Error ? e.message : '无法加载会话' } }
-async function select(item: ImConversation) { if (!shell.activeAccountId) return; active.value = item; messages.value = await client.messages(shell.activeAccountId, item.id) }
-async function send() { if (!shell.activeAccountId || !active.value || !draft.value.trim() || sending.value) return; const text = draft.value.trim(); draft.value = ''; sending.value = true; error.value = ''; try { await client.send(shell.activeAccountId, active.value.id, text); messages.value.push({ id: `local-${Date.now()}`, text, sender: 'me', outgoing: true }) } catch (e) { error.value = e instanceof Error ? e.message : '发送失败'; draft.value = text } finally { sending.value = false } }
-onMounted(load)
-watch(() => shell.activeAccountId, () => { void load() })
+import { createImClient } from './im-client'
+import { createImWorkspace } from './useImWorkspace'
+
+const shell = useShellStore()
+const workspace = createImWorkspace(createImClient())
+const { conversations, active, messages, draft, sending, error, listError, listLoading, loading, select, send } = workspace
+watch(() => shell.activeAccountId, (id) => { void workspace.setAccount(id) }, { immediate: true, flush: 'sync' })
+onUnmounted(workspace.dispose)
 </script>
 <template>
   <section class="im-module" aria-label="消息与联系人">
-    <aside class="conversation-list"><header><span class="eyebrow">MESSAGES</span><h1>消息</h1></header><p v-if="error" class="error">{{ error }}</p><button v-for="item in conversations" :key="item.id" class="conversation" :class="{ active: active?.id === item.id }" @click="select(item)"><strong>{{ item.title }}</strong><small v-if="item.unread">{{ item.unread }}</small></button><p v-if="!conversations.length && !error" class="empty">暂无会话</p></aside>
-    <main class="message-pane"><h2>{{ active?.title ?? '选择一个会话' }}</h2><div class="messages"><article v-for="message in messages" :key="message.id" :class="['message', { outgoing: message.outgoing }]">{{ message.text }}</article></div><form v-if="active" class="composer" @submit.prevent="send"><textarea v-model="draft" rows="2" :disabled="sending" placeholder="输入消息…" aria-label="消息" /><button type="submit" :disabled="sending || !draft.trim()">{{ sending ? '发送中…' : '发送' }}</button></form><div v-else class="composer-hint">选择会话开始聊天</div></main>
+    <aside class="conversation-list"><header><span class="eyebrow">MESSAGES</span><h1>消息</h1></header><p v-if="listError" class="error" role="alert">{{ listError }}</p><p v-if="listLoading" class="empty">正在加载会话…</p><button v-for="item in conversations" :key="item.id" class="conversation" :class="{ active: active?.id === item.id }" @click="select(item)"><strong>{{ item.title }}</strong><small v-if="item.unread">{{ item.unread }}</small></button><p v-if="!conversations.length && !listError && !listLoading" class="empty">暂无会话</p></aside>
+    <main class="message-pane"><h2>{{ active?.title ?? '选择一个会话' }}</h2><p v-if="error" class="error" role="alert">{{ error }}</p><p v-if="loading" class="empty">正在加载消息…</p><div class="messages"><article v-for="message in messages" :key="message.id" :class="['message', { outgoing: message.outgoing }]">{{ message.text }}</article></div><form v-if="active" class="composer" @submit.prevent="send"><textarea v-model="draft" rows="2" :disabled="sending" placeholder="输入消息…" aria-label="消息" /><button type="submit" :disabled="sending || !draft.trim()">{{ sending ? '发送中…' : '发送' }}</button></form><div v-else class="composer-hint">选择会话开始聊天</div></main>
   </section>
 </template>
 <style scoped>
