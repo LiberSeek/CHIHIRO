@@ -145,7 +145,11 @@ export class AccountSessionManager {
     record.connectAbort = abort
     record.status = 'connecting'
 
-    const pending = Promise.resolve(this.connector(context, abort.signal))
+    const pending = Promise.resolve()
+      .then(() => {
+        if (abort.signal.aborted) throw new AccountSessionSupersededError(context.id)
+        return this.connector(context, abort.signal)
+      })
       .then(async (connection) => {
         // A disconnect/remove may have happened while the connector awaited.
         if (record.generation !== generation || abort.signal.aborted) {
@@ -212,11 +216,19 @@ export class AccountSessionManager {
     const pending: PendingRequest = { controller, externalSignal, removeExternalListener }
     record.requests.set(sequence, pending)
     const promise = Promise.resolve()
-      .then(() => connection.request<T>(request, controller.signal))
+      .then(() => {
+        // Cancellation before dispatch must never invoke a send transport.
+        controller.signal.throwIfAborted()
+        if (record.generation !== generation || record.connection !== connection) {
+          throw new AccountSessionSupersededError(accountId)
+        }
+        return connection.request<T>(request, controller.signal)
+      })
       .then((value) => {
         if (record.generation !== generation || record.connection !== connection) {
           throw new AccountSessionSupersededError(accountId)
         }
+        controller.signal.throwIfAborted()
         return value
       })
       .finally(() => {

@@ -45,6 +45,41 @@ function fakeConnection(): FakeConnection {
 }
 
 describe('AccountSessionManager', () => {
+  it('does not dispatch a send that was cancelled before the transport runs', async () => {
+    const connection = fakeConnection()
+    const manager = new AccountSessionManager(() => connection)
+    const session = await manager.connect(account('a'))
+    const request = session.requestWithSequence({ method: 'send' })
+    request.cancel()
+    await expect(request.promise).rejects.toBeDefined()
+    expect(connection.requestSignals).toHaveLength(0)
+  })
+
+  it('rejects cancelled work even when the transport ignores abort', async () => {
+    const connection = fakeConnection()
+    let finish!: (value: unknown) => void
+    connection.request = () => new Promise(resolve => { finish = resolve })
+    const manager = new AccountSessionManager(() => connection)
+    const session = await manager.connect(account('a'))
+    const request = session.requestWithSequence({ method: 'history' })
+    await Promise.resolve()
+    request.cancel()
+    finish('stale history')
+    await expect(request.promise).rejects.toBeDefined()
+  })
+
+  it('reports synchronous connector failures and allows a retry', async () => {
+    let attempt = 0
+    const manager = new AccountSessionManager(() => {
+      if (++attempt === 1) throw new Error('socket configuration failed')
+      return fakeConnection()
+    })
+    await expect(manager.connect(account('a'))).rejects.toThrow('socket configuration failed')
+    expect(manager.status(accountId('a'))).toBe('error')
+    await manager.connect(account('a'))
+    expect(manager.status(accountId('a'))).toBe('online')
+  })
+
   it('keeps connections and request sequences independent per account', async () => {
     const connections = new Map<string, FakeConnection>()
     const manager = new AccountSessionManager(async (context) => {
