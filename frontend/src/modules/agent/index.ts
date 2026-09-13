@@ -1,0 +1,5 @@
+export { default as AgentModule } from './AgentModule.vue'
+export { default as AgentSidebar } from './AgentSidebar.vue'
+export { default as AgentThread } from './AgentThread.vue'
+export { createAgentWorkspace, provideAgentWorkspace, useAgentWorkspace } from './useAgentWorkspace'
+export type { AgentClient, AgentMessage, AgentProject, AgentSession, AgentWorkspace, AgentWorkspaceOptions } from './useAgentWorkspace'
