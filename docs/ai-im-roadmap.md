@@ -150,7 +150,7 @@ AstrBot Dashboard 作为高级设置入口保留；业务用户常用的知识�
 
 改造重点（均来自本地源码检查）：
 
-1. `apps/runtime/src/agent.mjs` 的 `fakeOk()` 对被拦截消息返回虚构成功；`decideOutbound()` 在实际发送回执前标为 replied。需要真实 proposal/attempt/receipt 状态。
+1. `backend/src/runtime/agent.mjs` 的 `fakeOk()` 对被拦截消息返回虚构成功；`decideOutbound()` 在实际发送回执前标为 replied。需要真实 proposal/attempt/receipt 状态。
 2. `approveDraft()` 先读 pending 再发送、没有事务领取，重复或并发审批存在重复发送窗口；进入统一执行器。
 3. `agent-store.mjs` 使用同步 JSON 全量读写且仅保留最近 120 条会话流水；不能作为消息分析和业务历史库。
 4. 当前 `ask/auto/always` 主要按链接、图片、@全体决定是否拦截，不能表达客服业务权限或活动范围；改成会话策略和动作策略。

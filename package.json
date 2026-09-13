@@ -28,7 +28,7 @@
     "install:stapxs": "node scripts/install-stapxs-plugin.mjs",
     "rebuild:im": "npm run build:stapxs && npm run install:stapxs",
     "rebuild:astrbot-ui": "node scripts/build-astrbot-dashboard.mjs",
-    "mcp": "node apps/mcp/server.mjs",
+    "mcp": "node backend/src/mcp/server.mjs",
     "build:web": "npm --prefix frontend run build",
     "typecheck:web": "npm --prefix frontend run typecheck",
     "test:web": "npm --prefix frontend run test"

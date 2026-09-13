@@ -4,7 +4,7 @@ import http from 'node:http'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { serveLegacyStatic, serveNextPreviewStatic } from '../src/static-preview.mjs'
+import { serveLegacyStatic, serveNextPreviewStatic } from '../../src/gateway/static-preview.mjs'
 
 const listen = (handler) => {
   const server = http.createServer(handler)

@@ -14,10 +14,11 @@ test('backend package exposes a runnable product entrypoint', () => {
   assert.equal(fs.existsSync(path.join(backendRoot, 'src/runtime/index.mjs')), true)
 })
 
-test('backend gateway adapter resolves the legacy implementation from the repository root', () => {
+test('backend gateway owns the product server implementation', () => {
   const source = fs.readFileSync(path.join(backendRoot, 'src/gateway/server.mjs'), 'utf8')
-  assert.match(source, /apps\/gateway\/src\/server\.js/)
-  assert.match(source, /await import/)
+  assert.match(source, /createRuntime/)
+  assert.doesNotMatch(source, /apps\/gateway\/src\/server\.js/)
+  assert.doesNotMatch(source, /await import/)
 })
 
 test('backend runtime boundary exposes the existing lifecycle factories', async () => {

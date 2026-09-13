@@ -4,7 +4,7 @@
  * Talks to the local workbench: http://127.0.0.1:3100
  *
  * Claude Desktop / Codex extra:
- *   { "mcpServers": { "chihiro": { "command": "node", "args": ["/abs/path/apps/mcp/server.mjs"] } } }
+ *   { "mcpServers": { "chihiro": { "command": "node", "args": ["/abs/path/backend/src/mcp/server.mjs"] } } }
  */
 import { stdin, stdout } from 'node:process'
 

@@ -1,6 +1,6 @@
 # Docker 部署骨架
 
-P1 先把当前 `apps/gateway`、`apps/runtime` 和 `apps/web` 打包成一个 `chihiro` 镜像。浏览器只访问 `chihiro:3100`，AstrBot 作为内部服务由 Gateway 代理。目录迁移到 `frontend/`、`backend/` 后，Compose 的端口、卷和服务名保持不变。
+P1 把当前 `backend/src/gateway`、`backend/src/runtime`、`backend/src/mcp` 和 `apps/web` 打包成一个 `chihiro` 镜像。浏览器只访问 `chihiro:3100`，AstrBot 作为内部服务由 Gateway 代理。Compose 的端口、卷和服务名保持不变。
 
 ## 快速启动
 
@@ -42,7 +42,7 @@ docker compose --env-file deploy/.env \
 
 入口脚本每次启动时从 `chihiro.local.json.template` 更新连接地址，并把它链接到持久化数据卷。已有的 AstrBot 反向连接令牌和其他运行时字段会被保留，因此修改外部服务地址后重启即可生效。当前 Gateway 对配置的读取仍来自 JSON；后续 backend 配置服务落地时，这个脚本可以退役。
 
-P1 的外部 NapCat 配置只解决 Gateway 代理地址。现有 `apps/runtime` 的账号探测和本机 QQ 生命周期仍使用宿主端口与 macOS 进程路径，因此外部模式暂不宣称支持扫码登录、动态多账号和 Bot 反向连接；这些能力属于 P2 的 Runtime 连接器迁移。
+P1 的外部 NapCat 配置只解决 Gateway 代理地址。现有 `backend/src/runtime` 的账号探测和本机 QQ 生命周期仍使用宿主端口与 macOS 进程路径，因此外部模式暂不宣称支持扫码登录、动态多账号和 Bot 反向连接；这些能力属于 P2 的 Runtime 连接器迁移。
 
 ## 运维命令
 

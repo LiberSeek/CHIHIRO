@@ -7,8 +7,8 @@
   "scripts": {
     "start": "node src/gateway/server.mjs",
     "dev": "node --watch src/gateway/server.mjs",
-    "check": "node --check src/gateway/server.mjs && node --check src/runtime/index.mjs",
-    "test": "node --test test/*.test.mjs"
+    "check": "node --check src/gateway/server.mjs && node --check src/runtime/index.mjs && node --check src/mcp/server.mjs",
+    "test": "node --test test"
   },
   "engines": {
     "node": ">=20"

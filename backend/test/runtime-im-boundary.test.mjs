@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { mkdtemp, rm } from 'node:fs/promises'
 import test from 'node:test'
-import { createRuntime } from '../../apps/runtime/src/api.mjs'
+import { createRuntime } from '../src/runtime/api.mjs'
 
 async function listen(server) {
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))

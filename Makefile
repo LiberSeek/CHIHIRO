@@ -11,7 +11,6 @@ check:
 	git diff --check
 
 test:
-	node --test apps/gateway/test/*.mjs
 	npm run backend:test
 
 backend-check:

@@ -27,7 +27,7 @@ Stapxs 负责整个 IM 布局和导航。工作台标签下，列表栏顶部保
 ```sh
 npm run rebuild:astrbot-ui
 npm run rebuild:im
-node --test apps/gateway/test/astrbot-chatui.test.mjs
+node --test backend/test/gateway/astrbot-chatui.test.mjs
 npm run check:layout
 ```
 

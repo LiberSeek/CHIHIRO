@@ -29,8 +29,8 @@ export function clonePaths(root) {
     app,
     bin: path.join(app, 'Contents/MacOS/QQ'),
     marker: path.join(runtimes, 'QQ.clone.json'),
-    entitlements: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../qq.entitlements.plist'),
-    icon: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../icon.icns')
+    entitlements: path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'qq.entitlements.plist'),
+    icon: path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'icon.icns')
   }
 }
 

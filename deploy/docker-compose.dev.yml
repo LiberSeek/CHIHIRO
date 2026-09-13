@@ -7,6 +7,6 @@ services:
       NODE_ENV: development
     volumes:
       - ../apps:/app/apps:ro
+      - ../backend:/app/backend:ro
       - ../branding:/app/branding:ro
-    command: ["node", "--watch", "apps/gateway/src/server.js"]
-
+    command: ["node", "--watch", "backend/src/gateway/server.mjs"]

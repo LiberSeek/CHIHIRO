@@ -6,7 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import httpProxy from 'http-proxy'
 import { WebSocket, WebSocketServer } from 'ws'
-import { serveAstrbotChatui, authorizeAstrbotRequest } from '../src/astrbot-chatui.mjs'
+import { serveAstrbotChatui, authorizeAstrbotRequest } from '../../src/gateway/astrbot-chatui.mjs'
 
 const listen = (server) => new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`)))
 test('ChatUI assets are local, missing/encoded escaping assets never fall through to Python', async (t) => {

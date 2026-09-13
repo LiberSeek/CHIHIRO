@@ -1,10 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
-# P2 compatibility image.
-#
-# The product starts through backend/. Its Gateway/Runtime adapter currently
-# consumes the compatible implementation under apps/* while extraction
-# proceeds incrementally.
+# P2 compatibility image. Backend services run from backend/src while the
+# default workbench shell remains apps/web during frontend unification.
 
 ARG NODE_IMAGE=node:22-alpine
 

@@ -42,6 +42,14 @@ if (exists('overlays/stapxs/manifest.json')) {
   fail('overlays/stapxs 已废弃：请直接改 vendor/stapxs，不要恢复 overlay')
 }
 
+for (const rel of [
+  'apps/gateway/src/server.js',
+  'apps/runtime/src/api.mjs',
+  'apps/mcp/server.mjs'
+]) {
+  if (exists(rel)) fail(`${rel} 已迁移到 backend/src，不要恢复旧实现`)
+}
+
 if (!exists('vendor/stapxs/src/renderer/src/pages/Chat.vue')) {
   fail('缺少 IM 源码 vendor/stapxs')
 }
@@ -70,9 +78,12 @@ for (const rel of [
   'AGENTS.md',
   'backend/package.json',
   'backend/src/gateway/server.mjs',
+  'backend/src/gateway/static-preview.mjs',
+  'backend/src/gateway/astrbot-chatui.mjs',
   'backend/src/runtime/index.mjs',
-  'apps/gateway/src/server.js',
-  'apps/runtime/src/api.mjs',
+  'backend/src/runtime/api.mjs',
+  'backend/src/runtime/qq-clone.mjs',
+  'backend/src/mcp/server.mjs',
   'apps/web/index.html',
   'scripts/build-stapxs-plugin.mjs'
 ]) {

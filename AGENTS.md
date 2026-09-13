@@ -36,8 +36,8 @@ Gateway :3100
 | Path | Role | Edit? |
 |---|---|---|
 | `apps/web` | Workbench UI | Yes |
-| `apps/runtime` | NTQQ / NapCat / account lifecycle | Yes |
-| `apps/gateway` | Reverse proxy on `:3100` | Yes |
+| `backend/src/runtime` | NTQQ / NapCat / account lifecycle | Yes |
+| `backend/src/gateway` | Reverse proxy on `:3100` | Yes |
 | `vendor/stapxs` | **IM source of truth** | **Yes — edit files directly** |
 | `vendor/napcat` | NapCat source for reading APIs | No (submodule, reference only) |
 | `vendor/astrbot` | AstrBot Bot + ChatUI | **Yes on `develop` — edit `User*` copies, not upstream Chat.vue** |
@@ -48,10 +48,10 @@ Mac QQ: Runtime clones `data/runtimes/QQ.app`. Do not launch `/Applications/QQ.a
 
 ## Where a change belongs
 
-1. Workbench / login / logout / account bar / feature panel → `apps/web`, `apps/runtime`, `apps/gateway`
+1. Workbench / login / logout / account bar / feature panel → `apps/web`, `backend/src/runtime`, `backend/src/gateway`
 2. Chat composer, history window, emoji, Stapxs menus, IM CSS → **`pages/user` / `components/user` (`User*`) and `assets/css/user.css`. Never edit upstream `Chat.vue`, `MsgBody.vue`, `FacePan.vue`, `chat.css`, `view.css`.**
 3. OneBot / NTQQ protocol questions → read `vendor/napcat`, change Runtime if needed
-4. Bot / Agent / ChatUI → `vendor/astrbot` `User*` UI + `apps/runtime` / `apps/web`. NapCat stays read-only.
+4. Bot / Agent / ChatUI → `vendor/astrbot` `User*` UI + `backend/src/runtime` / `apps/web`. NapCat stays read-only.
 
 Do not add string-replace overlays. Do not copy upstream files into `apps/`.
 

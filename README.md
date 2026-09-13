@@ -9,8 +9,9 @@ QQ IM 工作台。产品仓：[LiberSeek/CHIHIRO](https://github.com/LiberSeek/C
 ```text
 CHIHIRO/
 ├── AGENTS.md             给编码 Agent 的框架说明（先读）
-├── apps/gateway          统一入口 :3100
-├── apps/runtime          账号、QQ/NapCat 进程、二维码
+├── backend/src/gateway   统一入口 :3100
+├── backend/src/runtime   账号、QQ/NapCat 进程、二维码
+├── backend/src/mcp       Codex / Claude stdio MCP
 ├── apps/web              工作台壳
 ├── apps/desktop          Pake 桌面壳
 ├── vendor/
@@ -22,7 +23,7 @@ CHIHIRO/
 └── docs/
 ```
 
-Stapxs 是 IM 视图；NapCat 是本机 QQ/OneBot 运行时；AstrBot 是按需自动化。产品壳在 `apps/`。迭代规则见 [docs/iteration.md](docs/iteration.md)。
+Stapxs 是 IM 视图；NapCat 是本机 QQ/OneBot 运行时；AstrBot 是按需自动化。后端服务在 `backend/src/`，当前默认工作台壳仍在 `apps/web`。迭代规则见 [docs/iteration.md](docs/iteration.md)。
 
 ## 分支
 
