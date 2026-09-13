@@ -2,6 +2,7 @@
   "name": "chihiro",
   "version": "0.1.0",
   "private": true,
+  "workspaces": ["frontend"],
   "description": "千寻 Chihiro — QQ IM workbench shell over NapCat + Stapxs + AstrBot",
   "type": "module",
   "scripts": {
@@ -23,6 +24,9 @@
     "rebuild:im": "npm run build:stapxs && npm run install:stapxs",
     "rebuild:astrbot-ui": "node scripts/build-astrbot-dashboard.mjs",
     "mcp": "node apps/mcp/server.mjs"
+    ,"build:web": "npm --prefix frontend run build"
+    ,"typecheck:web": "npm --prefix frontend run typecheck"
+    ,"test:web": "npm --prefix frontend run test"
   },
   "engines": {
     "node": ">=20"
