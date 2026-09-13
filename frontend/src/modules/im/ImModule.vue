@@ -1,8 +1,18 @@
+<script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import { useShellStore } from '@/stores/shell'
+import { createImClient, type ImConversation, type ImMessage } from './im-client'
+const shell = useShellStore(); const client = createImClient(); const conversations = ref<ImConversation[]>([]); const messages = ref<ImMessage[]>([]); const active = ref<ImConversation | null>(null); const error = ref('')
+async function load() { if (!shell.activeAccountId) return; try { conversations.value = await client.conversations(shell.activeAccountId) } catch (e) { error.value = e instanceof Error ? e.message : '无法加载会话' } }
+async function select(item: ImConversation) { if (!shell.activeAccountId) return; active.value = item; messages.value = await client.messages(shell.activeAccountId, item.id) }
+onMounted(load)
+</script>
 <template>
-  <section class="module-card" aria-labelledby="im-title">
-    <p class="eyebrow">IM MODULE</p>
-    <h1 id="im-title">消息与联系人</h1>
-    <p>Stapxs IM 将在这里作为普通 Vue 模块接入统一账号上下文。</p>
-    <div class="module-placeholder">IM 模块迁移入口</div>
+  <section class="im-module" aria-label="消息与联系人">
+    <aside class="conversation-list"><header><span class="eyebrow">MESSAGES</span><h1>消息</h1></header><p v-if="error" class="error">{{ error }}</p><button v-for="item in conversations" :key="item.id" class="conversation" :class="{ active: active?.id === item.id }" @click="select(item)"><strong>{{ item.title }}</strong><small v-if="item.unread">{{ item.unread }}</small></button><p v-if="!conversations.length && !error" class="empty">暂无会话</p></aside>
+    <main class="message-pane"><h2>{{ active?.title ?? '选择一个会话' }}</h2><div class="messages"><article v-for="message in messages" :key="message.id" :class="['message', { outgoing: message.outgoing }]">{{ message.text }}</article></div><div class="composer-hint">Stapxs IM 会话组件将在此处继续迁移</div></main>
   </section>
 </template>
+<style scoped>
+.im-module{display:flex;height:100%;min-height:560px;border:1px solid #dfe5ee;border-radius:14px;overflow:hidden;background:#fff}.conversation-list{width:280px;border-right:1px solid #e3e8ef;padding:22px 12px}.conversation-list header{padding:0 10px 18px}.conversation-list h1{margin:5px 0;font-size:24px}.conversation{display:flex;width:100%;justify-content:space-between;padding:12px 10px;border:0;border-radius:8px;background:transparent;text-align:left;cursor:pointer}.conversation.active,.conversation:hover{background:#edf5f3}.conversation small{color:#167866}.empty,.error{padding:10px;color:#8391a5;font-size:12px}.error{color:#b34b4b}.message-pane{display:flex;min-width:0;flex:1;flex-direction:column;padding:24px}.message-pane h2{margin:0 0 18px;font-size:17px}.messages{flex:1;overflow:auto}.message{max-width:70%;margin:8px 0;padding:9px 12px;border-radius:10px;background:#f0f3f7}.message.outgoing{margin-left:auto;background:#d9f2ea}.composer-hint{padding-top:14px;color:#8b99aa;font-size:11px}
+</style>
