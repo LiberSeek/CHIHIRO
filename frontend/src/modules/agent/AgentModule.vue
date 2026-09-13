@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { UserChat } from './native'
 import { useCustomizerStore } from './native/source/stores/customizer'
@@ -7,6 +7,29 @@ import { useToastStore } from './native/source/stores/toast.js'
 
 const customizer = useCustomizerStore()
 const route = useRoute()
+const ready = ref(false)
+const starting = ref(false)
+const startupError = ref('')
+let startupController: AbortController | undefined
+async function startAgent() {
+  startupController?.abort()
+  const controller = new AbortController()
+  startupController = controller
+  starting.value = true
+  startupError.value = ''
+  try {
+    const response = await fetch('/api/runtime/bot/ensure', { method: 'POST', signal: controller.signal })
+    const result = await response.json()
+    if (!response.ok || result.error) throw new Error(result.message || 'Agent 启动失败')
+    if (!controller.signal.aborted) ready.value = true
+  } catch (error) {
+    if (!controller.signal.aborted) startupError.value = error instanceof Error ? error.message : 'Agent 连接失败'
+  } finally {
+    if (!controller.signal.aborted) starting.value = false
+  }
+}
+onMounted(startAgent)
+onBeforeUnmount(() => startupController?.abort())
 const mobilePane = ref<'list' | 'chat'>(route.params.conversationId ? 'chat' : 'list')
 watch(() => route.params.conversationId, () => { mobilePane.value = 'chat' })
 const toast = useToastStore()
@@ -24,7 +47,11 @@ onBeforeUnmount(() => { while (toast.current) toast.shift() })
       <button type="button" :aria-pressed="mobilePane === 'chat'" @click="mobilePane = 'chat'">聊天</button>
     </div>
     <v-app class="agent-v-app" :theme="customizer.uiTheme">
-      <UserChat :chihiro-hosted="true" />
+      <UserChat v-if="ready" :chihiro-hosted="true" />
+      <div v-else class="agent-startup" role="status">
+        <p>{{ starting ? '正在连接 Agent…' : startupError }}</p>
+        <button v-if="!starting" type="button" @click="startAgent">重试连接</button>
+      </div>
       <v-snackbar v-if="currentToast" v-model="snackbarOpen" :color="currentToast.color"
         :timeout="currentToast.timeout" :multi-line="currentToast.multiLine" location="top center">
         {{ currentToast.message }}
@@ -40,6 +67,8 @@ onBeforeUnmount(() => { while (toast.current) toast.shift() })
 .agent-module { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
 .agent-v-app { width: 100%; height: 100%; min-height: 0; flex: 1; }
 .agent-mobile-tabs { display: none; }
+.agent-startup { display: grid; align-content: center; justify-items: center; gap: 16px; height: 100%; }
+.agent-startup button { padding: 8px 16px; border: 1px solid currentColor; border-radius: 6px; }
 .agent-v-app :deep(.v-application__wrap) { min-height: 0; height: 100%; }
 .agent-v-app :deep(.chat-ui) { display: grid; grid-template-columns: 280px minmax(0, 1fr); width: 100%; height: 100%; min-height: 0; }
 .agent-v-app :deep(.native-chat-sidebar-root),
