@@ -10,7 +10,10 @@ import { log, logError } from '../../runtime/src/log.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '../../..')
-const webDir = path.join(root, 'apps/web')
+// Prefer the unified Vue build; retain apps/web during migration and for
+// recovery images that do not contain frontend/dist.
+const unifiedWebDir = path.join(root, 'frontend/dist')
+const webDir = fs.existsSync(path.join(unifiedWebDir, 'index.html')) ? unifiedWebDir : path.join(root, 'apps/web')
 const pluginStaticDir = path.join(root, 'dist/plugins/napcat-plugin-ssqq/webui/dist')
 // ChatUI is bundled with Chihiro.  Keep these assets local so opening the
 // workbench does not depend on AstrBot already listening on port 6185.
