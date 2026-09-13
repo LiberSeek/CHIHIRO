@@ -1,0 +1,20 @@
+{
+  "name": "@chihiro/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "千寻产品后端：Gateway、Runtime 和外部服务连接适配层",
+  "scripts": {
+    "start": "node src/gateway/server.mjs",
+    "dev": "node --watch src/gateway/server.mjs",
+    "check": "node --check src/gateway/server.mjs && node --check src/runtime/index.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "http-proxy": "^1.18.1",
+    "ws": "^8.21.3"
+  }
+}

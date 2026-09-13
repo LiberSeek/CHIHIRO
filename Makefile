@@ -1,4 +1,4 @@
-.PHONY: check test image compose-config compose-config-external up down logs
+.PHONY: check test backend-check backend-test image compose-config compose-config-external up down logs
 
 IMAGE ?= chihiro:dev
 COMPOSE ?= docker compose
@@ -7,10 +7,18 @@ COMPOSE_FILE ?= deploy/docker-compose.yml
 
 check:
 	npm run check:layout
+	npm run backend:check
 	git diff --check
 
 test:
 	node --test apps/gateway/test/*.mjs
+	npm run backend:test
+
+backend-check:
+	npm run backend:check
+
+backend-test:
+	npm run backend:test
 
 image:
 	docker build --file Dockerfile --tag $(IMAGE) .

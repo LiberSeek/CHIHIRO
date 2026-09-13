@@ -68,6 +68,9 @@ for (const rel of [
 
 for (const rel of [
   'AGENTS.md',
+  'backend/package.json',
+  'backend/src/gateway/server.mjs',
+  'backend/src/runtime/index.mjs',
   'apps/gateway/src/server.js',
   'apps/runtime/src/api.mjs',
   'apps/web/index.html',

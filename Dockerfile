@@ -1,11 +1,10 @@
 # syntax=docker/dockerfile:1.7
 
-# P1 compatibility image.
+# P2 compatibility image.
 #
-# The repository still runs the product from apps/*, so this image packages
-# the current Gateway/Runtime and static workbench directly. When the
-# frontend/backend migration lands, the dependency and source COPY steps can
-# be split into dedicated builders without changing the Compose contract.
+# The product starts through backend/. Its Gateway/Runtime adapter currently
+# consumes the compatible implementation under apps/* while extraction
+# proceeds incrementally.
 
 ARG NODE_IMAGE=node:22-alpine
 
@@ -22,6 +21,7 @@ ENV NODE_ENV=production
 
 COPY --from=dependencies --chown=node:node /app/node_modules ./node_modules
 COPY --chown=node:node package.json package-lock.json ./
+COPY --chown=node:node backend ./backend
 COPY --chown=node:node apps ./apps
 COPY --chown=node:node config/chihiro.default.json ./config/chihiro.default.json
 COPY --chown=node:node deploy ./deploy
@@ -38,4 +38,4 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
   CMD wget -q -T 5 -O /dev/null http://127.0.0.1:3100/api/status || exit 1
 
 ENTRYPOINT ["/app/deploy/docker-entrypoint.sh"]
-CMD ["node", "apps/gateway/src/server.js"]
+CMD ["node", "backend/src/gateway/server.mjs"]
