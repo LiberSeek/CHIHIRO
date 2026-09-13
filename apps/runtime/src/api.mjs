@@ -9,18 +9,18 @@ import { createAgentController } from './agent.mjs'
 import { createChatuiProxy } from './chatui.mjs'
 import { log, logError } from './log.mjs'
 
-export function createRuntime({ root, cfg }) {
+export function createRuntime({ root, cfg, services = {} }) {
   const dataDir = path.join(root, 'data')
   const store = createAccountStore(path.join(dataDir, 'accounts.json'))
-  const qq = createQqRuntime({
+  const qq = services.qq || createQqRuntime({
     store,
     logDir: path.join(dataDir, 'logs'),
     root
   })
-  const astrbot = createAstrbotRuntime({ root, cfg })
+  const astrbot = services.astrbot || createAstrbotRuntime({ root, cfg })
   const agent = createAgentController({ root, store, qq, astrbot, cfg })
-  const bot = createBotController({ store, qq, astrbot, cfg })
-  const chatui = createChatuiProxy({ astrbot })
+  const bot = services.bot || createBotController({ store, qq, astrbot, cfg })
+  const chatui = services.chatui || createChatuiProxy({ astrbot })
 
   async function snapshot() {
     const snap = qq.snapshot()
@@ -87,35 +87,46 @@ export function createRuntime({ root, cfg }) {
     if (p === '/api/runtime/im/conversations' && method === 'GET') {
       const accountId = req.headers['x-chihiro-account'] || url.searchParams.get('accountId')
       if (!accountId) return json(res, { error: 'missing_account' }, 400)
-      const observed = await agent.observe({ kind: 'sessions', accountId })
-      return json(res, (observed.sessions || []).map((session) => ({
+      try {
+        // This is the Agent-tracked session index, not a complete QQ inbox.
+        const observed = await agent.observe({ kind: 'sessions', accountId })
+        return json(res, (observed.sessions || []).map((session) => ({
         id: session.key,
         title: session.title || session.peerId,
         kind: session.type === 'group' ? 'group' : 'direct',
         unread: 0,
-      })))
+        })))
+      } catch (e) {
+        return imError(res, e)
+      }
     }
     const messageMatch = p.match(/^\/api\/runtime\/im\/conversations\/([^/]+)\/messages$/)
     if (messageMatch && method === 'GET') {
       const accountId = req.headers['x-chihiro-account'] || url.searchParams.get('accountId')
       if (!accountId) return json(res, { error: 'missing_account' }, 400)
       const key = decodeURIComponent(messageMatch[1])
-      const observed = await agent.observe({ kind: 'messages', accountId, key, count: 100 })
-      return json(res, (observed.messages || []).map((message, index) => ({
+      try {
+        const observed = await agent.observe({ kind: 'messages', accountId, key, count: 100 })
+        return json(res, (observed.messages || []).map((message, index) => ({
         id: String(message.id ?? `${key}:${index}`),
         text: String(message.text ?? message.content ?? ''),
         sender: String(message.sender ?? message.user_id ?? ''),
         at: message.time,
         outgoing: Boolean(message.outgoing ?? message.self),
-      })))
+        })))
+      } catch (e) {
+        return imError(res, e)
+      }
     }
     if (p === '/api/runtime/im/send' && method === 'POST') {
       const accountId = req.headers['x-chihiro-account']
       const body = await readJson(req)
       if (!accountId || !body.conversationId || !body.text) return json(res, { error: 'missing_message_fields' }, 400)
-      const observed = await agent.observe({ kind: 'session', accountId, key: body.conversationId })
-      const result = await agent.sendToPeer(accountId, { type: observed.type, peerId: observed.peerId, text: body.text })
-      return json(res, result)
+      try {
+        return json(res, await agent.sendToConversation(accountId, body.conversationId, body.text))
+      } catch (e) {
+        return imError(res, e)
+      }
     }
 
     if (p === '/api/runtime/bot/enable' && method === 'POST') {
@@ -244,6 +255,12 @@ function json(res, obj, status = 200) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' })
   res.end(JSON.stringify(obj))
   return true
+}
+
+function imError(res, error) {
+  const code = error?.message || 'im_failed'
+  const status = code === 'account_not_found' ? 404 : 400
+  return json(res, { error: code, message: code }, status)
 }
 
 function isQqMediaHost(host) {

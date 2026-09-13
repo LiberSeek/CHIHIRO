@@ -65,6 +65,12 @@ function clampCount(n, def = 30, max = 100) {
   return Math.min(Math.floor(v), max)
 }
 
+function parseSessionKey(key) {
+  const match = String(key || '').match(/^(qq:[^:]+):(private|group):([^:]+)$/)
+  if (!match) throw new Error('invalid_conversation')
+  return { accountId: match[1], type: match[2], peerId: match[3], key: String(key) }
+}
+
 function slimHistoryMessage(row) {
   const sender = row?.sender || {}
   const userId = String(sender.user_id ?? row?.user_id ?? '')
@@ -385,6 +391,13 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     return qq.getInstanceForAccount?.(accountId) || null
   }
 
+  function requireAccount(accountId) {
+    if (!accountId) throw new Error('missing_account')
+    const account = accounts.list().accounts?.find((item) => item.id === accountId)
+    if (!account) throw new Error('account_not_found')
+    return account
+  }
+
   async function napcatAction(accountId, action, params = {}) {
     const inst = instForAccount(accountId)
     if (!inst?.ports?.http) throw new Error('账号未在线')
@@ -454,17 +467,18 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
   }
 
   function resolvePeer({ accountId, peerId, type, key, groupId }) {
+    requireAccount(accountId)
     let aid = accountId || ''
     let typ = type === 'group' ? 'group' : (type === 'private' ? 'private' : '')
     let peer = String(peerId || groupId || '')
     if (key) {
-      const parts = String(key).split(':')
-      // key = qq:<uin>:<private|group>:<peerId>
-      if (parts.length >= 4 && parts[0] === 'qq') {
-        aid = aid || `${parts[0]}:${parts[1]}`
-        typ = typ || (parts[2] === 'group' ? 'group' : 'private')
-        peer = peer || parts.slice(3).join(':')
-      }
+      const parsed = parseSessionKey(key)
+      if (parsed.accountId !== accountId) throw new Error('conversation_account_mismatch')
+      if (typ && typ !== parsed.type) throw new Error('conversation_type_mismatch')
+      if (peer && peer !== parsed.peerId) throw new Error('conversation_peer_mismatch')
+      aid = parsed.accountId
+      typ = parsed.type
+      peer = parsed.peerId
     }
     if (!typ) typ = groupId && !peerId ? 'group' : 'private'
     if (!peer && groupId) peer = String(groupId)
@@ -557,6 +571,7 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     if (!accountId && k !== 'session' && k !== 'messages' && k !== 'history') {
       throw new Error('missing_account')
     }
+    if (k !== 'accounts') requireAccount(accountId)
     if (k === 'sessions') {
       return {
         kind: k,
@@ -660,6 +675,7 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
   }
 
   async function sendToPeer(accountId, { type = 'private', peerId, text, image }) {
+    requireAccount(accountId)
     if (!peerId) throw new Error('missing_peer')
     type = type === 'group' ? 'group' : 'private'
     if (!text && !image) throw new Error('empty_text')
@@ -671,13 +687,19 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     }
     const preview = text || '[图片]'
     const key = sessionKey(accountId, type, peerId)
+    const receipt = await napcatSend(accountId, { type, peerId, message })
+    const sentAt = Date.now()
     persist.upsertSession({
-      key, accountId, type, peerId, lastText: preview, lastAt: Date.now(), status: 'replied'
+      key, accountId, type, peerId, lastText: preview, lastAt: sentAt, status: 'replied'
     })
-    persist.appendMessage(key, { id: `op-send-${Date.now()}`, role: 'operator', text: preview, at: Date.now() })
-    await napcatSend(accountId, { type, peerId, message })
+    persist.appendMessage(key, { id: `op-send-${sentAt}`, role: 'operator', text: preview, at: sentAt })
     emit()
-    return { ok: true }
+    return { ok: true, receipt }
+  }
+
+  async function sendToConversation(accountId, key, text) {
+    const target = resolvePeer({ accountId, key })
+    return sendToPeer(accountId, { type: target.type, peerId: target.peerId, text })
   }
 
   function liveAstrWs(instanceId) {
@@ -1030,7 +1052,9 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     handleUpgrade,
     subscribe,
     view,
+    observe,
     sendToPeer,
+    sendToConversation,
     pendingCounts: () => persist.pendingCounts(),
     persist
   }
