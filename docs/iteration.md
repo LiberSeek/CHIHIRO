@@ -9,7 +9,7 @@
 | 产品壳 | `apps/web`、`apps/runtime`、`apps/gateway`、`apps/desktop` | 工作台、账号、进程、入口 | 直接改 |
 | IM | `vendor/stapxs` | 会话、消息、输入框、历史窗口、表情 | **直接改这些文件** |
 | QQ 协议运行时 | 本机 NapCat Shell；`vendor/napcat` 只读对照 | NTQQ、OneBot、WebUI、插件协议 | 不把运行态提交进仓 |
-| 自动化 | 本机/容器 AstrBot；`vendor/astrbot` 只读对照 | 事件管线、Agent、插件 | 经 API / OneBot 接入 |
+| 自动化 | 本机 AstrBot；`vendor/astrbot` `develop` + `User*` | 事件管线、Agent、ChatUI | `User*` UI；Runtime 用源码起 Dashboard |
 
 ```text
 千寻 Gateway :3100
@@ -43,9 +43,11 @@ vendor/stapxs
 
 运行时用已安装的 NapCat Shell。`vendor/napcat` 用来读 API 和配置格式。不要把 `QQ.app`、二维码、token、`data/` 提交进仓。不要为了改 UI 去 fork NapCat。
 
-### AstrBot：按需 Bot
+### AstrBot：按需 Bot + ChatUI
 
-Dashboard 和事件管线是对照源。产品里 Bot 是开关，不是常驻守护进程。不要把千寻功能写进 `vendor/astrbot`。
+产品里 Bot 是开关，不是常驻守护进程。ChatUI 是功能区里的 Agent 任务台。
+
+在 `vendor/astrbot` 的 `develop` 上改 `dashboard/src/components/user`、`layouts/user`、`views/user`。上游 `Chat.vue` / `FullLayout.vue` 只合入、不写业务。改完后 `npm run rebuild:astrbot-ui`。
 
 ## 3. 一次功能怎么走
 
@@ -55,7 +57,8 @@ Dashboard 和事件管线是对照源。产品里 Bot 是开关，不是常驻�
 
    ```bash
    npm run check:layout
-   npm run rebuild:im    # 仅当动了 vendor/stapxs
+   npm run rebuild:im          # 仅当动了 vendor/stapxs
+   npm run rebuild:astrbot-ui  # 仅当动了 AstrBot User* ChatUI
    npm run status
    ```
 
@@ -66,7 +69,7 @@ Dashboard 和事件管线是对照源。产品里 Bot 是开关，不是常驻�
 
 在 **`main`** 上把 [Stapxs-QQ-Lite-2.0](https://github.com/Stapxs/Stapxs-QQ-Lite-2.0) 的 `next` 合进 `vendor/stapxs`，再把 `main` 并入 `develop`。冲突会出现在千寻改过的文件上，这是预期的。
 
-NapCat / AstrBot 仍用 submodule 指针升级，且不要和 Stapxs 同一次乱升。
+NapCat 仍用 submodule 指针升级。AstrBot 先合 `master` 再 merge 进 `develop`，冲突留在 User*。不要和 Stapxs 同一次乱升。
 
 ```bash
 npm run upstream:status

@@ -2317,6 +2317,7 @@ function newMsg(_: string, data: any) {
                     session.new_msg = true
                     contactStore.newMsgCount++
                 }
+                session.unread = (session.unread || 0) + 1
             }
             if (sessionId !== showId && allowGroupInnerNotice) {
                 if (data.atme) { session.highlight = $t('[有人@你]') }

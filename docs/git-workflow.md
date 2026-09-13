@@ -55,6 +55,9 @@ git -C vendor/napcat merge --ff-only origin/main
 git -C vendor/astrbot fetch origin
 git -C vendor/astrbot checkout master
 git -C vendor/astrbot merge --ff-only origin/master
+git -C vendor/astrbot checkout develop
+git -C vendor/astrbot merge master
+# 冲突只解决 User* 与胶水文件，不要把千寻 UI 改回上游 Chat.vue
 ```
 
 根仓提交的是 **submodule 指针**，不要把这两个目录变成普通文件夹。

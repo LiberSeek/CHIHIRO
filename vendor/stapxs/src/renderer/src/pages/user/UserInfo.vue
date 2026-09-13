@@ -704,3 +704,261 @@ function canEditMember(role: string) {
         flex: 1;
     }
 </style>
+
+<style>
+/* chihiro-moved-from-user-css */
+.chat-info-pan {
+    background: rgba(0, 0, 0, 0.38);
+    z-index: 40;
+}
+.chat-info-float-enter-active,
+.chat-info-float-leave-active {
+    transition: opacity 0.2s ease !important;
+}
+.chat-info-float-enter-active .chat-info,
+.chat-info-float-leave-active .chat-info {
+    animation: none !important;
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.chat-info-float-enter-from,
+.chat-info-float-leave-to {
+    opacity: 0;
+}
+.chat-info-float-enter-from .chat-info,
+.chat-info-float-leave-to .chat-info {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.96) !important;
+}
+.chat-info.ss-card,
+.chat-info {
+    width: min(420px, calc(100% - 48px)) !important;
+    min-width: 0 !important;
+    max-height: min(80%, 640px) !important;
+    padding: 0 !important;
+    border-radius: 16px !important;
+    background: var(--color-card) !important;
+    border: 1px solid rgba(127, 127, 127, 0.14);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32) !important;
+    overflow: hidden;
+}
+.chat-info.ss-card:hover,
+.chat-info:hover {
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32) !important;
+}
+.chat-info > header {
+    height: 48px;
+    min-height: 48px;
+    margin: 0 !important;
+    padding: 0 16px !important;
+    align-items: center;
+    border-bottom: 1px solid rgba(127, 127, 127, 0.12);
+    letter-spacing: 0 !important;
+    font-weight: 650;
+}
+.chat-info > header > span {
+    font-size: 15px !important;
+    font-weight: 650;
+    letter-spacing: 0;
+}
+.chat-info > header > svg {
+    width: 14px !important;
+    height: 14px !important;
+    padding: 7px;
+    border-radius: 50%;
+    box-sizing: content-box;
+}
+.chat-info > header > svg:hover {
+    background: rgba(127, 127, 127, 0.16);
+}
+.chat-info-base,
+.chat-info-base.user {
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 16px 16px 8px !important;
+    border-radius: 0 !important;
+}
+.chat-info-base > div:first-child,
+.chat-info-base.user > div:first-child {
+    background: transparent !important;
+    border-radius: 0 !important;
+    width: auto !important;
+    margin: 0 0 8px !important;
+    padding: 0 !important;
+    gap: 12px;
+}
+.chat-info-base > div:first-child > img {
+    width: 48px !important;
+    height: 48px !important;
+    margin: 0 !important;
+    border: 0 !important;
+    outline: none !important;
+    border-radius: 50% !important;
+}
+.chat-info-base > div:first-child > div:nth-child(2) {
+    margin-left: 0 !important;
+}
+.chat-info-base > div:first-child > div:nth-child(2) > a {
+    font-size: 16px !important;
+    font-weight: 650;
+    line-height: 1.3;
+}
+.chat-info-base > div:first-child > div:nth-child(2) > span {
+    font-size: 12px !important;
+    color: var(--color-font-2) !important;
+    margin-top: 2px;
+}
+.chat-info-base > div:first-child > div:nth-child(3) {
+    width: 32px !important;
+    height: 32px !important;
+    padding: 0 !important;
+    background: rgba(127, 127, 127, 0.12) !important;
+    border-radius: 50% !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.chat-info-base > div:first-child > div:nth-child(3) > svg {
+    width: 13px;
+    height: 13px;
+}
+.chat-info-base > div:last-child {
+    padding: 4px 0 0 !important;
+}
+.chat-info-base > div:last-child > header {
+    color: var(--color-font-2) !important;
+    font-size: 11px !important;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin-top: 12px !important;
+    padding-bottom: 4px !important;
+}
+.chat-info-base > div:last-child > span {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--color-font);
+}
+.chat-info-base > div:last-child > div.tags {
+    margin-top: 8px !important;
+    gap: 6px;
+}
+.chat-info-base > div:last-child > div.tags > div {
+    margin: 0 !important;
+    padding: 3px 10px !important;
+    border-radius: 999px !important;
+    font-size: 12px !important;
+}
+.chat-info-base > div:last-child > div.outher > span {
+    font-size: 13px;
+    margin: 4px 0;
+}
+.chat-info-tab {
+    margin-top: 4px !important;
+}
+.chat-info-tab > div:first-child,
+.chat-info-tab > div:first-child:hover {
+    min-height: 40px;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+.chat-info-tab .tab-bar {
+    --bc-tab-margin: 0px;
+    padding: 0 16px !important;
+    margin: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+.chat-info-tab .tab-bar > li span {
+    font-size: 13px !important;
+    font-weight: 600;
+}
+.chat-info .search-view > input {
+    height: 36px !important;
+    border: 1px solid transparent !important;
+    border-bottom: 1px solid transparent !important;
+    border-radius: 18px !important;
+    font-size: 13px !important;
+}
+.chat-info .ss-input {
+    height: 32px;
+    border-radius: 10px;
+    font-size: 13px;
+    background: rgba(127, 127, 127, 0.12);
+}
+.chat-info .ss-input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.35);
+}
+.chat-info .ss-button {
+    height: 36px;
+    border-radius: 10px;
+    font-size: 13px;
+}
+.user-config {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-top: 48px !important;
+    border-radius: 16px 16px 0 0 !important;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.18) !important;
+}
+.user-config > div:first-child {
+    background: transparent !important;
+    border-radius: 0 !important;
+    padding: 16px !important;
+    margin: 0 !important;
+    border-bottom: 1px solid rgba(127, 127, 127, 0.12);
+}
+.user-config > div:first-child > img {
+    width: 36px !important;
+    height: 36px !important;
+    border: 0 !important;
+    outline: none !important;
+    border-radius: 50% !important;
+}
+.user-config > div:last-child {
+    padding: 8px 16px 20px !important;
+    margin-top: 0 !important;
+}
+.user-config button {
+    width: calc(100% - 32px) !important;
+    margin: 16px !important;
+    height: 36px;
+    border-radius: 10px;
+}
+.bulletins {
+    padding: 8px 12px !important;
+}
+.bulletins > div {
+    border-radius: 10px !important;
+    padding: 10px 12px !important;
+}
+.group-files {
+    padding: 8px 12px;
+}
+
+@media (max-width: 700px) {
+    .chat-info.ss-card,
+    .chat-info {
+        width: calc(100% - 32px) !important;
+        max-width: 420px !important;
+        min-width: 0 !important;
+        height: auto !important;
+        max-height: 80% !important;
+        margin: 50vh 0 0 50% !important;
+        bottom: auto !important;
+        transform: translate(-50%, -50%) !important;
+        border-radius: 16px !important;
+    }
+    .chat-info-pan {
+        height: 100% !important;
+    }
+    .chat-info-float-enter-from .chat-info,
+    .chat-info-float-leave-to .chat-info {
+        transform: translate(-50%, -50%) scale(0.96) !important;
+    }
+}
+</style>

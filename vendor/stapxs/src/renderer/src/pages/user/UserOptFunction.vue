@@ -11,10 +11,25 @@
         <div class="ss-card">
             <header>{{ $t('会话选项') }}</header>
             <div class="opt-item">
+                <div />
+                <font-awesome-icon :icon="['fas', 'robot']" />
+                <div>
+                    <label for="opt-chihiro-bot-new-default">新对话默认开启 Bot</label>
+                    <span>只影响还没单独点过机器人图标的会话</span>
+                </div>
+                <label class="ss-switch">
+                    <input id="opt-chihiro-bot-new-default" v-model="chihiroBotNewDefault"
+                        type="checkbox" @change="saveChihiroBotDefault">
+                    <div>
+                        <div />
+                    </div>
+                </label>
+            </div>
+            <div class="opt-item">
                 <div :class="checkDefault('bubble_sort_user')" />
                 <font-awesome-icon :icon="['fas', 'box-open']" />
                 <div>
-                    <label for="opt-function-bubble-sort-user">{{ $t('群收纳盒') }}</label>
+                    <label for="opt-function-bubble-sort-user">{{ $t('群助手') }}</label>
                     <span>{{ $t('全都放出来！全都放出来！') }}</span>
                 </div>
                 <label class="ss-switch">
@@ -443,6 +458,12 @@
     const $t = i18n.global.t
 
     defineOptions({ name: 'UserOptFunction' })
+
+    const BOT_DEFAULT_KEY = 'chihiro-bot-new-default'
+    const chihiroBotNewDefault = ref(localStorage.getItem(BOT_DEFAULT_KEY) === '1')
+    function saveChihiroBotDefault() {
+        localStorage.setItem(BOT_DEFAULT_KEY, chihiroBotNewDefault.value ? '1' : '0')
+    }
 
     const dbStats = ref<{ totalMessages: number; imageCount: number; imageCacheBytes: number; dbSizeBytes: number } | null>(null)
     const clearImageProgressText = ref('')

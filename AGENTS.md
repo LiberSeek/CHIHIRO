@@ -21,7 +21,7 @@ Gateway :3100
 | `apps/gateway` | Reverse proxy on `:3100` | Yes |
 | `vendor/stapxs` | **IM source of truth** | **Yes — edit files directly** |
 | `vendor/napcat` | NapCat source for reading APIs | No (submodule, reference only) |
-| `vendor/astrbot` | AstrBot source for reading APIs | No (submodule, reference only) |
+| `vendor/astrbot` | AstrBot Bot + ChatUI | **Yes on `develop` — edit `User*` copies, not upstream Chat.vue** |
 | `overlays/` | Removed | Do not recreate |
 | `data/` `.cache/` `dist/` | Local runtime / build output | Never commit |
 
@@ -32,7 +32,7 @@ Mac QQ: Runtime clones `data/runtimes/QQ.app`. Do not launch `/Applications/QQ.a
 1. Workbench / login / logout / account bar / feature panel → `apps/web`, `apps/runtime`, `apps/gateway`
 2. Chat composer, history window, emoji, Stapxs menus, IM CSS → **`pages/user` / `components/user` (`User*`) and `assets/css/user.css`. Never edit upstream `Chat.vue`, `MsgBody.vue`, `FacePan.vue`, `chat.css`, `view.css`.**
 3. OneBot / NTQQ protocol questions → read `vendor/napcat`, change Runtime if needed
-4. Bot / Agent / plugins → AstrBot integration in `apps/`, not a rewrite of `vendor/astrbot`
+4. Bot / Agent / ChatUI → `vendor/astrbot` `User*` UI + `apps/runtime` / `apps/web`. NapCat stays read-only.
 
 Do not add string-replace overlays. Do not copy upstream files into `apps/`.
 
@@ -49,7 +49,7 @@ Origin: `https://github.com/LiberSeek/CHIHIRO.git`
 
 Work on `develop`. Do not land IM or workbench features on `main`.
 
-NapCat (`vendor/napcat`) and AstrBot (`vendor/astrbot`) stay Git submodules. Their remotes stay upstream. Do not fork them for Chihiro UI.
+NapCat (`vendor/napcat`) stays a read-only submodule. AstrBot (`vendor/astrbot`) is a submodule with Chihiro branches: `master` pins upstream, `develop` holds `User*` ChatUI. Do not edit upstream `Chat.vue` / `FullLayout.vue`.
 
 Stapxs pin: `vendor/stapxs/UPSTREAM`. Syncing upstream is a `main`-branch job (subtree/merge from `Stapxs-QQ-Lite-2.0` `next`), then merge `main` → `develop` and resolve conflicts in the files Chihiro already changed (`Chat.vue`, `chat.css`, `FacePan.vue`, `App.vue`, …).
 
@@ -60,6 +60,7 @@ npm install
 npm run check:layout
 npm run dev              # http://127.0.0.1:3100/
 npm run rebuild:im       # build vendor/stapxs → NapCat plugin dir
+npm run rebuild:astrbot-ui  # build vendor/astrbot dashboard User* → dist
 npm run mcp              # optional stdio MCP; prefer http://127.0.0.1:3100/mcp
 npm run status
 ```
@@ -67,6 +68,8 @@ npm run status
 `rebuild:im` rsyncs `vendor/stapxs` to `.cache/stapxs-build` (keeps `node_modules`) and runs `yarn build:napcat`. There is no overlay apply step. After IM edits, rebuild and hard-refresh the workbench iframe.
 
 Chihiro IM pages live under `vendor/stapxs/src/renderer/src/pages/user/` (`UserChat`, `UserMessages`, …). Upstream copies stay for merge. Default chat view is `UserChat`.
+
+Chihiro ChatUI pages live under `vendor/astrbot/dashboard/src/components/user/` and `layouts/user/` (`UserChat`, `UserFullLayout`, …). After ChatUI edits: `npm run rebuild:astrbot-ui`, then restart AstrBot / hard-refresh the feature iframe.
 
 Workbench PWA: `apps/web/manifest.webmanifest` + `sw.js`. Open `http://127.0.0.1:3100/` in Chrome/Edge and install to desktop (`display: standalone`). API / IM iframe / WebUI paths are not cached.
 
@@ -76,10 +79,11 @@ Frontend in `apps/web` is static (no HMR). Hard-refresh after shell changes too.
 
 - Never commit tokens, QR images, `data/`, `config/chihiro.local.json`, `dist/`, `.cache/`
 - Never restore `overlays/stapxs` or `scripts/apply-stapxs-overlay.mjs`
-- Never treat `vendor/napcat` or `vendor/astrbot` as the place to ship Chihiro features
+- Never treat `vendor/napcat` as the place to ship Chihiro features
+- AstrBot Chihiro UI goes in `User*` copies on `vendor/astrbot` `develop`, not upstream Chat.vue
 - One official QQ container on Mac; isolated instances are cloned copies under `data/`
 - Logout of an account stops that instance and deletes its isolated data; keep the shared clone
 - Bot is on-demand, not a permanent daemon
 - Gateway is the only URL the workbench should talk to
 
-More detail: [README.md](README.md), [docs/iteration.md](docs/iteration.md), [docs/git-workflow.md](docs/git-workflow.md), [docs/architecture.md](docs/architecture.md), [docs/product.md](docs/product.md).
+More detail: [README.md](README.md), [docs/iteration.md](docs/iteration.md), [docs/git-workflow.md](docs/git-workflow.md), [docs/product.md](docs/product.md).

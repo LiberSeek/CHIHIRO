@@ -470,3 +470,133 @@ function customFaceTooltip(url: string): VueCompData<typeof CustomFaceTooltip> {
     }
 }
 </script>
+
+
+<style>
+/* chihiro-moved-from-user-css */
+.user-skin .face-pan {
+    background: var(--color-card) !important;
+    transform: none !important;
+    position: absolute !important;
+    left: auto !important;
+    right: 16px !important;
+    bottom: 100% !important;
+    top: auto !important;
+    margin: 0 0 6px 0 !important;
+    height: min(372px, 55vh) !important;
+    width: min(520px, calc(100% - 24px)) !important;
+    padding: 0 !important;
+    border-radius: 12px !important;
+    border: 1px solid var(--color-card-2) !important;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.42) !important;
+    overflow: hidden !important;
+    z-index: 36 !important;
+    display: flex;
+    flex-direction: column !important;
+    pointer-events: all !important;
+}
+.user-skin .face-pan[style*="display: none"] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+    box-shadow: none !important;
+    border: 0 !important;
+}
+.user-skin .face-pan .tab-main {
+    display: flex !important;
+    flex-direction: column-reverse !important;
+    height: 100% !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+}
+.user-skin .face-pan .tab-main > div:first-child {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+}
+.user-skin .face-pan .tab-bar {
+    --bc-tab-margin: 0px;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 6px 10px !important;
+    justify-content: flex-start !important;
+    border-top: 1px solid var(--color-card-2);
+    background: var(--color-card);
+}
+.user-skin .face-pan .tab-bar > li {
+    width: 36px;
+    height: 36px;
+    margin: 0 4px !important;
+    padding: 0 !important;
+    border-radius: 8px;
+    display: grid !important;
+    place-items: center;
+    cursor: pointer;
+}
+.user-skin .face-pan .tab-bar > li.select {
+    background: var(--color-card-2);
+}
+.user-skin .face-pan .tab-bar > li > svg {
+    width: 18px !important;
+    height: 18px !important;
+    margin: 0 !important;
+    color: var(--color-font-1) !important;
+}
+.user-skin .face-pan .tab-bar > li > div {
+    display: none !important;
+}
+.user-skin .face-pan .tab-body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+.user-skin .face-pan .tab-body > div {
+    height: 100% !important;
+    overflow: hidden !important;
+}
+.user-skin .face-pan div.system-face-bar {
+    height: 100% !important;
+    overflow-y: auto !important;
+    width: 100% !important;
+    padding: 10px 12px 6px;
+    box-sizing: border-box;
+}
+.user-skin .face-pan div.title {
+    padding: 8px 6px 6px !important;
+}
+.user-skin .face-pan div.title > span {
+    font-size: 12px !important;
+    color: var(--color-font-2) !important;
+    font-weight: 400;
+}
+.user-skin .face-pan div.title > div {
+    display: none !important;
+}
+.user-skin .face-pan .face {
+    grid-template-columns: repeat(10, minmax(0, 1fr)) !important;
+    padding: 0 2px 8px;
+}
+.user-skin .face-pan .face > div {
+    background: transparent !important;
+    border-radius: 8px !important;
+    width: auto !important;
+    height: 36px !important;
+    margin: 1px !important;
+}
+.user-skin .face-pan .face > div:hover {
+    background: var(--color-card-2) !important;
+}
+.user-skin .face-pan .face > div > .emoji-face {
+    margin: 0 !important;
+    height: 24px !important;
+    width: 24px !important;
+}
+.user-skin .face-pan .custom-face-bar .face {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+}
+</style>

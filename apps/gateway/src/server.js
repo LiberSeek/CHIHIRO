@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import httpProxy from 'http-proxy'
+import { serveAstrbotChatui, authorizeAstrbotRequest } from './astrbot-chatui.mjs'
 import { createRuntime } from '../../runtime/src/api.mjs'
 import { liveNapcatSecrets } from '../../runtime/src/napcat-secrets.mjs'
 import { log, logError } from '../../runtime/src/log.mjs'
@@ -11,6 +12,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '../../..')
 const webDir = path.join(root, 'apps/web')
 const pluginStaticDir = path.join(root, 'dist/plugins/napcat-plugin-ssqq/webui/dist')
+// ChatUI is bundled with Chihiro.  Keep these assets local so opening the
+// workbench does not depend on AstrBot already listening on port 6185.
+const astrbotChatuiDir = path.join(root, 'vendor/astrbot/astrbot/dashboard/dist/chihiro')
 const PLUGIN_STATIC_PREFIX = '/plugin/napcat-plugin-ssqq/files/static'
 const INST_PREFIX = /^\/i\/([^/]+)(?=\/|$)/
 
@@ -242,6 +246,7 @@ const server = http.createServer(async (req, res) => {
       && url.pathname !== '/api/runtime/agent/stream'
       && url.pathname !== '/api/runtime/state'
       && url.pathname !== '/api/runtime/qq/qr'
+      && !url.pathname.startsWith('/api/runtime/chatui')
     ) {
       log('gw', req.method, url.pathname)
     }
@@ -324,6 +329,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (servePluginStatic(url.pathname, res)) return
+  if (serveAstrbotChatui(astrbotChatuiDir, url.pathname, res)) return
 
   if (routedPath.startsWith('/webui') || routedPath.startsWith('/plugin')) {
     const napcat = resolveNapcat(instanceId, {
@@ -337,7 +343,18 @@ const server = http.createServer(async (req, res) => {
     return
   }
 
-  if (url.pathname.startsWith('/astrbot')) {
+  if (url.pathname.startsWith('/astrbot/api/')) {
+    try {
+      authorizeAstrbotRequest(req, url, runtime.astrbot)
+      proxy.web(req, res, { target: astrbotTarget() })
+    } catch {
+      res.writeHead(503, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'astrbot_unavailable', message: '请在工作台重试启动 Agent' }))
+    }
+    return
+  }
+
+  if (url.pathname === '/astrbot' || url.pathname.startsWith('/astrbot/')) {
     req.url = (url.pathname.replace(/^\/astrbot/, '') || '/') + url.search
     proxy.web(req, res, { target: astrbotTarget() })
     return
@@ -393,7 +410,14 @@ server.on('upgrade', (req, socket, head) => {
     proxy.ws(req, socket, head, { target })
     return
   }
-  if (url.pathname.startsWith('/astrbot') || routedPath.startsWith('/astrbot')) {
+  if (url.pathname.startsWith('/astrbot/api/')) {
+    try {
+      authorizeAstrbotRequest(req, url, runtime.astrbot, { websocket: true })
+      proxy.ws(req, socket, head, { target: astrbotTarget() })
+    } catch { socket.destroy() }
+    return
+  }
+  if (url.pathname === '/astrbot' || url.pathname.startsWith('/astrbot/')) {
     req.url = (url.pathname.replace(/^\/astrbot/, '') || '/') + url.search
     proxy.ws(req, socket, head, { target: astrbotTarget() })
     return

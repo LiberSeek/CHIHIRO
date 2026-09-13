@@ -75,6 +75,7 @@ export const optDefault: { [key: string]: any } = {
     top_info: {},
     save_password: '',
     notice_group: {},
+    session_notice: {},
     auto_connect: String((import.meta as any).env?.VITE_CHIHIRO_AUTO_CONNECT ?? 'true') === 'true',
     local_emoji_folder: null,
     connection_history: [],

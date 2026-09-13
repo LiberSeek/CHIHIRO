@@ -6,6 +6,7 @@ import { createQqRuntime } from './qq-napcat.mjs'
 import { createAstrbotRuntime } from './astrbot.mjs'
 import { createBotController } from './bot.mjs'
 import { createAgentController } from './agent.mjs'
+import { createChatuiProxy } from './chatui.mjs'
 import { log, logError } from './log.mjs'
 
 export function createRuntime({ root, cfg }) {
@@ -19,6 +20,7 @@ export function createRuntime({ root, cfg }) {
   const astrbot = createAstrbotRuntime({ root, cfg })
   const agent = createAgentController({ root, store, qq, astrbot, cfg })
   const bot = createBotController({ store, qq, astrbot, cfg })
+  const chatui = createChatuiProxy({ astrbot })
 
   async function snapshot() {
     const snap = qq.snapshot()
@@ -91,6 +93,18 @@ export function createRuntime({ root, cfg }) {
       }
     }
 
+    if (p === '/api/runtime/bot/session' && method === 'POST') {
+      const body = await readJson(req)
+      if (!body.id || body.peerId == null) return json(res, { error: 'missing_id' }, 400)
+      try {
+        await bot.setSession(body.id, body.type, body.peerId, body.enabled !== false)
+        return json(res, await snapshot())
+      } catch (e) {
+        logError('api', 'bot.session', e)
+        return json(res, { error: e.message, message: e.message, ...(await snapshot()) }, 400)
+      }
+    }
+
     if (p === '/api/runtime/bot/ensure' && method === 'POST') {
       try {
         await astrbot.ensure()
@@ -146,6 +160,14 @@ export function createRuntime({ root, cfg }) {
       return true
     }
 
+    if (p === '/api/runtime/image-proxy' && method === 'GET') {
+      return proxyImage(res, url.searchParams.get('url') || '')
+    }
+
+    if (p.startsWith('/api/runtime/chatui')) {
+      return chatui.handle(req, res, url)
+    }
+
     if (p === '/api/runtime/stream' && method === 'GET') {
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -185,6 +207,59 @@ function json(res, obj, status = 200) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' })
   res.end(JSON.stringify(obj))
   return true
+}
+
+function isQqMediaHost(host) {
+  const name = String(host || '').toLowerCase()
+  return (
+    name === 'multimedia.nt.qq.com.cn' ||
+    name.endsWith('.qq.com') ||
+    name.endsWith('.qq.com.cn') ||
+    name.endsWith('.qpic.cn') ||
+    name.endsWith('.qlogo.cn') ||
+    name.endsWith('.gtimg.cn')
+  )
+}
+
+async function proxyImage(res, raw) {
+  let target
+  try {
+    target = new URL(raw)
+  } catch {
+    return json(res, { error: 'bad_url' }, 400)
+  }
+  if (target.protocol !== 'http:' && target.protocol !== 'https:') {
+    return json(res, { error: 'bad_url' }, 400)
+  }
+  if (!isQqMediaHost(target.hostname)) {
+    return json(res, { error: 'forbidden_host' }, 403)
+  }
+  try {
+    const upstream = await fetch(target.href, {
+      redirect: 'follow',
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(20000)
+    })
+    if (!upstream.ok) {
+      return json(res, { error: 'fetch_failed', status: upstream.status }, 502)
+    }
+    const buf = Buffer.from(await upstream.arrayBuffer())
+    if (buf.length > 20 * 1024 * 1024) {
+      return json(res, { error: 'too_large' }, 413)
+    }
+    const contentType = (upstream.headers.get('content-type') || 'image/jpeg')
+      .split(';')[0]
+      .trim()
+    res.writeHead(200, {
+      'Content-Type': contentType.startsWith('image/') ? contentType : 'image/jpeg',
+      'Cache-Control': 'private, max-age=120'
+    })
+    res.end(buf)
+    return true
+  } catch (e) {
+    logError('api', 'image-proxy', e?.message || e)
+    return json(res, { error: 'fetch_failed' }, 502)
+  }
 }
 
 function readJson(req) {

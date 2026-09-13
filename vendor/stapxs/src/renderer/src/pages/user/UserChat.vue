@@ -195,15 +195,6 @@
             </template>
             <span ref="chatPadding" class="chat-padding">&nbsp;</span>
         </div>
-        <!-- 滚动到底部悬浮标志 -->
-        <div class="new-msg"
-            :style="{ 'opacity': tags.showBottomButton ? 1 : 0 }"
-            @click="scrollBottom(true)">
-            <div class="ss-card">
-                <font-awesome-icon :icon="['fas', 'comment']" />
-                <span v-if="NewMsgNum > 0">{{ NewMsgNum }}</span>
-            </div>
-        </div>
         <!-- 底部区域 -->
         <div id="send-more" ref="sendMore" class="more">
             <!-- 功能附加 -->
@@ -278,34 +269,6 @@
                         </div>
                     </Transition>
                 </div>
-                <!-- 图片指示器 -->
-                <Transition name="img-pan">
-                    <div v-show="imgCache.size > 0"
-                        :class="{
-                            'img-pan': true,
-                            'ss-card': true,
-                        }"
-                        @wheel="($event.currentTarget as HTMLElement).scrollLeft += $event.deltaY">
-                        <div class="imgs">
-                            <div v-for="[key, value] in imgCache"
-                                :key="'imgCache-' + key">
-                                <div class="img-btns">
-                                    <div @click="editImg(key)">
-                                        <font-awesome-icon :icon="['fas', 'pencil']" />
-                                    </div>
-                                    <hr>
-                                    <div @click="deleteImg(key)">
-                                        <font-awesome-icon style="color: var(--color-red)" :icon="['fas', 'xmark']" />
-                                    </div>
-                                </div>
-                                <div class="img">
-                                    <img :src="value" :alt="`[SQ:${key}]`">
-                                </div>
-                                <span>#{{ key }}</span>
-                            </div>
-                        </div>
-                    </div>
-                </Transition>
                 <!-- 搜索指示器 -->
                 <div :class="details[3].open ? 'search-tag show' : 'search-tag'">
                     <font-awesome-icon :icon="['fas', 'search']" />
@@ -367,105 +330,63 @@
                 </div>
             </div>
             <!-- 消息发送框 -->
-            <div class="chihiro-composer">
-                <div v-if="multipleSelectList.length > 0" class="chihiro-select-bar">
-                    <div class="chihiro-select-actions">
-                        <button type="button" @click="showForWard('individual-messages')">
-                            <font-awesome-icon :icon="['fas', 'share-from-square']" />
-                            <span>{{ $t('逐条转发') }}</span>
-                        </button>
-                        <button type="button" @click="showForWard('merged-messages')">
-                            <font-awesome-icon :icon="['fas', 'share']" />
-                            <span>{{ $t('合并转发') }}</span>
-                        </button>
-                        <button type="button" @click="copyMsgs">
-                            <font-awesome-icon :icon="['fas', 'copy']" />
-                            <span>{{ $t('复制') }}</span>
-                        </button>
-                        <button type="button" class="is-danger" @click="delMsgs">
-                            <font-awesome-icon :icon="['fas', 'trash-can']" />
-                            <span>{{ $t('删除') }}</span>
-                        </button>
-                    </div>
-                    <button type="button" class="chihiro-select-cancel" @click="exitMultipleSelect">
-                        {{ $t('取消') }}
-                    </button>
-                </div>
-                <div v-else class="chihiro-composer-row">
-                    <div class="chihiro-plus-wrap">
-                        <button type="button"
-                            class="chihiro-plus"
-                            :class="{ active: chihiroPlusOpen }"
-                            :title="$t('更多')"
-                            @click.stop="toggleChihiroPlus">
-                            <font-awesome-icon :icon="['fas', 'plus']" />
-                        </button>
-                        <div v-if="chihiroPlusOpen" class="chihiro-plus-menu" @click.stop>
-                            <button type="button" @click="pickChihiroImage">
-                                <font-awesome-icon :icon="['fas', 'image']" />
-                                <span>{{ $t('图片') }}</span>
-                            </button>
-                            <button type="button" @click="pickChihiroFile">
-                                <font-awesome-icon :icon="['fas', 'folder']" />
-                                <span>{{ $t('文件') }}</span>
-                            </button>
-                        </div>
-                    </div>
-                    <form class="chihiro-composer-form" :class="{ 'is-reply': tags.isReply }" @submit.prevent="mainSubmit">
-                        <div v-if="tags.isReply" class="chihiro-reply-preview">
-                            <div class="chihiro-reply-copy">
-                                <div class="chihiro-reply-title">{{ $t('回复') }} {{ selectedMsg?.sender?.card || selectedMsg?.sender?.nickname || '' }}</div>
-                                <div class="chihiro-reply-text">{{ selectedMsg ? getMsgRawTxt(selectedMsg) : '' }}</div>
-                            </div>
-                            <button type="button" class="chihiro-reply-close" :title="$t('取消')" @click.stop="cancelReply">
-                                <font-awesome-icon :icon="['fas', 'xmark']" />
-                            </button>
-                        </div>
-                        <label for="main-input-ex" class="sr-only">{{ $t('消息输入框') }}</label>
-                        <textarea id="main-input-ex"
-                            ref="mainInput"
-                            v-model="msg"
-                            rows="1"
-                            :disabled="uiStore.openSideBar || chat.info.me_info.shut_up_timestamp > 0"
-                            :placeholder="
-                                chat.info.me_info.shut_up_timestamp > 0
-                                    ? $t('已被禁言至：{time}', {
-                                        time: Intl.DateTimeFormat(
-                                            trueLang, getTimeConfig(
-                                                new Date(chat.info.me_info.shut_up_timestamp * 1000),
-                                            ),
-                                        ).format(new Date(chat.info.me_info.shut_up_timestamp * 1000)),
-                                    }) : $t('发送消息')"
-                            @paste="addImg"
-                            @keydown="mainKey"
-                            @keyup="mainKeyUp"
-                            @click="selectSQIn"
-                            @input="handleInput"
-                            @compositionstart="handleCompositionStart"
-                            @compositionend="handleCompositionEnd"
-                            @compositioncancel="handleCompositionCancel" />
-                        <button type="button"
-                            class="chihiro-input-face"
-                            :class="{ active: details[1].open }"
-                            :title="$t('表情')"
-                            @click.stop="toggleChihiroFace">
-                            <font-awesome-icon :icon="['fas', 'face-laugh']" />
-                        </button>
-                    </form>
+            <UserComposer
+                ref="composer"
+                v-model="msg"
+                :selecting="multipleSelectList.length > 0"
+                :img-cache="imgCache"
+                :is-reply="tags.isReply"
+                :reply-name="selectedMsg?.sender?.card || selectedMsg?.sender?.nickname || ''"
+                :reply-text="selectedMsg ? getMsgRawTxt(selectedMsg) : ''"
+                :show-bottom="tags.showBottomButton"
+                :new-msg-num="NewMsgNum"
+                :plus-open="chihiroPlusOpen"
+                :face-open="details[1].open"
+                :bot-on="botOn"
+                :bot-think-text="botThinkText"
+                :bot-draft="botDraft"
+                :disabled="uiStore.openSideBar || chat.info.me_info.shut_up_timestamp > 0"
+                :placeholder="
+                    chat.info.me_info.shut_up_timestamp > 0
+                        ? $t('已被禁言至：{time}', {
+                            time: Intl.DateTimeFormat(
+                                trueLang, getTimeConfig(
+                                    new Date(chat.info.me_info.shut_up_timestamp * 1000),
+                                ),
+                            ).format(new Date(chat.info.me_info.shut_up_timestamp * 1000)),
+                        }) : $t('发送消息')"
+                @submit="mainSubmit"
+                @send="sendMsg()"
+                @paste="addImg"
+                @keydown="mainKey"
+                @keyup="mainKeyUp"
+                @input-click="selectSQIn"
+                @input="handleInput"
+                @compositionstart="handleCompositionStart"
+                @compositionend="handleCompositionEnd"
+                @compositioncancel="handleCompositionCancel"
+                @toggle-plus="toggleChihiroPlus"
+                @pick-image="pickChihiroImage"
+                @pick-file="pickChihiroFile"
+                @toggle-face="toggleChihiroFace"
+                @toggle-bot="toggleSessionBot"
+                @bot-approve="approveBotDraft"
+                @bot-discard="discardBotDraft"
+                @jump-bottom="scrollBottom(true)"
+                @attach-edit="editImg"
+                @attach-delete="deleteImg"
+                @cancel-reply="cancelReply"
+                @forward-individual="showForWard('individual-messages')"
+                @forward-merged="showForWard('merged-messages')"
+                @copy="copyMsgs"
+                @delete="delMsgs"
+                @cancel-select="exitMultipleSelect"
+                @select-pic="selectImg"
+                @select-file="selectFile">
+                <template #extra>
                     <slot name="main-input-button" />
-                    <button type="button" class="chihiro-send" :title="$t('发送')" @click="sendMsg()">
-                        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                            <path fill="currentColor" d="M8 12.8a.75.75 0 0 1-.75-.75V5.86L5.03 8.08a.75.75 0 1 1-1.06-1.06l3.5-3.5a.75.75 0 0 1 1.06 0l3.5 3.5a.75.75 0 1 1-1.06 1.06L8.75 5.86v6.19A.75.75 0 0 1 8 12.8z"/>
-                        </svg>
-                    </button>
-                </div>
-                <input id="choice-pic" type="file" accept="image/*" class="chihiro-file-input"
-                    @change="selectImg">
-                <label for="choice-pic" class="sr-only">{{ $t('选择图片') }}</label>
-                <input id="choice-file" type="file" class="chihiro-file-input"
-                    @change="selectFile">
-                <label for="choice-file" class="sr-only">{{ $t('选择文件') }}</label>
-            </div>
+                </template>
+            </UserComposer>
             <div />
         </div>
         <!-- 合并转发消息预览器 -->
@@ -486,17 +407,9 @@
                                 @click="tags.menuDisplay.respond = true" />
                         </template>
                     </div>
-                    <div v-show="tags.menuDisplay.add" @click="forwardSelf()">
-                        <div><font-awesome-icon :icon="['fas', 'plus']" /></div>
-                        <a>{{ $t('+ 1') }}</a>
-                    </div>
                     <div v-show="tags.menuDisplay.relpy" @click="menuReplyMsg(true)">
                         <div><font-awesome-icon :icon="['fas', 'message']" /></div>
                         <a>{{ $t('回复') }}</a>
-                    </div>
-                    <div v-show="tags.menuDisplay.askBot" @click="quoteToBot()">
-                        <div><font-awesome-icon :icon="['fas', 'robot']" /></div>
-                        <a>问 Bot</a>
                     </div>
                     <div v-show="tags.menuDisplay.forward" @click="showForWard()">
                         <div><font-awesome-icon :icon="['fas', 'share']" /></div>
@@ -576,7 +489,7 @@
                 @close="openChatInfoPan" />
         </Transition>
         <!-- 转发面板 -->
-        <Transition>
+        <Transition name="forward-float" :duration="{ enter: 220, leave: 180 }">
             <div v-if="tags.showForwardPan" class="forward-pan">
                 <div class="ss-card card">
                     <header>
@@ -626,6 +539,7 @@ import UserProfilePop from '@renderer/components/user/UserProfilePop.vue'
 import NoticeBody from '@renderer/components/user/UserNoticeBody.vue'
 import FacePan from '@renderer/components/user/UserFacePan.vue'
 import MergePan from '@renderer/components/user/UserMergePan.vue'
+import UserComposer from '@renderer/components/user/UserComposer.vue'
 import imageCompression from 'browser-image-compression'
 
 import {
@@ -704,8 +618,16 @@ const { chat, list } = defineProps<{
 const chihiroFeatureOpen = ref(false)
 function onChihiroFeatureStatus(ev: MessageEvent) {
     const data = ev.data
-    if (!data || data.source !== 'chihiro-shell' || data.kind !== 'feature-status') return
-    chihiroFeatureOpen.value = data.status === 'open' || data.status === 'expanded'
+    if (!data || data.source !== 'chihiro-shell') return
+    if (data.kind === 'feature-status') {
+        chihiroFeatureOpen.value = data.status === 'open' || data.status === 'expanded'
+        return
+    }
+    if (data.kind === 'chat-sync') publishChihiroChat()
+    if (data.kind === 'bot-think' && String(data.peerId) === String(chat.show?.id)) {
+        botThinkText.value = data.text || ''
+        botDraft.value = data.draft || null
+    }
 }
 function toggleChihiroFeature() {
     try { window.parent.postMessage({ source: 'chihiro-im', kind: 'toggle-feature' }, '*') } catch (e) {}
@@ -737,8 +659,19 @@ function toggleChihiroFace() {
 function closeChihiroFace() {
     details.value[1].open = false
 }
-function onChihiroFaceAdd(data: any) {
-    addSpecialMsg(data)
+function onChihiroFaceAdd(data: SQCodeElem) {
+    const obj = data?.msgObj
+    if (obj?.type === 'text' && typeof obj.text === 'string') {
+        insertTextAtCursor(obj.text)
+    } else if (obj?.type === 'face' && obj.id != null && !Number.isNaN(Number(obj.id))) {
+        insertFaceAtCursor(Number(obj.id))
+    } else if (obj?.type === 'image') {
+        const src = stickerSrcFromFile(String(obj.file || obj.url || ''))
+        if (src) addAttachSrc(src)
+        else addSpecialMsg(data)
+    } else {
+        addSpecialMsg(data)
+    }
     closeChihiroFace()
 }
 function onChihiroFaceSend(echo?: string) {
@@ -900,7 +833,19 @@ const mergePan = useTemplateRef<InstanceType<typeof MergePan>>('mergePan')
 const msgPan = useTemplateRef<HTMLDivElement>('msgPan')
 const chatPadding = useTemplateRef<HTMLSpanElement>('chatPadding')
 const sendMore = useTemplateRef<HTMLDivElement>('sendMore')
-const mainInput = useTemplateRef<HTMLInputElement | HTMLTextAreaElement>('mainInput')
+const composer = useTemplateRef<{
+    getInput: () => HTMLElement | null
+    insertText: (text: string) => void
+    insertFace: (id: number) => void
+    replaceFromLastAt: (text: string) => void
+    serialize: (cache: MsgItemElem[]) => string
+    clear: () => void
+    getPlainText: () => string
+    hasInlineFaces: () => boolean
+}>('composer')
+function getMainInput() {
+    return composer.value?.getInput?.() ?? null
+}
 
 type ForwardAction = 'single-message' | 'individual-messages' | 'merged-messages'
 
@@ -976,6 +921,74 @@ const chihiroHistory = reactive({
     list: [] as any[],
 })
 const chihiroPlusOpen = ref(false)
+const BOT_DEFAULT_KEY = 'chihiro-bot-new-default'
+const BOT_SESSIONS_KEY = 'chihiro-bot-sessions'
+const botOn = ref(false)
+const botThinkText = ref('')
+const botDraft = ref<{ id: string, text: string } | null>(null)
+
+function sessionBotKey() {
+    const type = chat.show?.type === 'group' ? 'group' : 'private'
+    return `${type}:${chat.show?.id}`
+}
+function readBotMap(): Record<string, boolean> {
+    try { return JSON.parse(localStorage.getItem(BOT_SESSIONS_KEY) || '{}') } catch { return {} }
+}
+function newBotDefault() {
+    return localStorage.getItem(BOT_DEFAULT_KEY) === '1'
+}
+function syncBotFromStore() {
+    const map = readBotMap()
+    const key = sessionBotKey()
+    botOn.value = Object.prototype.hasOwnProperty.call(map, key) ? Boolean(map[key]) : newBotDefault()
+    botThinkText.value = ''
+    botDraft.value = null
+    if (botOn.value && chat.show?.id) {
+        try {
+            window.parent.postMessage({
+                source: 'chihiro-im',
+                kind: 'session-bot',
+                type: chat.show?.type === 'group' ? 'group' : 'private',
+                peerId: String(chat.show.id),
+                enabled: true
+            }, '*')
+        } catch (e) {}
+    }
+}
+function toggleSessionBot() {
+    botOn.value = !botOn.value
+    const map = readBotMap()
+    map[sessionBotKey()] = botOn.value
+    localStorage.setItem(BOT_SESSIONS_KEY, JSON.stringify(map))
+    try {
+        window.parent.postMessage({
+            source: 'chihiro-im',
+            kind: 'session-bot',
+            type: chat.show?.type === 'group' ? 'group' : 'private',
+            peerId: String(chat.show?.id || ''),
+            enabled: botOn.value
+        }, '*')
+    } catch (e) {}
+}
+function approveBotDraft() {
+    const id = botDraft.value?.id
+    if (!id) return
+    try {
+        window.parent.postMessage({ source: 'chihiro-im', kind: 'draft-approve', id }, '*')
+    } catch (e) {}
+    botDraft.value = null
+    botThinkText.value = ''
+}
+function discardBotDraft() {
+    const id = botDraft.value?.id
+    if (!id) return
+    try {
+        window.parent.postMessage({ source: 'chihiro-im', kind: 'draft-discard', id }, '*')
+    } catch (e) {}
+    botDraft.value = null
+    botThinkText.value = ''
+}
+watch(() => chat.show?.id, syncBotFromStore, { immediate: true })
 function onChihiroDocClick(e: Event) {
     const t = e.target as HTMLElement | null
     if (t && typeof t.closest === 'function' && (
@@ -1138,7 +1151,8 @@ function resetState() {
 watch(() => chat, () => {
     resetState()
     sendCache.value = []
-    imgCache.value.clear()
+    imgCache.value = new Map()
+    composer.value?.clear?.()
     multipleSelectList.value = []
     initMenuDisplay()
     nextTick(() => {
@@ -1191,6 +1205,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+    try { window.parent.postMessage({ source: 'chihiro-im', kind: 'chat', chat: null }, '*') } catch (e) {}
     document.removeEventListener('click', onChihiroDocClick)
     document.removeEventListener('keydown', onChihiroDocKey)
     window.removeEventListener('message', onChihiroFeatureStatus)
@@ -1218,7 +1233,7 @@ let chatPaddingAfterUpdate: Array<() => void> = []
 const COMPOSER_INPUT_HEIGHT = 36
 const TEXTAREA_SCROLL_HEIGHT_COMPACT_OFFSET = 4
 
-function scheduleResizeMainInput(target?: HTMLTextAreaElement | HTMLInputElement | null, keepBottom = false) {
+function scheduleResizeMainInput(target?: HTMLElement | null, keepBottom = false) {
     // The template switches between input and textarea, so measure only after Vue
     // has applied the branch and coalesce rapid input changes into one frame.
     nextTick(() => {
@@ -1227,7 +1242,7 @@ function scheduleResizeMainInput(target?: HTMLTextAreaElement | HTMLInputElement
         }
         resizeMainInputFrame = requestAnimationFrame(() => {
             resizeMainInputFrame = null
-            resizeMainInput(target ?? mainInput.value)
+            resizeMainInput(target ?? getMainInput())
             scheduleChatPaddingUpdate(keepBottom ? () => scrollBottom() : undefined)
         })
     })
@@ -1285,14 +1300,10 @@ function setupChatPaddingObserver() {
     scheduleChatPaddingUpdate()
 }
 
-function resizeMainInput(target?: HTMLTextAreaElement | HTMLInputElement | null) {
-    const input = target ?? mainInput.value
+function resizeMainInput(target?: HTMLElement | null) {
+    const input = target ?? getMainInput()
     if (!input) return
-    if (!(input instanceof HTMLTextAreaElement)) {
-        input.style.height = ''
-        input.classList.remove('is-multiline')
-        return
-    }
+    const empty = composer.value?.getPlainText?.() === '' && !composer.value?.hasInlineFaces?.()
     if (!Option.get('use_breakline')) {
         input.style.height = COMPOSER_INPUT_HEIGHT + 'px'
         input.classList.remove('is-multiline')
@@ -1302,7 +1313,7 @@ function resizeMainInput(target?: HTMLTextAreaElement | HTMLInputElement | null)
     const oldTransition = input.style.transition
     input.style.transition = 'none'
 
-    if (input.value === '') {
+    if (empty) {
         input.classList.remove('is-multiline')
         input.style.height = COMPOSER_INPUT_HEIGHT + 'px'
     } else {
@@ -1526,7 +1537,7 @@ function mainKey(event: KeyboardEvent) {
     // Chihiro: Enter 发送，Shift+Enter 换行
     if (event.shiftKey) return
     event.preventDefault()
-    if (msg.value !== '') {
+    if (hasOutgoingContent()) {
         sendMsg()
     }
     tags.value.sendTag = 'REFUSE'
@@ -1670,18 +1681,20 @@ function mainKeyUp(event: KeyboardEvent) {
 function mainSubmit(event: Event) {
     event.preventDefault()
     if (imeComposing) return
-    if (msg.value != '') {
+    if (hasOutgoingContent()) {
         sendMsg()
     }
 }
 
 function choiceAt(id: number | undefined) {
     if (id != undefined) {
-        msg.value = msg.value.substring(0, msg.value.lastIndexOf('@'))
-        addSpecialMsg({
-            msgObj: { type: 'at', qq: Number(id) },
-            addText: true,
-        })
+        const index = sendCache.value.length
+        sendCache.value.push({ type: 'at', qq: Number(id) })
+        const sqCode = `[SQ:${index}]`
+        if (composer.value?.replaceFromLastAt) composer.value.replaceFromLastAt(sqCode)
+        else {
+            msg.value = msg.value.substring(0, msg.value.lastIndexOf('@')) + sqCode
+        }
     }
     toMainInput()
     tags.value.onAtFind = false
@@ -1869,12 +1882,10 @@ function showMsgMeun(event: MenuEventData, data: any) {
                     tags.value.menuDisplay.add = false
                 }
             })
-            if (select.nodeName == 'IMG' && (select as HTMLImageElement).src.length > 0) {
+            if (isMessageImageTarget(select)) {
                 tags.value.menuDisplay.downloadImg = (
                     select as HTMLImageElement
                 ).src
-                if (backend.isDesktop())
-                    tags.value.menuDisplay.copyImg = true
             }
         }
         const pointX = event.x
@@ -2292,23 +2303,30 @@ function sendRespond(num: number) {
     closeMsgMenu()
 }
 
-function copyMsg() {
-    const msgData = selectedMsg.value
-    if (msgData !== null) {
-        if (!msgData.raw_message) {
-            msgData.raw_message = getMsgRawTxt(msgData)
-        }
-        const popInfo = new PopInfo()
-        app.config.globalProperties.$copyText(msgData.raw_message).then(
-            () => {
-                popInfo.add(PopType.INFO, $t('复制成功'), true)
-            },
-            () => {
-                popInfo.add(PopType.ERR, $t('复制失败'), true)
-            },
-        )
+function isMessageImageTarget(el: HTMLElement | null) {
+    if (!el || el.nodeName !== 'IMG') return false
+    if ((el as HTMLImageElement).name === 'avatar') return false
+    if (el.classList.contains('emoji-face')) return false
+    return (el as HTMLImageElement).src.length > 0
+}
+
+async function copyMsg() {
+    const imgUrl = tags.value.menuDisplay.downloadImg
+    if (typeof imgUrl === 'string' && imgUrl) {
+        await copyImg()
+        return
     }
+    const msgData = selectedMsg.value
     closeMsgMenu()
+    if (!msgData) return
+    const popInfo = new PopInfo()
+    try {
+        await copyBubbleContent(msgData)
+        popInfo.add(PopType.INFO, $t('复制成功'), true)
+    } catch (e) {
+        popInfo.add(PopType.ERR, $t('复制失败'), true)
+        new Logger().error(e as unknown as Error, '复制消息失败')
+    }
 }
 
 function copySelectMsg() {
@@ -2332,26 +2350,13 @@ async function copyImg() {
     const url = tags.value.menuDisplay.downloadImg
     if (!url) return
     closeMsgMenu()
-    const { blob, buffer } = await getImageUrlData(url)
     const popInfo = new PopInfo()
-    if(backend.type === 'tauri') {
-        try {
-            const Clipboard = await import('@tauri-apps/plugin-clipboard-manager')
-            await Clipboard.writeImage(buffer)
-            popInfo.add(PopType.INFO, $t('复制成功'))
-        } catch(e) {
-            popInfo.add(PopType.ERR, $t('复制失败'))
-            new Logger().error(e as unknown as Error, '复制图片失败')
-        }
-    } else {
-        const item = new ClipboardItem({ [blob.type]: blob })
-        try {
-            await copyToClipboard([item])
-            popInfo.add(PopType.INFO, $t('复制成功'))
-        } catch (e) {
-            popInfo.add(PopType.ERR, $t('复制失败'))
-            new Logger().error(e as unknown as Error, '复制图片失败')
-        }
+    try {
+        await copyImageUrl(url)
+        popInfo.add(PopType.INFO, $t('复制成功'))
+    } catch (e) {
+        popInfo.add(PopType.ERR, $t('复制失败'))
+        new Logger().error(e as unknown as Error, '复制图片失败')
     }
 }
 
@@ -2485,8 +2490,216 @@ function openChatInfoPan() {
     }
 }
 
+function mutateImgCache(mut: (map: Map<number, string>) => void) {
+    const next = new Map(imgCache.value)
+    mut(next)
+    imgCache.value = next
+}
+
+function nextCacheKey(map: { size: number, keys: () => IterableIterator<number> }) {
+    return map.size === 0 ? 0 : Math.max(...map.keys()) + 1
+}
+
+function addAttachSrc(src: string) {
+    const value = src?.trim()
+    if (!value) return
+    mutateImgCache((map) => {
+        map.set(nextCacheKey(map), value)
+    })
+}
+
+function stickerSrcFromFile(file: string) {
+    const value = file?.trim()
+    if (!value) return ''
+    if (value.startsWith('base64://')) return 'data:image/png;base64,' + value.slice(9)
+    return value
+}
+
+function insertTextAtCursor(text: string) {
+    if (!text) return
+    if (composer.value?.insertText) {
+        composer.value.insertText(text)
+        return
+    }
+    msg.value += text
+}
+
+function insertFaceAtCursor(id: number) {
+    if (composer.value?.insertFace) {
+        composer.value.insertFace(id)
+        return
+    }
+    insertTextAtCursor(Emoji.get(id)?.value || '')
+}
+
+function hasOutgoingContent() {
+    return msg.value !== '' || imgCache.value.size > 0 || !!composer.value?.hasInlineFaces?.()
+}
+
+function imageSegFromSrc(src: string) {
+    if (src.startsWith('data:') && src.includes('base64,')) {
+        return {
+            type: 'image',
+            file: 'base64://' + src.substring(src.indexOf('base64,') + 7),
+        }
+    }
+    return { type: 'image', file: src }
+}
+
+function decodeHtmlEntities(text: string) {
+    if (!text || !text.includes('&')) return text
+    const box = document.createElement('textarea')
+    box.innerHTML = text
+    return box.value
+}
+
+function parseCqParams(body: string) {
+    const out: Record<string, string> = {}
+    for (const part of body.split(',')) {
+        const eq = part.indexOf('=')
+        if (eq <= 0) continue
+        out[part.slice(0, eq).trim()] = decodeHtmlEntities(part.slice(eq + 1).trim())
+    }
+    return out
+}
+
+function cqImageSrc(params: string) {
+    const info = parseCqParams(params)
+    const url = info.url || info.file || ''
+    if (/^https?:\/\//i.test(url) || url.startsWith('data:image/')) return url
+    return ''
+}
+
+function extractCqImageSrcs(text: string) {
+    const srcs: string[] = []
+    const re = /\[CQ:image,([^\]]*)\]/gi
+    let match: RegExpExecArray | null
+    while ((match = re.exec(text)) !== null) {
+        const src = cqImageSrc(match[1] || '')
+        if (src) srcs.push(src)
+    }
+    return srcs
+}
+
+function extractHtmlImageSrcs(html: string) {
+    const srcs: string[] = []
+    const re = /<img\b[^>]*\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))/gi
+    let match: RegExpExecArray | null
+    while ((match = re.exec(html)) !== null) {
+        const src = decodeHtmlEntities(match[1] || match[2] || match[3] || '').trim()
+        if (/^(https?:\/\/|data:image\/|blob:)/i.test(src)) srcs.push(src)
+    }
+    return srcs
+}
+
+function stripCqImages(text: string) {
+    return text.replace(/\[CQ:image,[^\]]*\]/gi, '')
+}
+
+function escapeHtml(text: string) {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+}
+
+function escapeAttr(text: string) {
+    return escapeHtml(text).replace(/"/g, '&quot;')
+}
+
+function bubbleCopyParts(msgData: any) {
+    let plain = ''
+    let html = ''
+    const urls: string[] = []
+    const segs = Array.isArray(msgData?.message) ? msgData.message : []
+    for (const seg of segs) {
+        if (!seg || typeof seg !== 'object') continue
+        if (seg.type === 'text' && typeof seg.text === 'string') {
+            plain += seg.text
+            html += escapeHtml(seg.text).replace(/\n/g, '<br>')
+        } else if (seg.type === 'at') {
+            const name = String(seg.text || seg.qq || '')
+            const piece = name ? '@' + name : ''
+            plain += piece
+            html += escapeHtml(piece)
+        } else if (seg.type === 'face') {
+            const emoji = Emoji.get(Number(seg.id))
+            const piece = emoji?.type === 'emoji'
+                ? emoji.value
+                : (emoji?.description ? '[' + emoji.description + ']' : '[' + $t('表情') + ']')
+            plain += piece
+            html += escapeHtml(piece)
+        } else if (seg.type === 'image' || seg.type === 'mface') {
+            const url = String(seg.url || '')
+            if (!url) continue
+            urls.push(url)
+            html += '<img src="' + escapeAttr(url) + '">'
+        }
+    }
+    return { plain, html, urls }
+}
+
+async function copyBubbleContent(msgData: any) {
+    const parts = bubbleCopyParts(msgData)
+    if (parts.urls.length === 1 && parts.plain.trim() === '') {
+        await copyImageUrl(parts.urls[0])
+        return
+    }
+    if (parts.urls.length === 0) {
+        const text = parts.plain || getMsgRawTxt(msgData) || ''
+        await copyToClipboard(text)
+        return
+    }
+    const html = '<div data-chihiro-copy="1">' + parts.html + '</div>'
+    await copyToClipboard([
+        new ClipboardItem({
+            'text/plain': new Blob([parts.plain], { type: 'text/plain' }),
+            'text/html': new Blob([html], { type: 'text/html' }),
+        }),
+    ])
+}
+
+function imageCopySources(url: string) {
+    if (!url) return []
+    if (url.startsWith('data:') || url.startsWith('blob:')) return [url]
+    const real = backend.unProxyUrl(url)
+    const sources: string[] = []
+    sources.push('/api/runtime/image-proxy?url=' + encodeURIComponent(real))
+    const proxied = backend.proxyUrl(real)
+    if (proxied !== real) sources.push(proxied)
+    return sources
+}
+
+async function copyImageUrl(url: string) {
+    let lastError: unknown
+    for (const src of imageCopySources(url)) {
+        try {
+            const data = await getImageUrlData(src)
+            if (backend.type === 'tauri') {
+                const Clipboard = await import('@tauri-apps/plugin-clipboard-manager')
+                await Clipboard.writeImage(data.buffer)
+                return
+            }
+            await copyToClipboard([new ClipboardItem({ [data.blob.type]: data.blob })])
+            return
+        } catch (e) {
+            lastError = e
+        }
+    }
+    throw lastError instanceof Error ? lastError : new Error('图片加载失败')
+}
+
+function consumeCqImagesFromMsg() {
+    if (!/\[CQ:image,/i.test(msg.value)) return false
+    const srcs = extractCqImageSrcs(msg.value)
+    if (srcs.length === 0) return false
+    srcs.forEach(addAttachSrc)
+    msg.value = stripCqImages(msg.value)
+    return true
+}
+
 function deleteImg(index: number) {
-    imgCache.value.delete(index)
+    mutateImgCache((map) => { map.delete(index) })
     msg.value = msg.value.replace(
         '[SQ:' + index + ']',
         '',
@@ -2502,35 +2715,28 @@ async function editImg(key: number) {
     if (!img) return
     if (!viewerRef?.value) return
     const dataurl = await viewerRef.value.edit(img)
-    imgCache.value.set(key, dataurl)
+    mutateImgCache((map) => { map.set(key, dataurl) })
 }
 
 function addSpecialMsg(data: SQCodeElem) {
-    const input = (document.getElementById( 'main-input') as HTMLTextAreaElement | HTMLInputElement) ??
-        (document.getElementById( 'main-input-ex') as HTMLTextAreaElement | HTMLInputElement)
     if (data !== undefined) {
         const index = sendCache.value.length
         sendCache.value.push(data.msgObj)
         if (!data.addText) return index
 
         const sqCode = `[SQ:${index}]`
-
         if (data.addTop === true) {
-            msg.value = sqCode + msg.value
-        } else {
-            const selectionStart = input?.selectionStart
-            const selectionEnd = input?.selectionEnd ?? selectionStart
-            if(selectionStart != null) {
-                const first = msg.value.substring(0, selectionStart)
-                const last = msg.value.substring(selectionEnd!, msg.value.length)
-                msg.value = first + sqCode + last
-                nextTick(()=>{
-                    input.selectionStart = selectionStart + sqCode.length
-                    input.selectionEnd = selectionStart + sqCode.length
-                })
+            const current = composer.value?.getPlainText?.() ?? msg.value
+            if (composer.value?.clear && composer.value?.insertText) {
+                composer.value.clear()
+                composer.value.insertText(sqCode + current)
             } else {
-                msg.value += sqCode
+                msg.value = sqCode + msg.value
             }
+        } else if (composer.value?.insertText) {
+            composer.value.insertText(sqCode)
+        } else {
+            msg.value += sqCode
         }
         return index
     }
@@ -2538,19 +2744,42 @@ function addSpecialMsg(data: SQCodeElem) {
 }
 
 function addImg(event: ClipboardEvent) {
-    if (!(event.clipboardData && event.clipboardData.items)) {
+    const data = event.clipboardData
+    if (!data) return
+
+    const imageFiles: File[] = []
+    if (data.items) {
+        for (let i = 0; i < data.items.length; i++) {
+            const item = data.items[i]
+            if (item.kind === 'file' && item.type.startsWith('image/')) {
+                const file = item.getAsFile()
+                if (file) imageFiles.push(file)
+            }
+        }
+    }
+    if (imageFiles.length === 0 && data.files) {
+        for (let i = 0; i < data.files.length; i++) {
+            const file = data.files[i]
+            if (file.type.startsWith('image/')) imageFiles.push(file)
+        }
+    }
+    if (imageFiles.length > 0) {
+        event.preventDefault()
+        imageFiles.forEach((file) => { void setImg(file) })
         return
     }
-    for (
-        let i = 0, len = event.clipboardData.items.length;
-        i < len;
-        i++
-    ) {
-        const item = event.clipboardData.items[i]
-        if (item.kind === 'file') {
-            setImg(item.getAsFile())
-            event.preventDefault()
-        }
+
+    const html = decodeHtmlEntities(data.getData('text/html') || '')
+    const plain = decodeHtmlEntities(data.getData('text/plain') || '')
+    const srcs = extractCqImageSrcs(plain)
+        .concat(extractCqImageSrcs(html))
+        .concat(extractHtmlImageSrcs(html))
+    const unique = [...new Set(srcs)]
+    if (unique.length > 0) {
+        event.preventDefault()
+        unique.forEach(addAttachSrc)
+        const leftover = stripCqImages(plain).trim()
+        if (leftover) insertTextAtCursor(leftover)
     }
 }
 
@@ -2631,7 +2860,8 @@ function sendFile(file: File, fileName: string | null) {
                     base64data.length,
                 )
                 sendCache.value = []
-                imgCache.value.clear()
+                imgCache.value = new Map()
+                composer.value?.clear?.()
                 msg.value = ''
                 addSpecialMsg({
                     addText: true,
@@ -2677,16 +2907,7 @@ async function setImg(file: File | null) {
         return
     }
 
-    const id = sendCache.value.length
-    const data = {
-        type: 'text',
-        text: `[${$t('图片')}]`,
-    }
-    addSpecialMsg({
-        addText: true,
-        msgObj: data,
-    })
-    imgCache.value.set(id, await fileToDataURL(file))
+    addAttachSrc(await fileToDataURL(file))
 }
 
 async function fileToDataURL(file: File): Promise<string> {
@@ -2719,18 +2940,22 @@ function sendMsg(echo = 'sendMsgBack') {
         item.open = false
     })
 
-    for (const [key, base64data] of imgCache.value) {
-        sendCache.value[key] = {
-            type: 'image',
-            file: 'base64://' + base64data.substring(
-                base64data.indexOf('base64,') + 7,
-                base64data.length
-            )
+    const cache = sendCache.value
+    let text = composer.value?.serialize?.(cache) ?? msg.value
+    const attachStart = cache.length
+    for (const src of imgCache.value.values()) {
+        cache.push(imageSegFromSrc(src))
+    }
+    if (imgCache.value.size > 0) {
+        let prefix = ''
+        for (let i = 0; i < imgCache.value.size; i++) {
+            prefix += `[SQ:${attachStart + i}]`
         }
+        text = prefix + text
     }
     const parsedMsg = SendUtil.parseMsg(
-        msg.value,
-        sendCache.value,
+        text,
+        cache,
         [],
     )
     if (chat.show.temp) {
@@ -2753,7 +2978,8 @@ function sendMsg(echo = 'sendMsgBack') {
     tags.value.checkNewLineFlag = true
     msg.value = ''
     sendCache.value = []
-    imgCache.value.clear()
+    imgCache.value = new Map()
+    composer.value?.clear?.()
     scrollBottom()
     cancelReply()
     scheduleResizeMainInput(undefined, true)
@@ -2972,7 +3198,11 @@ function showJin() {
 }
 
 async function handleInput(event: Event) {
-    const input = event.target as HTMLInputElement
+    const input = event.target as HTMLElement
+    if (consumeCqImagesFromMsg()) {
+        scheduleResizeMainInput(input)
+        return
+    }
     scheduleResizeMainInput(input)
 
     const diff = getDifferencesWithRanges(msg.value, oldMsg.value)
@@ -2999,7 +3229,7 @@ async function handleInput(event: Event) {
             clearTimeout(searchDebounceTimer.value)
             searchDebounceTimer.value = null
         }
-        const value = input.value
+        const value = msg.value
         if (value.length == 0) {
             searchRequestId.value++
             tags.value.search.list = reactive(list)
@@ -3068,21 +3298,29 @@ function sendPoke(userId: number) {
 function reedit(msgData: any) {
     msg.value = ''
     sendCache.value = []
-    imgCache.value.clear()
+    imgCache.value = new Map()
+    composer.value?.clear?.()
     cancelReply()
     for (const seg of msgData.message) {
         if (seg.type === 'text') {
-            msg.value += seg.text
+            insertTextAtCursor(seg.text)
         } else if (seg.type === 'reply') {
             const foundMsg = list.find((item: any) => item.message_id == seg.id)
             if (!foundMsg) continue
             replyMsg(foundMsg)
+        } else if (seg.type === 'image') {
+            const url = String(seg.url || '')
+            const file = String(seg.file || '')
+            if (/^https?:\/\//i.test(url) || url.startsWith('data:')) addAttachSrc(url)
+            else if (/^https?:\/\//i.test(file) || file.startsWith('data:')) addAttachSrc(file)
+            else if (file.startsWith('base64://')) addAttachSrc('data:image/png;base64,' + file.slice(9))
+        } else if (seg.type === 'face' && seg.id != null && !Number.isNaN(Number(seg.id))) {
+            insertFaceAtCursor(Number(seg.id))
         } else {
             addSpecialMsg({
-                addText: false,
+                addText: true,
                 msgObj: seg,
             })
-            msg.value += '[SQ:' + (sendCache.value.length - 1) + ']'
         }
     }
     toMainInput()
@@ -3204,4 +3442,316 @@ function exitWin() {
     .pan-leave-to {
         opacity: 0;
     }
+</style>
+
+
+<style>
+/* chihiro-moved-from-user-css */
+.msg-menu {
+    overflow: visible !important;
+}
+.msg-menu-body {
+    width: max-content !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    padding: 6px !important;
+    position: relative;
+}
+.msg-menu-body > .respond {
+    position: absolute !important;
+    left: 0 !important;
+    right: auto !important;
+    bottom: calc(100% + 8px) !important;
+    width: max-content !important;
+    max-width: min(360px, calc(100vw - 24px)) !important;
+    margin: 0 !important;
+}
+.msg-menu-body > div:not(.respond) {
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    gap: 10px !important;
+    width: max-content !important;
+    min-width: 100% !important;
+    padding: 7px 10px !important;
+    box-sizing: border-box;
+}
+.msg-menu-body > div:not(.respond) > div {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+    margin: 0 !important;
+}
+.msg-menu-body > div:not(.respond) > div > svg {
+    margin: 0 !important;
+    width: 14px !important;
+    height: 14px !important;
+}
+.msg-menu-body > div:not(.respond) > a {
+    margin: 0 !important;
+    flex: 0 0 auto;
+    text-align: left;
+    font-size: 13px !important;
+    white-space: nowrap;
+}
+
+.chihiro-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    pointer-events: all;
+    flex: 0 0 auto;
+    margin-right: 0;
+}
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-feature-btn,
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-history-btn,
+.user-skin.chat-pan > div.info > .chihiro-head-actions .more {
+    background: transparent !important;
+    border-radius: 50%;
+    cursor: pointer;
+    height: 32px !important;
+    width: 32px !important;
+    margin: 0 !important;
+    display: grid;
+    place-items: center;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-feature-btn svg,
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-history-btn svg,
+.user-skin.chat-pan > div.info > .chihiro-head-actions .more svg {
+    color: var(--color-font-1) !important;
+    height: 16px !important;
+    width: 16px !important;
+    margin: 0 !important;
+}
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-feature-btn:hover,
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-feature-btn.active,
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-history-btn:hover,
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-history-btn.active,
+.user-skin.chat-pan > div.info > .chihiro-head-actions .more:hover {
+    background: rgba(127, 127, 127, 0.18) !important;
+}
+.chihiro-history-mask {
+    position: absolute;
+    inset: 0;
+    z-index: 25 !important;
+    background: rgba(0, 0, 0, 0.45);
+    pointer-events: all;
+    display: grid;
+    place-items: center;
+    padding: 28px 24px;
+    box-sizing: border-box;
+}
+.chihiro-history-win {
+    display: flex;
+    flex-direction: column;
+    width: min(780px, 100%);
+    height: min(680px, 100%);
+    min-height: 0;
+    padding: 0 20px 0;
+    background: var(--color-card);
+    border: 1px solid var(--color-card-2);
+    border-radius: 14px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    pointer-events: all;
+}
+.chihiro-history-head {
+    display: grid;
+    grid-template-columns: 36px 1fr 36px;
+    align-items: center;
+    padding: 12px 4px 12px;
+    margin: 0 -8px 10px;
+    color: var(--color-font);
+    border-bottom: 1px solid var(--color-card-2);
+}
+.chihiro-history-title {
+    grid-column: 2;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.chihiro-history-close {
+    grid-column: 3;
+    justify-self: end;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--color-font-1);
+}
+.chihiro-history-close:hover {
+    background: var(--color-card-2);
+}
+.chihiro-history-close svg {
+    width: 14px !important;
+    height: 14px !important;
+    margin: 0 !important;
+}
+.chihiro-history-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--color-main);
+    border-radius: 8px;
+    background: var(--color-card-1);
+}
+.chihiro-history-search svg {
+    width: 14px !important;
+    height: 14px !important;
+    margin: 0 !important;
+    color: var(--color-font-2) !important;
+    flex: 0 0 auto;
+}
+.chihiro-history-search input {
+    flex: 1;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--color-font);
+    font-size: 13px;
+    height: 100%;
+}
+.chihiro-history-tabs {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    padding: 14px 4px 0;
+    border-bottom: 1px solid var(--color-card-2);
+}
+.chihiro-history-tabs button {
+    appearance: none;
+    background: none;
+    border: 0;
+    color: var(--color-font-1);
+    font-size: 14px;
+    padding: 0 0 10px;
+    cursor: pointer;
+    position: relative;
+}
+.chihiro-history-tabs button.active {
+    color: var(--color-font);
+    font-weight: 600;
+}
+.chihiro-history-tabs button.active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--color-main);
+    border-radius: 2px;
+}
+.chihiro-history-list {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding: 4px 0 20px;
+}
+.chihiro-history-date {
+    color: var(--color-font-2);
+    font-size: 13px;
+    padding: 16px 4px 10px;
+    border-bottom: 1px solid var(--color-card-2);
+    margin-bottom: 2px;
+}
+.chihiro-history-item {
+    display: flex;
+    gap: 12px;
+    padding: 14px 4px;
+    border-bottom: 1px solid var(--color-card-2);
+    cursor: pointer;
+}
+.chihiro-history-item:hover {
+    background: var(--color-card-1);
+}
+.chihiro-history-item img {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex: 0 0 auto;
+    background: var(--color-card-2);
+}
+.chihiro-history-text {
+    color: var(--color-font);
+    font-size: 14px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-width: 0;
+}
+.chihiro-history-empty {
+    color: var(--color-font-2);
+    text-align: center;
+    padding: 56px 0;
+    font-size: 13px;
+}
+
+.user-skin.chat-pan > div.info {
+    margin: 0 !important;
+    width: 100% !important;
+    height: 48px !important;
+    min-height: 48px;
+    padding: 0 20px 0 16px !important;
+    box-sizing: border-box !important;
+    border-radius: 0 !important;
+    background: var(--color-bg) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    border-bottom: 1px solid rgba(127, 127, 127, 0.12);
+}
+.user-skin.chat-pan > div.info > img {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 50% !important;
+    border: 0 !important;
+    margin-right: 8px !important;
+}
+.user-skin.chat-pan > div.info > div.info p {
+    font-size: 14px !important;
+    font-weight: 600;
+}
+.user-skin.chat-pan > div.info > div.info span {
+    display: none;
+}
+.user-skin.chat-pan > div.info > svg.back {
+    width: 16px !important;
+    height: 16px !important;
+    padding: 8px !important;
+    margin-right: 8px !important;
+    border-radius: 50% !important;
+    background: transparent !important;
+}
+
+.forward-float-enter-active,
+.forward-float-leave-active {
+    transition: opacity 0.2s ease !important;
+}
+.forward-float-enter-active > div.card,
+.forward-float-leave-active > div.card {
+    animation: none !important;
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.forward-float-enter-from,
+.forward-float-leave-to {
+    opacity: 0;
+}
+.forward-float-enter-from > div.card,
+.forward-float-leave-to > div.card {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.96) !important;
+}
 </style>

@@ -53,12 +53,14 @@ export function resolveIncomingSession(
 
 const SESSION_STATE_KEYS = [
     'new_msg',
+    'unread',
     'raw_msg',
     'raw_msg_base',
     'time',
     'always_top',
     'message_id',
     'highlight',
+    'notice_mode',
 ] as const
 
 type SessionStateKey = (typeof SESSION_STATE_KEYS)[number]

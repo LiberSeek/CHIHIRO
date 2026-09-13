@@ -53,6 +53,11 @@
                     <font-awesome-icon :icon="['fas', 'user']" />
                     <span>{{ $t('列表') }}</span>
                 </li>
+                <li id="bar-workbench" class="chihiro-hidden-bar"
+                    :class="tags.page == 'Workbench' ? 'active' : ''"
+                    @click="openWorkbench">
+                    <span>工作台</span>
+                </li>
                 <li v-if="useQzoneStore().qzoneFeedList.length > 0"
                     id="bar-qzone"
                     :class="tags.page == 'Qzone' ? 'active' : ''"
@@ -221,6 +226,9 @@
                 <div v-if="tags.page == 'Friends'" id="friendTab">
                     <Friends :list="contactStore.userList" @load-history="loadHistory" @user-click="changeChat" />
                 </div>
+                <div v-show="tags.page == 'Workbench'" id="workbenchTab">
+                    <Workbench />
+                </div>
                 <div v-if="tags.page == 'Qzone'" id="qzoneTab">
                     <Qzone />
                 </div>
@@ -230,16 +238,26 @@
                 </div>
             </div>
         </div>
+        <AgentChatHost
+            v-if="loginInfo.status"
+            :active="tags.page === 'Workbench'"
+            sidebar-target="#chihiro-agent-sidebar-slot"
+            main-target="#chihiro-agent-main-slot" />
         <component :is="uiStore.pageView.chatView" v-if="
             loginInfo.status &&
                 chatStore.chatInfo &&
                 chatStore.chatInfo.show.id != 0"
-            v-show="tags.showChat"
+            v-show="tags.showChat && tags.page !== 'Workbench'"
             ref="chat" :mumber-info="chatStore.chatInfo.info.now_member_info == undefined ?
                 {} : chatStore.chatInfo.info.now_member_info"
             :merge-list="chatStore.mergeMessageList"
             :list="chatStore.messageList" :chat="chatStore.chatInfo"
             @user-click="changeChat" />
+        <div
+            v-if="loginInfo.status"
+            id="chihiro-agent-main-slot"
+            :class="['chihiro-agent-main-slot', { 'is-visible': tags.page === 'Workbench' }]"
+        />
         <TransitionGroup class="app-msg" name="appmsg" tag="div">
             <div v-for="msg in appMsgs" :key="'appmsg-' + msg.id">
                 <div><font-awesome-icon :icon="['fas', msg.svg]" /></div>
@@ -318,7 +336,7 @@ import * as App from './function/utils/appUtil'
 import anime from 'animejs'
 import packageInfo from '../../../package.json'
 
-import { computed, watch, onMounted, onUnmounted, shallowReactive, shallowRef, provide } from 'vue'
+import { computed, watch, onMounted, onUnmounted, ref, shallowReactive, shallowRef, provide } from 'vue'
 import { Connector, login as loginInfo, loadConnectionHistory, loadConnectionFromHistory, deleteConnectionHistory, decodeStoredToken } from '@renderer/function/connect'
 import { Logger, popList, PopInfo, LogType } from '@renderer/function/base'
 import { setLoginWaveTimer } from '@renderer/function/msg'
@@ -343,12 +361,14 @@ import {
 import Options from '@renderer/pages/user/UserOptions.vue'
 import Friends from '@renderer/pages/user/UserFriends.vue'
 import Messages from '@renderer/pages/user/UserMessages.vue'
+import Workbench from '@renderer/pages/user/UserWorkbench.vue'
 import Qzone from '@renderer/pages/user/UserQzone.vue'
 import MusicPlayer, { getCurrentMusic } from './components/user/UserMusicPlayer.vue'
 import FileManager, { panelVisible, closePanel, getDownloadTasks, getUploadTasks } from './components/user/UserFileManager.vue'
 import GlobalSessionSearchBar from './components/user/UserGlobalSessionSearchBar.vue'
 import NtViewer from './components/user/UserViewerCom.vue'
 import Tooltips from './components/user/tooltip/UserTooltips.vue'
+import AgentChatHost from './components/user/AgentChatHost.vue'
 import { useQzoneStore } from './state/qzone'
 
 // 注册组件实例
@@ -414,6 +434,9 @@ function applyChihiroTheme(mode: string) {
             Option.runAS('opt_dark', mode === 'dark')
         }
     } catch (e) { /* option store may not be ready */ }
+}
+function openWorkbench() {
+    changeTab('工作台', 'Workbench', false)
 }
 window.addEventListener('message', (ev) => {
     const data = ev.data
@@ -924,7 +947,8 @@ onMounted(() => {
     }, { immediate: true })
 
     // 页面加载完成后
-    window.onload = async () => {
+    // Vue is already mounted; external optional scripts must not gate IM boot.
+    const initializeWorkbench = async () => {
         await backend.init() // Desktop：初始化客户端功能
 
         if(import.meta.env.DEV) {
@@ -1220,6 +1244,7 @@ onMounted(() => {
             backend.call(undefined, 'win:setTitle', false, title)
         }
     }
+    void initializeWorkbench().catch((error) => console.error('[Chihiro] Workbench initialization failed', error))
     // 页面关闭前
     window.onbeforeunload = () => {
         logger.system('开发者阁下—— 唔，阁下离开的太匆忙了！让我来帮开发者阁下收拾下东西吧。')
@@ -1403,5 +1428,72 @@ onUnmounted(() => {
         transform: translate(-50%, -5%) scale(0.98);
         opacity: 0;
     }
+}
+</style>
+
+
+<style>
+/* chihiro-moved-from-user-css */
+#bar-chihiro-menu {
+    position: relative;
+}
+.chihiro-menu {
+    position: absolute;
+    left: calc(100% + 8px);
+    bottom: 4px;
+    min-width: 168px;
+    margin: 0;
+    padding: 6px;
+    list-style: none;
+    background: var(--color-card);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.35);
+    z-index: 50;
+}
+.chihiro-menu li {
+    display: block !important;
+    margin: 0 !important;
+    padding: 8px 12px !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    text-align: left;
+    border-radius: 8px;
+    color: var(--color-font);
+    font-size: 13px;
+}
+.chihiro-menu li:hover {
+    background: var(--color-card-2);
+}
+html.chihiro-settings-only #side-bar,
+html.chihiro-settings-only #load-view,
+html.chihiro-settings-only .top-bar,
+html.chihiro-settings-only .mac-controller {
+    display: none !important;
+}
+html.chihiro-settings-only .main-body {
+    height: 100% !important;
+}
+html.chihiro-settings-only .main-body > div {
+    width: 100% !important;
+}
+
+#base-app .app-msg {
+    left: 0;
+    right: 0;
+    top: 0;
+    width: 100%;
+    height: auto;
+    max-height: 100%;
+    padding: 20px 24px 0 !important;
+    box-sizing: border-box;
+    flex-direction: column !important;
+    justify-content: flex-start;
+    align-items: center;
+    pointer-events: none;
+    z-index: 20;
+}
+#base-app .app-msg > div {
+    max-width: min(420px, calc(100% - 24px));
+    margin: 4px 0;
 }
 </style>

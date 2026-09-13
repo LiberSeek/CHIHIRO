@@ -49,15 +49,17 @@ body { display: flex; flex-direction: row; }
   min-height: 0;
   min-width: 0;
   --feature-width: 400px;
+  --im-list-width: 280px;
 }
 .workspace[data-feature="off"] .feature { display: none; }
 .workspace[data-feature="expanded"] .stage {
-  width: 0;
-  flex: 0 0 0;
-  min-width: 0;
-  opacity: 0;
+  width: var(--im-list-width);
+  flex: 0 0 var(--im-list-width);
+  min-width: var(--im-list-width);
+  max-width: var(--im-list-width);
+  opacity: 1;
   overflow: hidden;
-  pointer-events: none;
+  pointer-events: auto;
 }
 .stage,
 .feature {
@@ -512,13 +514,57 @@ html[data-theme-mode="system"] .theme-ico-system { display: block; color: #30d15
 }
 .agentic-hosted.is-on { color: var(--accent); }
 .feature-pane { flex: 1; overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
-#pane-agentic.feature-pane { gap: 0; padding: 10px 12px 12px; }
+#pane-agentic.feature-pane { gap: 0; padding: 0; overflow: hidden; }
 .workspace[data-feature="expanded"] #pane-agentic.feature-pane {
-  max-width: 760px;
+  max-width: none;
   width: 100%;
-  margin: 0 auto;
-  padding: 16px 20px 20px;
+  margin: 0;
+  padding: 0;
 }
+.chatui-host {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.chatui-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--bg);
+}
+.chatui-gate {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+}
+.chatui-gate.hidden { display: none !important; }
+.chatui-gate-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+}
+.chatui-gate-copy {
+  margin: 0;
+  max-width: 280px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+#pane-agentic .agentic-drafts {
+  flex: 0 0 auto;
+  max-height: 30%;
+  overflow: auto;
+  padding: 8px 10px 0;
+}
+#pane-agentic .agentic-drafts:empty { display: none; }
 .workspace[data-feature="expanded"] .agentic-empty {
   font-size: 15px;
 }
@@ -901,6 +947,25 @@ select {
 .account-menu button.danger:hover { color: #ff6b6b; }
 .account-menu button:disabled { opacity: .45; cursor: not-allowed; }
 
+.settings-menu {
+  min-width: 0;
+  width: max-content;
+}
+.settings-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+  padding: 8px 12px;
+}
+.settings-menu button svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+.settings-menu button:hover svg { color: var(--text); }
+
 html[data-theme="light"] {
   color-scheme: light;
   --rail: #f2f2f7;
@@ -1021,6 +1086,7 @@ html[data-theme="light"] .modal {
 }
 
 @media (max-width: 700px) {
+  .workspace { --im-list-width: min(240px, 46vw); }
   .workspace[data-feature="open"] .feature {
     position: absolute;
     right: 0;
@@ -1035,6 +1101,11 @@ html[data-theme="light"] .modal {
     flex: 1;
     width: auto;
     opacity: 1;
+  }
+  .workspace[data-feature="expanded"] .feature {
+    position: relative;
+    z-index: auto;
+    box-shadow: none;
   }
   .empty-copy { width: min(280px, 100%); }
   .launch-row {

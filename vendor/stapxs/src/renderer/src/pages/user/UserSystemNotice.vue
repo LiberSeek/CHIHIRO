@@ -13,10 +13,10 @@
             (['linux', 'win32'].includes(backend.platform ?? '') ? ' withBar' : '')">
         <div>
             <font-awesome-icon :icon="['fas', 'angle-left']" @click="exit" />
-            <span>{{ $t('系统消息') }}</span>
+            <span>{{ noticeTitle }}</span>
         </div>
         <div class="sys-not-list">
-            <template v-for="(notice, index) in contactStore.systemNoticesList"
+            <template v-for="(notice, index) in filteredNotices"
                 :key="'sysNot-' + index">
                 <div v-if="notice.request_type == 'friend'">
                     <div>
@@ -111,22 +111,41 @@
 </template>
 
 <script lang="ts" setup>
+    import { computed } from 'vue'
     import { Connector } from '@renderer/function/connect'
     import { getTrueLang } from '@renderer/function/utils/systemUtil'
     import { backend } from '@renderer/runtime/backend'
     import { i18n } from '@renderer/main'
     import { useUIStore } from '@renderer/state/ui'
     import { useContactStore } from '@renderer/state/contact'
+    import { useChatStore } from '@renderer/state/chat'
 
     defineOptions({ name: 'UserSystemNotice' })
 
     const uiStore = useUIStore()
     const contactStore = useContactStore()
+    const chatStore = useChatStore()
     const emit = defineEmits(['userClick'])
 
     const $t = i18n.global.t
     const trueLang = getTrueLang()
     const dev = import.meta.env.DEV
+
+    const noticeTitle = computed(() => {
+        const id = Number(chatStore.chatInfo.show.id)
+        if (id === -10010) return $t('新朋友')
+        if (id === -10011) return $t('新群聊')
+        return $t('系统消息')
+    })
+
+    const filteredNotices = computed(() => {
+        const raw = contactStore.systemNoticesList
+        const list = !raw ? [] : Array.isArray(raw) ? raw : Object.values(raw)
+        const id = Number(chatStore.chatInfo.show.id)
+        if (id === -10010) return list.filter((item: any) => item.request_type === 'friend')
+        if (id === -10011) return list.filter((item: any) => item.request_type === 'group')
+        return list
+    })
 
     function exit() {
         emit('userClick', { id: 0 })

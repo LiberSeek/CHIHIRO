@@ -2,7 +2,7 @@ import { spawn, execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import fs from 'node:fs'
 import path from 'node:path'
-import { randomBytes } from 'node:crypto'
+import { randomBytes, createHmac } from 'node:crypto'
 import { portOpen } from './qq-ports.mjs'
 import { log, logError } from './log.mjs'
 
@@ -43,6 +43,14 @@ function persistLocal(root, patch) {
   writeJson(file, deepMerge(cur, patch))
 }
 
+function jwtHs256(payload, secret) {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url')
+  const data = `${header}.${body}`
+  const sig = createHmac('sha256', secret).update(data).digest('base64url')
+  return `${data}.${sig}`
+}
+
 function resolveBin() {
   if (process.env.ASTRBOT_BIN && fs.existsSync(process.env.ASTRBOT_BIN)) {
     return process.env.ASTRBOT_BIN
@@ -51,6 +59,21 @@ function resolveBin() {
   const local = path.join(home, '.local/bin/astrbot')
   if (fs.existsSync(local)) return local
   return 'astrbot'
+}
+
+function resolvePython() {
+  if (process.env.ASTRBOT_PYTHON && fs.existsSync(process.env.ASTRBOT_PYTHON)) {
+    return process.env.ASTRBOT_PYTHON
+  }
+  const bin = resolveBin()
+  try {
+    const first = fs.readFileSync(bin, 'utf8').split('\n')[0]
+    if (first.startsWith('#!')) {
+      const py = first.slice(2).trim()
+      if (py && fs.existsSync(py)) return py
+    }
+  } catch { /* ignore */ }
+  return null
 }
 
 async function listenerPid(port) {
@@ -220,16 +243,32 @@ export function createAstrbotRuntime({ root, cfg }) {
     fs.mkdirSync(logDir, { recursive: true })
     const logPath = path.join(logDir, 'astrbot.log')
     const logFd = fs.openSync(logPath, 'a')
-    const bin = resolveBin()
     const extraPath = path.join(process.env.HOME || '', '.local/bin')
+    const vendorDir = path.join(root, 'vendor/astrbot')
+    const vendorMain = path.join(vendorDir, 'main.py')
+    const webui = path.join(vendorDir, 'astrbot/dashboard/dist')
+    const py = resolvePython()
     const env = {
       ...process.env,
       PATH: `${extraPath}${path.delimiter}${process.env.PATH || ''}`,
       DASHBOARD_HOST: host,
-      DASHBOARD_PORT: String(port)
+      DASHBOARD_PORT: String(port),
+      ASTRBOT_ROOT: dataDir
     }
-    log('astrbot', `spawn ${bin} run -p ${port} cwd=${dataDir}`)
-    child = spawn(bin, ['run', '-p', String(port)], {
+    let cmd
+    let args
+    if (py && fs.existsSync(vendorMain)) {
+      env.PYTHONPATH = vendorDir + path.delimiter + (env.PYTHONPATH || '')
+      cmd = py
+      args = [vendorMain]
+      if (fs.existsSync(path.join(webui, 'index.html'))) args.push('--webui-dir', webui)
+      log('astrbot', `spawn ${cmd} ${args.join(' ')} cwd=${dataDir}`)
+    } else {
+      cmd = resolveBin()
+      args = ['run', '-p', String(port)]
+      log('astrbot', `spawn ${cmd} ${args.join(' ')} cwd=${dataDir}`)
+    }
+    child = spawn(cmd, args, {
       cwd: dataDir,
       env,
       stdio: ['ignore', logFd, logFd]
@@ -252,12 +291,18 @@ export function createAstrbotRuntime({ root, cfg }) {
     return refreshStatus()
   }
 
-  async function ensure() {
-    if (await adoptIfRunning()) {
-      lastError = ''
-      return refreshStatus()
+  let ensuring = null
+  function ensure() {
+    if (!ensuring) {
+      ensuring = (async () => {
+        if (await adoptIfRunning()) {
+          lastError = ''
+          return refreshStatus()
+        }
+        return spawnProcess()
+      })().finally(() => { ensuring = null })
     }
-    return spawnProcess()
+    return ensuring
   }
 
   async function restartOwned() {
@@ -337,6 +382,15 @@ export function createAstrbotRuntime({ root, cfg }) {
     return refreshStatus()
   }
 
+  function mintDashboardToken() {
+    const conf = readJson(cmdConfigPath) || {}
+    const secret = conf.dashboard?.jwt_secret
+    if (!secret) throw new Error('AstrBot JWT secret missing')
+    const username = conf.dashboard?.username || 'astrbot'
+    const exp = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60
+    return jwtHs256({ username, exp }, secret)
+  }
+
   async function reverseEndpoint(uin, rport) {
     const live = uin ? readLiveAdapter(uin) : null
     const portUse = Number(rport || live?.port || reversePort)
@@ -357,6 +411,7 @@ export function createAstrbotRuntime({ root, cfg }) {
     refreshStatus,
     status,
     reverseEndpoint,
+    mintDashboardToken,
     health,
     dataDir,
     url,

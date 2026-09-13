@@ -1493,3 +1493,242 @@ defineExpose({
     edit: editMode,
 })
 </script>
+
+
+<style>
+/* chihiro-moved-from-user-css */
+.viewer-bar {
+    width: 100% !important;
+    max-width: none;
+    margin: 0 !important;
+    left: 0;
+    right: 0;
+}
+.viewer-bar::before,
+.viewer-bar::after {
+    content: none;
+    display: none;
+}
+.viewer-tool-config-bar {
+    bottom: calc(56px + var(--safe-area-bottom, 0px)) !important;
+    height: 40px;
+    padding: 0 20px;
+    justify-content: flex-end;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-sizing: border-box;
+}
+.viewer-tool-config-bar > div.color {
+    width: 18px;
+    height: 18px;
+    margin: 0 8px;
+    border: 2px solid rgba(255, 255, 255, 0.75);
+    border-radius: 50%;
+}
+.viewer-tool-config-bar > div.color:hover,
+.viewer-tool-config-bar > div.line-width:hover {
+    transform: none;
+}
+.viewer-tool-config-bar > div.line-width,
+.viewer-tool-config-bar > svg.rect-is-fill {
+    width: 18px;
+    height: 18px;
+    padding: 4px;
+    margin: 0 6px;
+    background-color: transparent;
+    border-radius: 6px;
+}
+.viewer-tool-config-bar > svg.rect-is-fill {
+    color: rgba(255, 255, 255, 0.85);
+}
+.viewer-tool-config-bar > div.active {
+    border-radius: 50%;
+    outline: 2px solid #fff;
+    outline-offset: 1px;
+}
+.viewer-tool-config-bar > hr {
+    height: 14px;
+    margin: 0 10px;
+    border: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.18);
+}
+.viewer-button-bar {
+    bottom: 0 !important;
+    height: 56px;
+    padding: 0 40px 0 16px;
+    padding-bottom: var(--safe-area-bottom, 0px);
+    opacity: 1;
+    justify-content: space-between;
+    gap: 8px;
+    background: transparent !important;
+    border: 0;
+    border-radius: 0;
+    align-items: center;
+    box-sizing: content-box;
+}
+.viewer-button-bar.force-show,
+.viewer-button-bar:hover {
+    opacity: 1;
+}
+.viewer-button-bar > svg,
+.chihiro-viewer-actions > svg,
+.chihiro-viewer-more > svg {
+    width: 16px !important;
+    height: 16px !important;
+    margin: 0 2px !important;
+    padding: 10px !important;
+    background: transparent !important;
+    color: #fff !important;
+    border-radius: 8px !important;
+    box-sizing: content-box;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+}
+.viewer-button-bar > svg:hover,
+.chihiro-viewer-actions > svg:hover,
+.chihiro-viewer-more > svg:hover {
+    background: rgba(255, 255, 255, 0.12) !important;
+    color: #fff !important;
+}
+.viewer-button-bar > svg.active {
+    background: rgba(255, 255, 255, 0.16) !important;
+    color: #fff !important;
+    border-radius: 8px !important;
+}
+.viewer-button-bar > hr,
+.chihiro-viewer-actions > hr {
+    height: 16px !important;
+    width: 0 !important;
+    margin: 0 8px !important;
+    border: 0 !important;
+    border-left: 1px solid rgba(255, 255, 255, 0.35) !important;
+    opacity: 1;
+    flex-shrink: 0;
+}
+.chihiro-viewer-bar {
+    pointer-events: none;
+}
+.chihiro-viewer-sender,
+.chihiro-viewer-actions,
+.chihiro-viewer-more {
+    pointer-events: auto;
+}
+.chihiro-viewer-sender {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    max-width: 46%;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+}
+.chihiro-viewer-sender img {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.12);
+}
+.chihiro-viewer-sender-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.chihiro-viewer-sender-name {
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.chihiro-viewer-sender-time {
+    font-size: 11px;
+    line-height: 14px;
+    opacity: 0.78;
+    margin-top: 2px;
+}
+.chihiro-viewer-actions {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+}
+.chihiro-viewer-more {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-right: 4px;
+}
+.chihiro-viewer-more-menu {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 8px);
+    min-width: 160px;
+    padding: 6px;
+    background: var(--color-card);
+    border: 1px solid rgba(127, 127, 127, 0.16);
+    border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+    z-index: 40;
+}
+.chihiro-viewer-more-menu button {
+    appearance: none;
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--color-font);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+.chihiro-viewer-more-menu button:hover {
+    background: var(--color-card-2);
+}
+.chihiro-viewer-more-menu button.is-danger {
+    color: #ff453a;
+}
+.chihiro-viewer-more-menu button.is-danger:hover {
+    background: rgba(255, 69, 58, 0.12);
+}
+
+@media (max-width: 700px) {
+    .viewer-bar,
+    .viewer-button-bar,
+    .viewer-tool-config-bar {
+        width: 100% !important;
+        max-width: none !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap;
+        top: auto !important;
+        left: 0 !important;
+        right: 0 !important;
+        margin: 0 !important;
+    }
+    .viewer-button-bar {
+        bottom: 0 !important;
+        height: 56px !important;
+        padding: 0 40px 0 16px !important;
+        justify-content: space-between !important;
+    }
+    .viewer-button-bar > svg {
+        margin: 0 2px !important;
+    }
+    .viewer-button-bar > hr,
+    .chihiro-viewer-actions > hr {
+        width: 0 !important;
+        height: 16px !important;
+        transform: none !important;
+        margin: 0 8px !important;
+    }
+    .viewer-tool-config-bar {
+        bottom: calc(56px + var(--safe-area-bottom, 0px)) !important;
+        justify-content: flex-end;
+        background: transparent !important;
+    }
+}
+</style>

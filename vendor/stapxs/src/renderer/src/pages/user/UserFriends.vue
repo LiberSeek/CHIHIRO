@@ -12,111 +12,64 @@
 <template>
     <div class="friend-view">
         <div id="friend-list" :class="'friend-list' + (uiStore.openSideBar ? ' open' : '')">
-            <div>
-                <div class="base">
-                    <span>{{ $t('联系人') }}</span>
-                    <div style="flex: 1" />
-                    <font-awesome-icon :icon="['fas', 'rotate-right']" @click="reloadUser" />
-                </div>
-                <div class="chihiro-inbox-tabs">
-                    <button type="button" @click="goMessages">{{ $t('消息') }}</button>
-                    <button type="button" class="is-on">{{ $t('联系人') }}</button>
-                </div>
-                <div
-                    id="friend-small-search"
-                    class="small">
-                    <label>
-                        <input
-                            id="friend-search-small"
-                            v-model="searchInfo"
-                            v-auto-focus type="text"
-                            :placeholder="$t('搜索 ……')" @input="search">
-                        <font-awesome-icon :icon="['fas', 'magnifying-glass']" />
-                    </label>
-                    <div class="reload" @click="reloadUser">
-                        <font-awesome-icon :icon="['fas', 'rotate-right']" />
-                    </div>
-                    <div @click="openLeftBar">
-                        <font-awesome-icon :icon="['fas', 'bars-staggered']" />
-                    </div>
-                </div>
-                <label class="chihiro-contact-search">
-                    <input
-                        id="friend-search"
-                        v-model="searchInfo"
-                        v-auto-focus
-                        type="text"
-                        :placeholder="$t('搜索 ……')" @input="search">
-                    <font-awesome-icon :icon="['fas', 'magnifying-glass']" />
-                </label>
-            </div>
+            <UserListHead v-model="searchInfo" tab="friends" />
             <div :class="uiStore.openSideBar ? 'open' : ''">
                 <template v-if="contactStore.showList.length <= 0">
-                    <template v-if="settingsStore.classes.length > 0">
-                        <template v-for="info in settingsStore.classes"
-                            :key="'class-' + info.class_id">
-                            <div :class=" 'list exp-body' +
-                                (classStatus[info.class_id] == true ? ' open' : '')">
-                                <header :title="info.class_name"
-                                    :class="'exp-header' +
-                                        (uiStore.openSideBar ? ' open' : '')"
-                                    @click="classClick(info.class_id)">
-                                    <div />
-                                    <span>{{ info.class_name }}</span>
-                                    <a>{{
-                                        info.user_count ??
-                                            contactStore.userList.filter((get) => {
-                                                return get.class_id == info.class_id
-                                            }).length
-                                    }}</a>
-                                </header>
-                                <div :id="'class-' + info.class_id">
-                                    <FriendBody v-for="item in contactStore.userList.filter(
-                                                    (get) => {
-                                                        return ( get.class_id == info.class_id )
-                                                    },
-                                                )"
-                                        :key=" 'fb-' + (item.user_id ? item.user_id : item.group_id) "
-                                        :data="item" from="friend"
-                                        @click="userClick(item, $event)" />
-                                </div>
-                            </div>
-                        </template>
-                        <div :class="'list exp-body' + (classStatus['-1'] == true ? ' open' : '')">
-                            <header :title="$t('群组')"
-                                :class="'exp-header' +
-                                    (uiStore.openSideBar ? ' open' : '') "
-                                @click="classClick('-1')">
-                                <div />
-                                <span>{{ $t('群组') }}</span>
-                                <a>{{
-                                    contactStore.userList.filter((get) => {
-                                        return get.class_id == undefined
-                                    }).length
-                                }}</a>
-                            </header>
-                            <div>
-                                <FriendBody v-for="item in contactStore.userList.filter(
-                                                (get) => {
-                                                    return get.class_id == undefined
-                                                },
-                                            )"
-                                    :key="'fb-' + (item.user_id ? item.user_id : item.group_id)"
-                                    :data="item"
-                                    from="friend"
-                                    @click="userClick(item, $event)" />
-                            </div>
+                    <button
+                        type="button"
+                        class="chihiro-contact-link"
+                        :class="{ 'is-on': noticeKind === 'friend' }"
+                        @click="openNotice('friend')">
+                        <span>{{ $t('新朋友') }}</span>
+                        <font-awesome-icon :icon="['fas', 'angle-right']" />
+                    </button>
+                    <button
+                        type="button"
+                        class="chihiro-contact-link"
+                        :class="{ 'is-on': noticeKind === 'group' }"
+                        @click="openNotice('group')">
+                        <span>{{ $t('新群聊') }}</span>
+                        <font-awesome-icon :icon="['fas', 'angle-right']" />
+                    </button>
+                    <div class="chihiro-contact-split" />
+                    <div class="chihiro-contact-switch">
+                        <button
+                            type="button"
+                            :class="{ 'is-on': contactTab === 'friend' }"
+                            @click="contactTab = 'friend'">
+                            {{ $t('好友') }}
+                        </button>
+                        <button
+                            type="button"
+                            :class="{ 'is-on': contactTab === 'group' }"
+                            @click="contactTab = 'group'">
+                            {{ $t('群聊') }}
+                        </button>
+                    </div>
+                    <div
+                        v-for="sec in currentSections"
+                        :key="sec.id"
+                        :class="'list exp-body' + (classStatus[sec.id] ? ' open' : '')">
+                        <header
+                            :title="sec.title"
+                            class="exp-header"
+                            :class="{ open: classStatus[sec.id] }"
+                            @click="classClick(sec.id)">
+                            <font-awesome-icon
+                                :icon="['fas', classStatus[sec.id] ? 'angle-down' : 'angle-right']" />
+                            <span>{{ sec.title }}</span>
+                            <a>{{ sec.items.length }}</a>
+                        </header>
+                        <div>
+                            <FriendBody
+                                v-for="item in sec.items"
+                                :key="'fb-' + (item.user_id ? item.user_id : item.group_id)"
+                                :data="item"
+                                from="friend"
+                                @click="userClick(item, $event)" />
                         </div>
-                    </template>
-                    <template v-else>
-                        <FriendBody v-for="item in contactStore.userList"
-                            :key="'fb-' + (item.user_id ? item.user_id : item.group_id)"
-                            :data="item"
-                            from="friend"
-                            @click="userClick(item, $event)" />
-                    </template>
+                    </div>
                 </template>
-                <!-- 搜索用的 -->
                 <div v-else class="list">
                     <div>
                         <FriendBody v-for="item in contactStore.showList"
@@ -142,10 +95,10 @@
 </template>
 
 <script setup lang="ts">
-    import { ref, onMounted } from 'vue'
-    import { vAutoFocus } from '@renderer/function/utils/appUtil'
+    import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 
     import FriendBody from '@renderer/components/user/UserFriendBody.vue'
+    import UserListHead from '@renderer/components/user/UserListHead.vue'
 
     import {
         BaseChatInfoElem,
@@ -153,21 +106,25 @@
         UserGroupElem,
     } from '@renderer/function/elements/information'
 
-    import { reloadUsers } from '@renderer/function/utils/appUtil'
     import { login as loginInfo } from '@renderer/function/connect'
+    import { run as runOpt } from '@renderer/function/option'
     import { backend } from '@renderer/runtime/backend'
     import { matchPinyin } from '@renderer/function/utils/pinyin'
+    import { i18n } from '@renderer/main'
     import { useUIStore } from '@renderer/state/ui'
     import { useSettingsStore } from '@renderer/state/settings'
     import { useContactStore } from '@renderer/state/contact'
     import { useChatStore } from '@renderer/state/chat'
+    import { useAuthStore } from '@renderer/state/auth'
 
     defineOptions({ name: 'UserFriends' })
 
+    const $t = i18n.global.t
     const uiStore = useUIStore()
     const settingsStore = useSettingsStore()
     const contactStore = useContactStore()
     const chatStore = useChatStore()
+    const authStore = useAuthStore()
     const { list } = defineProps<{ list: (UserFriendElem & UserGroupElem)[] }>()
     const emit = defineEmits<{
         userClick: [data: BaseChatInfoElem]
@@ -177,24 +134,108 @@
     const isSearch = ref(false)
     const searchInfo = ref('')
     const classStatus = ref<{ [key: string]: boolean }>({})
+    const contactTab = ref<'friend' | 'group'>('friend')
+
+    type ContactItem = UserFriendElem & UserGroupElem
+    type ContactSection = { id: string; title: string; items: ContactItem[] }
+
+    const noticeKind = computed<'friend' | 'group' | ''>(() => {
+        const id = Number(chatStore.chatInfo.show.id)
+        if (id === -10010) return 'friend'
+        if (id === -10011) return 'group'
+        return ''
+    })
+
+    function isFriend(item: ContactItem) {
+        return !!item.user_id
+    }
+    function isGroup(item: ContactItem) {
+        return !!item.group_id && !item.user_id
+    }
+    function isSpecialCare(item: ContactItem) {
+        return item.class_id == 9999 || item.class_name === '特别关心'
+    }
+    function isUnnamedGroup(item: ContactItem) {
+        const name = String(item.group_name || '').trim()
+        return !name || name === String(item.group_id)
+    }
+    function pinnedIdSet() {
+        const info = settingsStore.sysConfig.top_info as { [key: string]: number[] } | null
+        const uin = authStore.loginInfo.uin
+        const ids = (info && uin != null ? info[uin] : undefined) || []
+        return new Set(ids.map((id) => Number(id)))
+    }
+    function isPinnedGroup(item: ContactItem) {
+        const id = Number(item.group_id)
+        return item.always_top === true || pinnedIdSet().has(id)
+    }
+    function isCreatedGroup(item: ContactItem) {
+        return item.admin_flag === true && (item as any).role === 'owner'
+    }
+    function isManagedGroup(item: ContactItem) {
+        if (isCreatedGroup(item)) return false
+        return item.admin_flag === true || (item as any).role === 'admin'
+    }
+
+    const friendSections = computed<ContactSection[]>(() => {
+        const friends = contactStore.userList.filter(isFriend)
+        const care = friends.filter(isSpecialCare)
+        const mine = friends.filter((item) => !isSpecialCare(item))
+        return [
+            { id: 'care', title: $t('特别关心'), items: care },
+            { id: 'friends', title: $t('我的好友'), items: mine },
+        ]
+    })
+
+    const groupSections = computed<ContactSection[]>(() => {
+        const groups = contactStore.userList.filter(isGroup)
+        const pinned: ContactItem[] = []
+        const unnamed: ContactItem[] = []
+        const created: ContactItem[] = []
+        const managed: ContactItem[] = []
+        const joined: ContactItem[] = []
+        groups.forEach((item) => {
+            if (isPinnedGroup(item)) pinned.push(item)
+            else if (isUnnamedGroup(item)) unnamed.push(item)
+            else if (isCreatedGroup(item)) created.push(item)
+            else if (isManagedGroup(item)) managed.push(item)
+            else joined.push(item)
+        })
+        return [
+            { id: 'pinned', title: $t('置顶群聊'), items: pinned },
+            { id: 'unnamed', title: $t('未命名群聊'), items: unnamed },
+            { id: 'created', title: $t('我创建的群聊'), items: created },
+            { id: 'managed', title: $t('我管理的群聊'), items: managed },
+            { id: 'joined', title: $t('我加入的群聊'), items: joined },
+        ]
+    })
+
+    const currentSections = computed(() => {
+        return contactTab.value === 'friend' ? friendSections.value : groupSections.value
+    })
+
+    function publishChihiroEmptyChat() {
+        if (Number(chatStore.chatInfo.show.id) !== 0) return
+        try {
+            window.parent.postMessage({ source: 'chihiro-im', kind: 'chat', chat: null }, '*')
+        } catch (e) {}
+    }
+    function onChihiroShell(ev: MessageEvent) {
+        const data = ev.data
+        if (!data || data.source !== 'chihiro-shell' || data.kind !== 'chat-sync') return
+        publishChihiroEmptyChat()
+    }
+    watch(() => chatStore.chatInfo.show.id, publishChihiroEmptyChat, { immediate: true })
+
+    watch(searchInfo, (value) => {
+        applySearch(value)
+    })
 
     onMounted(() => {
-        // 判断 friend-small-search 是否 display none
-        const smallSearch = document.getElementById('friend-small-search')
-        if(smallSearch) {
-            const style = window.getComputedStyle(smallSearch)
-            let name = 'friend-search'
-            if(style.display != 'none') {
-                name = 'friend-search-small'
-            }
-            // 将焦点移动到搜索框
-            if(backend.isDesktop()) {
-                const search = document.getElementById(name)
-                if(search) {
-                    search.focus()
-                }
-            }
-        }
+        window.addEventListener('message', onChihiroShell)
+    })
+    onBeforeUnmount(() => {
+        window.removeEventListener('message', onChihiroShell)
     })
 
     function getShowName(data: UserFriendElem & UserGroupElem) {
@@ -215,16 +256,24 @@
         uiStore.openSideBar = !uiStore.openSideBar
     }
 
-    function goMessages() {
-        document.getElementById('bar-msg')?.click()
-    }
-
     function classClick(id: string) {
         if (classStatus.value[id]) {
             classStatus.value[id] = !classStatus.value[id]
         } else {
             classStatus.value[id] = true
         }
+    }
+
+    function openNotice(kind: 'friend' | 'group') {
+        const back = {
+            type: 'user',
+            id: kind === 'friend' ? -10010 : -10011,
+            name: kind === 'friend' ? $t('新朋友') : $t('新群聊'),
+            avatar: '',
+        } as BaseChatInfoElem
+        emit('userClick', back)
+        settingsStore.sysConfig.chatview_name = 'UserSystemNotice'
+        runOpt('chatview_name', 'UserSystemNotice')
     }
 
     function userClick(data: UserFriendElem & UserGroupElem, event: Event) {
@@ -246,6 +295,8 @@
         } as BaseChatInfoElem
         // 更新聊天框
         emit('userClick', back)
+        settingsStore.sysConfig.chatview_name = 'UserChat'
+        runOpt('chatview_name', 'UserChat')
         contactStore.baseOnMsgList.set(back.id, data)
         // 获取历史消息
         if(!uiStore.nowGetHistory) {
@@ -258,8 +309,8 @@
         }
     }
 
-    function search(event: Event) {
-        const value = (event.target as HTMLInputElement).value.toLocaleLowerCase()
+    function applySearch(raw: string) {
+        const value = raw.toLocaleLowerCase()
         if (value !== '') {
             isSearch.value = true
             contactStore.showList = list.filter(
@@ -278,9 +329,7 @@
             isSearch.value = false
             contactStore.showList = [] as any[]
         }
-        // macOS: 刷新 TouchBar
         if(backend.isDesktop()) {
-            // list 只需要 id 和 name
             backend.call(undefined, 'sys:flushFriendSearch', false,
                 contactStore.showList.map((item) => {
                     return {
@@ -289,10 +338,6 @@
                     }
                 }))
         }
-    }
-
-    function reloadUser() {
-        reloadUsers()
     }
 </script>
 
@@ -322,38 +367,39 @@
     }
 
     .exp-header {
-        color: var(--color-font-2);
+        color: var(--color-font-1);
         align-items: center;
         border-radius: 8px;
         cursor: pointer;
-        margin: 4px 8px 2px;
-        padding: 6px 10px;
-        min-height: 32px;
+        margin: 2px 8px;
+        padding: 8px 10px;
+        min-height: 34px;
         display: flex;
         box-sizing: border-box;
+        gap: 8px;
     }
     .exp-header:hover {
         background: rgba(127, 127, 127, 0.12);
     }
-    .exp-header > div {
-        background: var(--color-main);
-        margin-right: 8px;
-        border-radius: 2px;
-        height: 12px;
-        width: 3px;
+    .exp-header > svg {
+        width: 10px;
+        height: 10px;
+        color: var(--color-font-2);
+        flex-shrink: 0;
     }
     .exp-header > span {
         flex: 1;
-        font-size: 12px;
-        font-weight: 600;
-        letter-spacing: 0.02em;
+        font-size: 13px;
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
     .exp-header > a {
         color: var(--color-font-2);
-        font-size: 11px;
-        background: rgba(127, 127, 127, 0.12);
-        border-radius: 999px;
-        padding: 1px 7px;
+        font-size: 12px;
+        background: transparent;
+        padding: 0;
         line-height: 16px;
     }
 
@@ -367,4 +413,88 @@
             display: block !important;
         }
     }
+</style>
+
+
+<style>
+/* chihiro-moved-from-user-css */
+#base-app .exp-header {
+    margin: 2px 8px !important;
+    padding: 8px 10px !important;
+    border-radius: 8px !important;
+    min-height: 34px;
+}
+#base-app .exp-header > span {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-font-1);
+}
+#base-app .exp-header > a {
+    font-size: 12px !important;
+    background: transparent !important;
+    padding: 0 !important;
+}
+#base-app .exp-header > svg {
+    width: 10px;
+    height: 10px;
+    color: var(--color-font-2);
+}
+.chihiro-contact-link {
+    appearance: none;
+    display: flex;
+    align-items: center;
+    width: calc(100% - 16px);
+    margin: 2px 8px;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--color-font);
+    font-size: 14px;
+    cursor: pointer;
+    box-sizing: border-box;
+    text-align: left;
+}
+.chihiro-contact-link:hover,
+.chihiro-contact-link.is-on {
+    background: rgba(127, 127, 127, 0.16);
+}
+.chihiro-contact-link span {
+    flex: 1;
+}
+.chihiro-contact-link svg {
+    width: 10px;
+    height: 10px;
+    color: var(--color-font-2);
+}
+.chihiro-contact-split {
+    height: 1px;
+    margin: 8px 16px;
+    background: rgba(127, 127, 127, 0.16);
+}
+.chihiro-contact-switch {
+    display: flex;
+    margin: 4px 12px 10px;
+    padding: 3px;
+    background: rgba(127, 127, 127, 0.14);
+    border-radius: 10px;
+}
+.chihiro-contact-switch button {
+    appearance: none;
+    flex: 1;
+    height: 28px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--color-font-2);
+    font-size: 13px;
+    cursor: pointer;
+}
+.chihiro-contact-switch button.is-on {
+    background: var(--color-card);
+    color: var(--color-font);
+    font-weight: 600;
+}
 </style>

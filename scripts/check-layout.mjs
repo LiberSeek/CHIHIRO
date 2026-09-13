@@ -56,6 +56,17 @@ if (!exists('vendor/stapxs/src/renderer/src/assets/img/qq-face')) {
 }
 
 for (const rel of [
+  'vendor/astrbot/dashboard/src/components/user/UserChat.vue',
+  'vendor/astrbot/dashboard/src/layouts/user/UserFullLayout.vue',
+  'vendor/astrbot/dashboard/src/layouts/user/UserVerticalHeader.vue',
+  'vendor/astrbot/dashboard/src/views/user/UserChatPage.vue',
+  'vendor/astrbot/dashboard/src/composables/useChihiroEmbed.ts',
+  'scripts/build-astrbot-dashboard.mjs'
+]) {
+  if (!exists(rel)) fail(`缺少 AstrBot User* / 构建入口 ${rel}`)
+}
+
+for (const rel of [
   'AGENTS.md',
   'apps/gateway/src/server.js',
   'apps/runtime/src/api.mjs',

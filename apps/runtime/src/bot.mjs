@@ -88,6 +88,20 @@ export function createBotController({ store, qq, astrbot, cfg }) {
     return qq.snapshot()
   }
 
+  async function setSession(id, type, peerId, enabled) {
+    const acc = accountOf(id)
+    if (!acc) throw new Error('account_not_found')
+    const key = `${type === 'group' ? 'group' : 'private'}:${String(peerId)}`
+    const map = { ...(acc.botSessions || {}) }
+    map[key] = Boolean(enabled)
+    store.patch(id, { botSessions: map })
+    const any = Object.values(map).some(Boolean)
+    if (enabled && !acc.botEnabled) return setEnabled(id, true)
+    if (!any && acc.botEnabled) return setEnabled(id, false)
+    qq.touch?.()
+    return qq.snapshot()
+  }
+
   async function unwireBeforeRemove(id) {
     const acc = accountOf(id)
     if (!acc?.botEnabled && !wired.has(id)) return
@@ -127,5 +141,5 @@ export function createBotController({ store, qq, astrbot, cfg }) {
     }
   }
 
-  return { setEnabled, unwireBeforeRemove, sync, wired }
+  return { setEnabled, setSession, unwireBeforeRemove, sync, wired }
 }

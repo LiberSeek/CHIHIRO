@@ -17,7 +17,7 @@ friend_list:
     name: get_friends_with_category
     source: $.data[*].buddyList[*]
     list:
-        class_id: null
+        class_id: /category_id
         class_name: null
         user_id: /user_id
         nickname: /nickname

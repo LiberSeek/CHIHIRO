@@ -380,7 +380,7 @@
                 </TransitionGroup>
             </div>
         </div>
-        <code style="display: none">{{ data.raw_message }}</code>
+        <code class="chihiro-raw-msg" aria-hidden="true">{{ data.raw_message }}</code>
     </div>
 </template>
 
@@ -650,6 +650,7 @@ function imgStyle(length: number, at: number, isFace: boolean) {
 }
 
 function imgClick(url: string) {
+    if (selecting) return
     if (viewerRef?.value && imageListHeader) {
         viewerRef.value.openBySrc(imageListHeader, url)
     }
@@ -671,6 +672,7 @@ async function loadImage(item: { url: string }, index: number) {
 }
 
 function preImgClick(img: string) {
+    if (selecting) return
     if (viewerRef?.value) {
         viewerRef.value.open(new Img(img))
     }
@@ -1266,7 +1268,13 @@ onMounted(() => {
 
 //#endregion
 </script>
+
 <style>
+    .chihiro-raw-msg {
+        display: none !important;
+        user-select: none !important;
+        pointer-events: none !important;
+    }
     .dev-local-tag {
         display: inline-block;
         padding: 1px 7px !important;
@@ -1416,4 +1424,83 @@ onMounted(() => {
     .link-view-music163 svg.light {
         color: #e5e5e5;
     }
+</style>
+
+<style>
+/* chihiro-moved-from-user-css */
+.message {
+    position: relative;
+    width: calc(100% - 24px);
+    padding: 2px 12px 6px;
+    margin: 2px 0;
+    transition: width 0.22s ease;
+}
+.user-skin .message.selected {
+    background: transparent !important;
+    backdrop-filter: none !important;
+}
+.user-skin .message.selected header a.time {
+    display: none;
+}
+.user-skin.chat-pan.is-multiselect .message:not(.body-only) {
+    width: calc(100% - 24px - 40px);
+}
+.chihiro-msg-check {
+    position: absolute;
+    right: -24px;
+    top: 14px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #007aff;
+    color: #fff;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    pointer-events: none;
+    z-index: 2;
+}
+.chihiro-msg-check svg {
+    width: 11px !important;
+    height: 11px !important;
+    margin: 0 !important;
+    color: #fff !important;
+}
+.message > img {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 50% !important;
+    margin: 8px 8px 0 0 !important;
+}
+.message.me > img {
+    margin: 8px 0 0 8px !important;
+}
+#base-app .message.me {
+    flex-direction: row-reverse;
+}
+#base-app .message-body.me {
+    align-items: flex-end;
+}
+#base-app .message > div.sending.right.me {
+    display: none;
+}
+#base-app .message > div.sending.left.me {
+    display: flex;
+}
+.message-body > div {
+    border-radius: 18px !important;
+    padding: 8px 12px !important;
+    background: var(--color-card-1);
+}
+.message-body.me > div,
+.message-mine {
+    background: #007aff !important;
+    color: #fff !important;
+}
+.note-base {
+    padding: 4px 10px !important;
+    font-size: 11px !important;
+    border-radius: 999px !important;
+    background: var(--color-card-1) !important;
+}
 </style>

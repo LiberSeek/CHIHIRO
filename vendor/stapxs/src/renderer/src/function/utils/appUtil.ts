@@ -441,6 +441,7 @@ export function createIpc() {
                 item.new_msg = false
                 contactStore.newMsgCount--
             }
+            item.unread = 0
             item.highlight = undefined
             contactStore.baseOnMsgList.set(Number(info.id), item)
         }
@@ -575,6 +576,7 @@ export async function loadMobile() {
                             item.new_msg = false
                             contactStore.newMsgCount--
                         }
+                        item.unread = 0
                         item.highlight = undefined
                         contactStore.baseOnMsgList.set(Number(notification.extra.userId), item)
                     }

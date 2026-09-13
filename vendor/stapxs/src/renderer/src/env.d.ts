@@ -10,6 +10,12 @@ declare module '*.vue' {
 }
 
 declare interface Window {
+    ChihiroChatUI?: {
+        mount(options?: {
+            sidebarTarget?: string
+            mainTarget?: string
+        }): Promise<{ dispose(): void; setActive(active: boolean): void }>
+    }
     moYu: any
     _AMapSecurityConfig: string | undefined
     pinyin?: {

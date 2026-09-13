@@ -39,20 +39,12 @@ const ui = {
   botStatus: $('agentic-status'),
   botToggle: $('agentic-switch'),
   paneAgentic: $('pane-agentic'),
-  agenticList: $('agentic-list'),
-  agenticDetail: $('agentic-detail'),
-  agenticBack: $('agentic-back'),
-  agenticPeer: $('agentic-peer'),
-  agenticThread: $('agentic-thread'),
   agenticDrafts: $('agentic-drafts'),
-  agenticInput: $('agentic-input'),
-  agenticAsk: $('agentic-ask'),
-  agenticQuote: $('agentic-quote'),
-  agenticQuoteText: $('agentic-quote-text'),
-  agenticQuoteClear: $('agentic-quote-clear'),
-  agenticPermBtn: $('agentic-perm-btn'),
-  agenticPermMenu: $('agentic-perm-menu'),
-  agenticPermLabel: $('agentic-perm-label'),
+  chatUiHost: $('chatui-host'),
+  chatUiGate: $('chatui-gate'),
+  chatUiStart: $('chatui-start'),
+  chatUiGateErr: $('chatui-gate-err'),
+  chatUiFrame: $('chatui-frame'),
   dashDrawer: $('dash-drawer'),
   dashFrame: $('dash-frame'),
   dashClose: $('btn-dash-close'),
@@ -105,6 +97,7 @@ const unreadByInst = new Map()
 let agentState = { sessions: [], drafts: [] }
 let agentOpenKey = null
 let agentQuote = ''
+let chatUiEnsure = null
 let agentEs = null
 let agentStreamAccount = null
 let agentStreamTimer = null
@@ -152,12 +145,12 @@ function renderBotBar() {
   const acc = viewedAccount()
   const phase = botPhase(acc)
   const map = {
-    offline: { text: '未托管', disabled: true, on: false, hosted: false },
-    off: { text: '未托管', disabled: !acc?.online, on: false, hosted: false },
-    'pending-on': { text: '启动中', disabled: true, on: true, hosted: false },
-    'pending-off': { text: '关闭中', disabled: true, on: false, hosted: false },
-    on: { text: '已托管', disabled: false, on: true, hosted: true },
-    err: { text: '未托管', disabled: false, on: false, hosted: false }
+    offline: { text: '客服未托管', disabled: true, on: false, hosted: false },
+    off: { text: '客服未托管', disabled: !acc?.online, on: false, hosted: false },
+    'pending-on': { text: '客服启动中', disabled: true, on: true, hosted: false },
+    'pending-off': { text: '客服关闭中', disabled: true, on: false, hosted: false },
+    on: { text: '客服已托管', disabled: false, on: true, hosted: true },
+    err: { text: '客服未托管', disabled: false, on: false, hosted: false }
   }
   const view = map[phase] || map.off
   if (ui.botStatus) {
@@ -192,6 +185,73 @@ async function toggleBot(id, enabled) {
 function dashSrc() {
   const url = state?.astrbot?.url || 'http://127.0.0.1:6185/'
   return url.endsWith('/') ? url : `${url}/`
+}
+
+function chatUiSrc() {
+  const base = dashSrc()
+  return `${base}chat?embed=chihiro`
+}
+
+function showChatUiGate(mode, message) {
+  const gate = ui.chatUiGate
+  const frame = ui.chatUiFrame
+  const err = ui.chatUiGateErr
+  const start = ui.chatUiStart
+  gate?.classList.remove('hidden')
+  frame?.classList.add('hidden')
+  if (err) {
+    err.textContent = message || ''
+    err.classList.toggle('hidden', !message)
+  }
+  if (start) {
+    start.disabled = mode === 'starting'
+    start.textContent = mode === 'starting' ? '启动中…' : '启动 Agent'
+  }
+}
+
+function showChatUiFrame() {
+  ui.chatUiGate?.classList.add('hidden')
+  if (ui.chatUiGateErr) ui.chatUiGateErr.classList.add('hidden')
+  const frame = ui.chatUiFrame
+  if (!frame) return
+  frame.classList.remove('hidden')
+  const src = chatUiSrc()
+  if (frame.dataset.loaded !== src) {
+    frame.src = src
+    frame.dataset.loaded = src
+  }
+}
+
+async function ensureChatUi() {
+  if (state?.astrbot?.running) return
+  if (chatUiEnsure) return chatUiEnsure
+  showChatUiGate('starting')
+  chatUiEnsure = (async () => {
+    try {
+      const res = await fetch('/api/runtime/bot/ensure', { method: 'POST' })
+      const snap = await res.json()
+      applyState(snap)
+      if (!res.ok || !snap.astrbot?.running) {
+        showChatUiGate('error', snap.message || snap.astrbot?.error || 'AstrBot 未能启动')
+        return
+      }
+      showChatUiFrame()
+    } catch (e) {
+      showChatUiGate('error', e.message || 'AstrBot 未能启动')
+    } finally {
+      chatUiEnsure = null
+    }
+  })()
+  return chatUiEnsure
+}
+
+async function ensureAstrbotRuntime() {
+  if (state?.astrbot?.running) return
+  try {
+    const res = await fetch('/api/runtime/bot/ensure', { method: 'POST' })
+    const snap = await res.json()
+    applyState(snap)
+  } catch { /* Stapxs can show the connection state in its workbench */ }
 }
 
 async function openDashboard() {
@@ -273,6 +333,15 @@ function postFeatureStatus(frame = currentImFrame()) {
   } catch { /* ignore */ }
 }
 
+function postChatSync(frame = currentImFrame()) {
+  try {
+    frame?.contentWindow?.postMessage({
+      source: 'chihiro-shell',
+      kind: 'chat-sync'
+    }, '*')
+  } catch { /* ignore */ }
+}
+
 function featureHasBadge() {
   const acc = viewedAccount()
   if (!acc) return false
@@ -284,22 +353,7 @@ function featureHasBadge() {
 }
 
 function applyFeatureLayout() {
-  if (!ui.workspace || !ui.feature) return
-  const status = featureOnStage ? featureStatus : 'off'
-  ui.workspace.dataset.feature = status
-  ui.workspace.style.setProperty('--feature-width', `${featureWidth}px`)
-  ui.feature.dataset.status = status
-  ui.feature.setAttribute('aria-hidden', status === 'open' || status === 'expanded' ? 'false' : 'true')
-  if (ui.featureExpand) {
-    const expanded = status === 'expanded'
-    ui.featureExpand.title = expanded ? '还原' : '全展开'
-    ui.featureExpand.setAttribute('aria-label', expanded ? '还原功能区' : '全展开功能区')
-  }
-  const badge = featureHasBadge()
-  ui.featureBadge?.classList.toggle('hidden', !badge)
-  ui.featureBadge?.setAttribute('aria-hidden', badge ? 'false' : 'true')
-  if (featureOnStage && status !== 'close') renderFeature()
-  postFeatureStatus()
+  if (ui.workspace) ui.workspace.dataset.feature = 'off'
 }
 
 function setFeatureStage(on) {
@@ -377,12 +431,7 @@ function setFeatureTab(tab) {
 
 function updateFeatureTitle() {
   if (!ui.featureTitle) return
-  if (agentOpenKey) {
-    const session = (agentState.sessions || []).find((s) => s.key === agentOpenKey)
-    ui.featureTitle.textContent = session?.title || '功能区'
-    return
-  }
-  ui.featureTitle.textContent = '功能区'
+  ui.featureTitle.textContent = 'Agent'
 }
 
 function renderFeature() {
@@ -496,6 +545,7 @@ function connectAgentStream() {
     try {
       agentState = JSON.parse(ev.data) || agentState
       renderAgentic()
+      postBotThink()
     } catch { /* ignore */ }
   }
   es.onerror = () => {
@@ -509,66 +559,36 @@ function connectAgentStream() {
   }
 }
 
+function postBotThink() {
+  const chat = imChat
+  if (!chat?.peerId) return
+  const key = (agentState.sessions || []).find((s) => String(s.peerId) === String(chat.peerId))?.key
+  const session = (agentState.sessions || []).find((s) => s.key === key)
+  const draft = (agentState.drafts || []).find((d) => d.sessionKey === key && d.status !== 'discarded')
+  const think = (session?.messages || []).filter((m) => m.role === 'thinking').at(-1)
+  try {
+    currentImFrame()?.contentWindow?.postMessage({
+      source: 'chihiro-shell',
+      kind: 'bot-think',
+      peerId: String(chat.peerId),
+      text: think?.text || (session?.status === 'running' ? '思考中…' : ''),
+      draft: draft ? { id: draft.id, text: draft.text || '' } : null
+    }, '*')
+  } catch { /* ignore */ }
+}
+
 function renderAgentic() {
-  if (!ui.agenticList) return
-  const badge = featureHasBadge()
-  ui.featureBadge?.classList.toggle('hidden', !badge)
-  ui.featureBadge?.setAttribute('aria-hidden', badge ? 'false' : 'true')
-  updateFeatureTitle()
   const acc = viewedAccount()
-  const inDetail = Boolean(agentOpenKey)
-  ui.agenticList.classList.toggle('hidden', inDetail)
-  ui.agenticDetail?.classList.toggle('hidden', !inDetail)
-  if (!inDetail) {
-    const sessions = agentState.sessions || []
-    if (!sessions.length) {
-      ui.agenticList.classList.add('is-empty')
-      ui.agenticList.innerHTML = '<p class="agentic-empty">暂无会话/任务</p>'
-    } else {
-      ui.agenticList.classList.remove('is-empty')
-      ui.agenticList.innerHTML = sessions.map((s) => {
-        const st = AGENT_STATUS[s.status] || s.status || '空闲'
-        const id = s.peerId || ''
-        const preview = escapeHtml(s.lastText || s.title || '')
-        return `<button type="button" class="agentic-item" data-key="${escapeHtml(s.key)}">
-          <div class="meta"><div class="id">ID: ${escapeHtml(id)}</div><div class="preview">${preview}</div></div>
-          <span class="st ${escapeHtml(s.status || '')}">${st}</span>
-          <span class="go">›</span>
-        </button>`
-      }).join('')
-    }
-    return
-  }
-  const session = (agentState.sessions || []).find((s) => s.key === agentOpenKey)
-  if (!session) {
-    agentOpenKey = null
-    renderAgentic()
-    return
-  }
-  if (ui.agenticPeer) ui.agenticPeer.textContent = `${session.title || session.peerId} · ${session.peerId}`
-  syncPermUi(session.mode || 'always')
-  const msgs = session.messages || []
-  if (ui.agenticThread) {
-    ui.agenticThread.querySelectorAll('.agentic-think[data-id]').forEach((el) => {
-      if (el.classList.contains('is-open')) thinkOpen.add(el.dataset.id)
-      else thinkOpen.delete(el.dataset.id)
-    })
-    const el = ui.agenticThread
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48
-    ui.agenticThread.innerHTML = msgs.map((m) => {
-      if (m.role === 'thinking') return renderThink(m)
-      if (m.role === 'draft') return ''
-      const role = m.role === 'operator' ? 'operator' : m.role === 'bot' ? 'bot' : 'user'
-      const text = escapeHtml(m.text || '')
-      return `<div class="agentic-bubble ${role}">${text}</div>`
-    }).join('')
-    if (atBottom) ui.agenticThread.scrollTop = ui.agenticThread.scrollHeight
-  }
-  const drafts = (agentState.drafts || []).filter((d) => d.sessionKey === session.key)
-  if (ui.agenticDrafts) {
-    if (!drafts.length) ui.agenticDrafts.innerHTML = ''
-    else {
-      ui.agenticDrafts.innerHTML = drafts.map((d) => `<div class="agentic-draft-card">
+  const drafts = (agentState.drafts || []).filter((d) => {
+    if (!acc) return false
+    if (d.accountId && d.accountId === acc.id) return true
+    const session = (agentState.sessions || []).find((s) => s.key === d.sessionKey)
+    return session?.accountId === acc.id
+  })
+  if (!ui.agenticDrafts) return
+  if (!drafts.length) ui.agenticDrafts.innerHTML = ''
+  else {
+    ui.agenticDrafts.innerHTML = drafts.map((d) => `<div class="agentic-draft-card">
         <div>待确认发送 · ${escapeHtml(d.reason === 'auto_sensitive' ? '自动模式拦截敏感内容' : d.reason === 'assist' ? '协助回复' : '询问模式')}</div>
         <div>${escapeHtml(d.text || '')}</div>
         <div class="row">
@@ -576,7 +596,6 @@ function renderAgentic() {
           <button type="button" class="btn ghost" data-discard="${escapeHtml(d.id)}">丢弃</button>
         </div>
       </div>`).join('')
-    }
   }
 }
 
@@ -644,32 +663,8 @@ async function agentAskOrSend() {
 }
 
 function applyQuoteFromChat(data) {
-  const acc = viewedAccount()
-  if (!acc || !data) return
-  const type = data.type === 'group' ? 'group' : 'private'
-  const peerId = String(data.peerId || '')
-  if (!peerId) return
-  const key = `${acc.id}:${type}:${peerId}`
-  if (featureStatus === 'close') setFeatureStatus('open')
-  setFeatureTab('agentic')
-  agentOpenKey = key
-  const list = agentState.sessions || []
-  if (!list.some((s) => s.key === key)) {
-    list.unshift({
-      key,
-      accountId: acc.id,
-      type,
-      peerId,
-      title: data.title || peerId,
-      messages: [],
-      status: 'idle',
-      mode: 'always'
-    })
-    agentState.sessions = list
-  }
-  setAgentQuote(data.text || '')
-  renderAgentic()
-  ui.agenticInput?.focus()
+  if (!data) return
+  ensureChatUi()
 }
 
 function onImMessage(ev) {
@@ -680,13 +675,36 @@ function onImMessage(ev) {
     renderAccounts()
     return
   }
-  if (data.kind === 'toggle-feature') {
-    toggleFeatureVisible()
+  if (data.kind === 'ensure-astrbot') {
+    ensureAstrbotRuntime()
     return
   }
-  if (data.kind === 'feature-sync') {
-    const frame = ev.source && [...imFrames.values()].find((f) => f.contentWindow === ev.source)
-    postFeatureStatus(frame || currentImFrame())
+  if (data.kind === 'toggle-feature' || data.kind === 'feature-sync') {
+    ensureChatUi()
+    return
+  }
+  if (data.kind === 'session-bot') {
+    const acc = viewedAccount()
+    if (!acc?.id || !data.peerId) return
+    fetch('/api/runtime/bot/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: acc.id,
+        type: data.type === 'group' ? 'group' : 'private',
+        peerId: String(data.peerId),
+        enabled: data.enabled !== false
+      })
+    }).then((res) => res.json()).then((snap) => applyState(snap)).catch(() => {})
+    return
+  }
+  if (data.kind === 'draft-approve' || data.kind === 'draft-discard') {
+    const path = data.kind === 'draft-approve' ? '/api/runtime/agent/draft/approve' : '/api/runtime/agent/draft/discard'
+    fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: data.id })
+    }).then((res) => res.json()).then((body) => { if (body && !body.error) applyState(body) }).catch(() => {})
     return
   }
   if (data.kind === 'quote-bot') {
@@ -836,7 +854,11 @@ function ensureImFrame(acc) {
     frame.title = acc.nickname || acc.uin || '千寻 IM'
     frame.dataset.instance = inst
     frame.src = imSrc(acc)
-    frame.addEventListener('load', () => postImTheme(frame))
+    frame.addEventListener('load', () => {
+      postImTheme(frame)
+      postChatSync(frame)
+      postFeatureStatus(frame)
+    })
     ui.im.appendChild(frame)
     imFrames.set(inst, frame)
   }
@@ -850,7 +872,11 @@ function showIm(acc) {
   for (const [id, f] of imFrames) {
     f.classList.toggle('hidden', id !== acc.instanceId)
   }
-  if (frame) frame.classList.remove('hidden')
+  if (frame) {
+    frame.classList.remove('hidden')
+    postChatSync(frame)
+    postFeatureStatus(frame)
+  }
 }
 
 const STEP_SHORT = ['副本', '配置', '启动', 'WebUI', '二维码', '扫码']
@@ -1587,53 +1613,7 @@ ui.botToggle?.addEventListener('change', () => {
   if (!acc) return
   toggleBot(acc.id, ui.botToggle.checked)
 })
-ui.agenticList?.addEventListener('click', (ev) => {
-  const item = ev.target.closest('[data-key]')
-  if (item?.dataset.key) openAgentSession(item.dataset.key)
-})
-ui.agenticBack?.addEventListener('click', () => {
-  agentOpenKey = null
-  clearAgentQuote()
-  renderAgentic()
-})
-ui.agenticPermBtn?.addEventListener('click', (ev) => {
-  ev.stopPropagation()
-  ui.agenticPermMenu?.classList.toggle('hidden')
-})
-ui.agenticPermMenu?.addEventListener('click', (ev) => {
-  const btn = ev.target.closest('[data-mode]')
-  if (!btn?.dataset.mode) return
-  setAgentMode(btn.dataset.mode)
-  syncPermUi(btn.dataset.mode)
-  closePermMenu()
-})
-ui.agenticAsk?.addEventListener('click', () => agentAskOrSend())
-ui.agenticQuoteClear?.addEventListener('click', () => clearAgentQuote())
-ui.agenticInput?.addEventListener('keydown', (ev) => {
-  if (ev.key === 'Enter' && !ev.shiftKey) {
-    ev.preventDefault()
-    agentAskOrSend()
-  }
-})
-ui.agenticInput?.addEventListener('input', () => {
-  const el = ui.agenticInput
-  el.style.height = 'auto'
-  el.style.height = `${Math.min(el.scrollHeight, 120)}px`
-})
-ui.agenticThread?.addEventListener('click', (ev) => {
-  const toggle = ev.target.closest('[data-think-toggle]')
-  if (!toggle) return
-  const wrap = toggle.closest('.agentic-think')
-  const id = wrap?.dataset.id
-  if (!id) return
-  const open = wrap.classList.toggle('is-open')
-  if (open) thinkOpen.add(id)
-  else thinkOpen.delete(id)
-})
-document.addEventListener('click', (ev) => {
-  if (ev.target.closest('.agentic-perm')) return
-  closePermMenu()
-})
+ui.chatUiStart?.addEventListener('click', () => ensureChatUi())
 ui.agenticDrafts?.addEventListener('click', async (ev) => {
   const approve = ev.target.closest('[data-approve]')
   const discard = ev.target.closest('[data-discard]')

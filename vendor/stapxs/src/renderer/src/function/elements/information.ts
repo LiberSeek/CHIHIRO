@@ -34,13 +34,17 @@ export interface BaseChatInfoElem {
     jump?: string
 }
 
+export type SessionNoticeMode = 'notify' | 'silent' | 'assist' | 'block'
+
 export interface UserElem {
     new_msg?: boolean
+    unread?: number
     raw_msg?: string
     time?: number
     always_top?: boolean
     message_id?: string
     highlight?: string
+    notice_mode?: SessionNoticeMode
 }
 
 export interface UserFriendElem extends UserElem {

@@ -9,6 +9,7 @@ import { v4 as uuid } from 'uuid'
 import { Connector } from '@renderer/function/connect'
 import {
     BotMsgType,
+    SessionNoticeMode,
     UserFriendElem,
     UserGroupElem,
 } from '../elements/information'
@@ -614,6 +615,46 @@ function getSessionList() {
     return [...sessionMap.values()]
 }
 
+export function getSessionNotice(id: number): SessionNoticeMode | undefined {
+    const authStore = useAuthStore()
+    const all = option.get('session_notice') ?? {}
+    const map = all[authStore.loginInfo.uin] ?? {}
+    const mode = map[id] ?? map[String(id)]
+    if (mode === 'notify' || mode === 'silent' || mode === 'assist' || mode === 'block') {
+        return mode
+    }
+    return undefined
+}
+
+export function setSessionNotice(id: number, mode?: SessionNoticeMode) {
+    const authStore = useAuthStore()
+    const contactStore = useContactStore()
+    const uin = authStore.loginInfo.uin
+    const all = option.get('session_notice') ?? {}
+    if (!all[uin] || typeof all[uin] !== 'object') {
+        all[uin] = {}
+    }
+    if (!mode) {
+        delete all[uin][id]
+        delete all[uin][String(id)]
+    } else {
+        all[uin][id] = mode
+    }
+    option.save('session_notice', all)
+    const item = contactStore.baseOnMsgList.get(id)
+    if (item) {
+        if (mode) item.notice_mode = mode
+        else delete item.notice_mode
+        contactStore.baseOnMsgList.set(id, item)
+    }
+    updateBaseOnMsgList()
+}
+
+export function isSessionMuted(item: { notice_mode?: SessionNoticeMode, user_id?: number, group_id?: number }) {
+    const mode = item.notice_mode ?? getSessionNotice(Number(item.user_id ?? item.group_id))
+    return mode === 'silent' || mode === 'assist' || mode === 'block'
+}
+
 /**
  * 刷新消息列表排序
  */
@@ -621,12 +662,6 @@ export function updateBaseOnMsgList() {
     const contactStore = useContactStore()
     const settingsStore = useSettingsStore()
     const allList = getSessionList()
-    // 先更具 item.always_top 是不是 true 拆为两个数组
-    const topList = allList.filter((item) => item.always_top)
-    const normalList = allList.filter((item) => !item.always_top)
-    // 将两个数组按照 item.time 降序排序
-    // item.time 不存在或者相同时按照 item.py_start 降序排序
-
     const sortFun = (
         a: UserFriendElem & UserGroupElem,
         b: UserFriendElem & UserGroupElem,
@@ -637,27 +672,42 @@ export function updateBaseOnMsgList() {
 
         return getSessionSortName(b).localeCompare(getSessionSortName(a))
     }
+
+    const topList: (UserFriendElem & UserGroupElem)[] = []
+    const normalList: (UserFriendElem & UserGroupElem)[] = []
+    const groupAssistList: (UserFriendElem & UserGroupElem)[] = []
+    const autoAssist = Boolean(settingsStore.sysConfig.bubble_sort_user)
+
+    allList.forEach((item) => {
+        const id = getSessionId(item)
+        const mode = getSessionNotice(id)
+        if (mode) item.notice_mode = mode
+        else delete item.notice_mode
+        if (mode === 'block') return
+        if (item.always_top) {
+            topList.push(item)
+            return
+        }
+        if (mode === 'assist') {
+            groupAssistList.push(item)
+            return
+        }
+        if (mode === 'silent' || mode === 'notify') {
+            normalList.push(item)
+            return
+        }
+        if (autoAssist && item.group_id && !item.user_id && !item.new_msg && !item.highlight) {
+            groupAssistList.push(item)
+            return
+        }
+        normalList.push(item)
+    })
+
     topList.sort(sortFun)
     normalList.sort(sortFun)
+    groupAssistList.sort(sortFun)
 
-    let onMsgList = [] as any[]
-    let groupAssistList = [] as any[]
-    if (settingsStore.sysConfig.bubble_sort_user) {
-        // 将 normalList 进行拆分
-        const shouldShowInMainList = (item: UserFriendElem & UserGroupElem) => {
-            return item.user_id || item.new_msg || item.highlight
-        }
-        onMsgList = topList.concat(normalList.filter((item) => {
-            return shouldShowInMainList(item)
-        }))
-        groupAssistList = normalList.filter((item) => {
-            return item.group_id && !shouldShowInMainList(item)
-        })
-    } else {
-        onMsgList = topList.concat(normalList)
-    }
-
-    contactStore.onMsgList = onMsgList
+    contactStore.onMsgList = topList.concat(normalList)
     contactStore.groupAssistList = groupAssistList
 }
 

@@ -781,6 +781,25 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     return { ok: true, key }
   }
 
+  function sessionHosted(accountId, type, peerId) {
+    const acc = (accounts.list().accounts || []).find((a) => a.id === accountId)
+    if (!acc) return false
+    const key = `${type === 'group' ? 'group' : 'private'}:${String(peerId)}`
+    const map = acc.botSessions || {}
+    if (Object.prototype.hasOwnProperty.call(map, key)) return Boolean(map[key])
+    return false
+  }
+
+  function messagePeer(msg) {
+    if (!msg) return null
+    if (msg.message_type === 'group' || msg.group_id) {
+      return { type: 'group', peerId: String(msg.group_id) }
+    }
+    const userId = msg.user_id ?? msg.sender?.user_id
+    if (userId == null) return null
+    return { type: 'private', peerId: String(userId) }
+  }
+
   function attachBridge(instanceId, napcatWs, astrWs, accountId) {
     const prev = bridges.get(instanceId)
     if (prev?.astrWs && prev.astrWs !== astrWs) {
@@ -790,7 +809,11 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
 
     napcatWs.on('message', (raw) => {
       const msg = parseJson(raw)
-      if (msg?.post_type === 'message') ingestUser(accountId, msg)
+      if (msg?.post_type === 'message') {
+        ingestUser(accountId, msg)
+        const peer = messagePeer(msg)
+        if (peer && !sessionHosted(accountId, peer.type, peer.peerId)) return
+      }
       if (astrWs.readyState === WebSocket.OPEN) astrWs.send(raw)
     })
     astrWs.on('message', (raw) => {
@@ -804,6 +827,11 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
         }
       }
       if (msg && isSendAction(msg)) {
+        const target = outboundTarget(msg)
+        if (target.peerId && !sessionHosted(accountId, target.type, target.peerId)) {
+          if (astrWs.readyState === WebSocket.OPEN) astrWs.send(fakeOk(msg.echo))
+          return
+        }
         const decision = decideOutbound(accountId, msg)
         if (decision.hold) {
           if (astrWs.readyState === WebSocket.OPEN) astrWs.send(fakeOk(msg.echo))

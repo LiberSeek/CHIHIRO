@@ -137,18 +137,18 @@
                 <div class="bubble_sort_user">
                     <div>
                         <div><font-awesome-icon style="margin-right: 5px;" :icon="['fas', 'user-group']" /></div>
-                        <div><div>{{ $t('群收纳盒') }}</div><div /></div>
+                        <div><div>{{ $t('群助手') }}</div><div /></div>
                     </div>
                     <div><div /><div><div /><div /></div></div>
                     <div><div /><div><div /><div /></div></div>
                 </div>
             </div>
             <div>
-                <span>{{ $t('群收纳盒') }}</span>
-                <a>{{ $t('群收纳盒将所有的群消息收进一个单独的群消息列表内并提供实时置顶新消息的功能；会话显示和群通知方式可以单独设置。') }}</a>
+                <span>{{ $t('群助手') }}</span>
+                <a>{{ $t('群助手将所有的群消息收进一个单独的群消息列表内并提供实时置顶新消息的功能；会话显示和群通知方式可以单独设置。') }}</a>
                 <div class="opt-item wel-opt-item">
                     <div>
-                        <span>{{ $t('群收纳盒') }}</span>
+                        <span>{{ $t('群助手') }}</span>
                         <span>{{ $t('全都放出来！全都放出来！') }}</span>
                     </div>
                     <label class="ss-switch">
