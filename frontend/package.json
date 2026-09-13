@@ -1,0 +1,26 @@
+{
+  "name": "@chihiro/frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc -b --pretty false",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "pinia": "^3.0.3",
+    "vue": "^3.5.42",
+    "vue-router": "^4.5.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.4",
+    "@types/node": "^22.13.10",
+    "typescript": "^5.7.3",
+    "vite": "^6.3.5",
+    "vitest": "^3.2.4",
+    "vue-tsc": "^2.2.12"
+  }
+}
