@@ -104,15 +104,16 @@ export function createRuntime({ root, cfg, services = {} }) {
     if (messageMatch && method === 'GET') {
       const accountId = req.headers['x-chihiro-account'] || url.searchParams.get('accountId')
       if (!accountId) return json(res, { error: 'missing_account' }, 400)
-      const key = decodeURIComponent(messageMatch[1])
       try {
+        let key
+        try { key = decodeURIComponent(messageMatch[1]) } catch { return json(res, { error: 'invalid_conversation' }, 400) }
         const observed = await agent.observe({ kind: 'messages', accountId, key, count: 100 })
         return json(res, (observed.messages || []).map((message, index) => ({
         id: String(message.id ?? `${key}:${index}`),
         text: String(message.text ?? message.content ?? ''),
         sender: String(message.sender ?? message.user_id ?? ''),
         at: message.time,
-        outgoing: Boolean(message.outgoing ?? message.self),
+        outgoing: String(message.user_id) === String(accountId).slice(3),
         })))
       } catch (e) {
         return imError(res, e)
@@ -121,7 +122,7 @@ export function createRuntime({ root, cfg, services = {} }) {
     if (p === '/api/runtime/im/send' && method === 'POST') {
       const accountId = req.headers['x-chihiro-account']
       const body = await readJson(req)
-      if (!accountId || !body.conversationId || !body.text) return json(res, { error: 'missing_message_fields' }, 400)
+      if (typeof accountId !== 'string' || typeof body.conversationId !== 'string' || typeof body.text !== 'string' || !body.text.trim()) return json(res, { error: 'missing_message_fields' }, 400)
       try {
         return json(res, await agent.sendToConversation(accountId, body.conversationId, body.text))
       } catch (e) {

@@ -119,3 +119,37 @@ test('conversation routes reject unknown accounts without touching NapCat', asyn
   assert.equal((await response.json()).error, 'account_not_found')
   assert.equal(f.napcatRequests.length, 0)
 })
+
+test('malformed targets and non-text payloads cannot reach QQ sends', async (t) => {
+  const f = await fixture(t)
+  for (const body of [
+    { conversationId: 'qq:200:private:123', text: 'cross-account' },
+    { conversationId: 'qq:100:private:NaN', text: 'invalid peer' },
+    { conversationId: 'qq:100:private:123', text: { type: 'image' } },
+    { conversationId: 'qq:100:private:123', text: '   ' }
+  ]) {
+    const response = await fetch(`${f.base}/api/runtime/im/send`, {
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-chihiro-account': 'qq:100' },
+      body: JSON.stringify(body)
+    })
+    assert.equal(response.status, 400)
+  }
+  const malformed = await fetch(`${f.base}/api/runtime/im/conversations/%ZZ/messages`, {
+    headers: { 'x-chihiro-account': 'qq:100' }
+  })
+  assert.equal(malformed.status, 400)
+  assert.equal(f.napcatRequests.length, 0)
+})
+
+test('history marks only the requested account own messages as outgoing', async (t) => {
+  const f = await fixture(t)
+  f.setNapcatReply({ status: 'ok', retcode: 0, data: { messages: [
+    { message_id: 10, time: 1, sender: { user_id: 100 }, raw_message: 'own' },
+    { message_id: 11, time: 2, sender: { user_id: 200 }, raw_message: 'other' }
+  ] } })
+  const response = await fetch(`${f.base}/api/runtime/im/conversations/qq:100:private:123/messages`, {
+    headers: { 'x-chihiro-account': 'qq:100' }
+  })
+  assert.equal(response.status, 200)
+  assert.deepEqual((await response.json()).map(message => message.outgoing), [true, false])
+})

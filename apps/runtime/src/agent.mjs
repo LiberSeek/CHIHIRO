@@ -66,7 +66,7 @@ function clampCount(n, def = 30, max = 100) {
 }
 
 function parseSessionKey(key) {
-  const match = String(key || '').match(/^(qq:[^:]+):(private|group):([^:]+)$/)
+  const match = String(key || '').match(/^(qq:[0-9]+):(private|group):([0-9]+)$/)
   if (!match) throw new Error('invalid_conversation')
   return { accountId: match[1], type: match[2], peerId: match[3], key: String(key) }
 }
