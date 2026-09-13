@@ -19,6 +19,11 @@ a { color: inherit; text-decoration: none; }
 .header-title strong { font-size: 15px; letter-spacing: .02em; }
 .header-title span { color: #8798b3; font-size: 12px; }
 .account-context { margin-left: auto; padding: 7px 12px; border: 1px solid #31425c; border-radius: 8px; color: #a9bad3; font-size: 12px; }
+.account-context { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.account-context select { min-width: 0; max-width: 220px; background: #151f31; color: inherit; border: 0; font: inherit; }
+.account-context button { border: 0; border-radius: 4px; background: #26344a; color: #e9eef8; cursor: pointer; }
+.account-context button:disabled { opacity: .5; cursor: wait; }
+.account-error { margin: 0; padding: 8px 24px; color: #ffd4cc; background: #512e34; font-size: 13px; }
 .app-body { display: flex; min-height: 0; flex: 1; }
 .app-nav { display: flex; width: 108px; flex-direction: column; gap: 6px; padding: 20px 12px; border-right: 1px solid #26344a; background: #10192a; }
 .nav-link { display: flex; align-items: center; gap: 8px; padding: 10px 9px; border-radius: 8px; color: #92a3bc; font-size: 13px; }
@@ -36,6 +41,8 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 560px) {
   .app-header { padding: 0 14px; }
   .header-title span { display: none; }
+  .account-context label { display: none; }
+  .account-context select { max-width: 130px; }
   .app-nav { width: 88px; padding: 14px 8px; }
   .nav-link { justify-content: center; padding: 10px 4px; font-size: 11px; }
   .nav-link span { display: none; }
