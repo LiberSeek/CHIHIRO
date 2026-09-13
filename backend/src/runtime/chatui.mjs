@@ -1,4 +1,5 @@
 import http from 'node:http'
+import https from 'node:https'
 import { logError } from './log.mjs'
 
 const PREFIX = '/api/runtime/chatui'
@@ -11,7 +12,7 @@ function json(res, obj, status = 200) {
 export function createChatuiProxy({ astrbot }) {
   async function handle(req, res, url) {
     const p = url.pathname
-    if (!p.startsWith(PREFIX)) return false
+    if (p !== PREFIX && !p.startsWith(`${PREFIX}/`)) return false
 
     let token
     try {
@@ -43,7 +44,8 @@ export function createChatuiProxy({ astrbot }) {
     }
 
     await new Promise((resolve) => {
-      const up = http.request(opts, (upRes) => {
+      const transport = target.protocol === 'https:' ? https : http
+      const up = transport.request(opts, (upRes) => {
         const ct = upRes.headers['content-type'] || 'application/json; charset=utf-8'
         const out = {
           'content-type': ct,
@@ -63,9 +65,12 @@ export function createChatuiProxy({ astrbot }) {
         }
         resolve()
       })
-      req.on('close', () => {
+      const abortUpstream = () => {
         if (!up.destroyed) up.destroy()
-      })
+        resolve()
+      }
+      req.once('aborted', abortUpstream)
+      res.once('close', abortUpstream)
       if (method === 'GET' || method === 'HEAD') up.end()
       else req.pipe(up)
     })
