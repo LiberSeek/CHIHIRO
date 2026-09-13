@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useShellStore } from '@/stores/shell'
 import { createImClient, type ImConversation, type ImMessage } from './im-client'
 const shell = useShellStore(); const client = createImClient(); const conversations = ref<ImConversation[]>([]); const messages = ref<ImMessage[]>([]); const active = ref<ImConversation | null>(null); const error = ref(''); const draft = ref(''); const sending = ref(false)
@@ -7,6 +7,7 @@ async function load() { if (!shell.activeAccountId) return; try { conversations.
 async function select(item: ImConversation) { if (!shell.activeAccountId) return; active.value = item; messages.value = await client.messages(shell.activeAccountId, item.id) }
 async function send() { if (!shell.activeAccountId || !active.value || !draft.value.trim() || sending.value) return; const text = draft.value.trim(); draft.value = ''; sending.value = true; error.value = ''; try { await client.send(shell.activeAccountId, active.value.id, text); messages.value.push({ id: `local-${Date.now()}`, text, sender: 'me', outgoing: true }) } catch (e) { error.value = e instanceof Error ? e.message : '发送失败'; draft.value = text } finally { sending.value = false } }
 onMounted(load)
+watch(() => shell.activeAccountId, () => { void load() })
 </script>
 <template>
   <section class="im-module" aria-label="消息与联系人">
