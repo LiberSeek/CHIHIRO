@@ -12,14 +12,18 @@ FROM ${NODE_IMAGE} AS dependencies
 WORKDIR /app
 
 COPY package.json package-lock.json ./
+COPY frontend/package.json ./frontend/package.json
+COPY backend/package.json ./backend/package.json
 RUN npm ci --omit=dev && npm cache clean --force
 
 FROM ${NODE_IMAGE} AS frontend-build
-WORKDIR /app/frontend
-COPY frontend/package.json frontend/package-lock.json ./
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY frontend/package.json ./frontend/package.json
+COPY backend/package.json ./backend/package.json
 RUN npm ci
-COPY frontend ./
-RUN npm run build
+COPY frontend ./frontend
+RUN npm run build:web
 
 FROM ${NODE_IMAGE} AS runtime
 WORKDIR /app

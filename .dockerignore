@@ -20,3 +20,5 @@ apps/desktop/dist
 vendor/**/node_modules
 vendor/**/dist
 vendor/**/out
+
+frontend/dist

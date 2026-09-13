@@ -1,4 +1,4 @@
-const CACHE = 'chihiro-web-v17'
+const CACHE = 'chihiro-web-v18'
 const PRECACHE = [
   '/',
   '/index.html',
@@ -27,6 +27,8 @@ self.addEventListener('activate', (event) => {
 function shouldBypass(url) {
   const path = url.pathname
   return (
+    path === '/next' ||
+    path.startsWith('/next/') ||
     path.startsWith('/api') ||
     path.startsWith('/i/') ||
     path.startsWith('/plugin') ||
