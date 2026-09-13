@@ -81,6 +81,35 @@ export function createRuntime({ root, cfg }) {
       if (handled) return true
     }
 
+    // Unified frontend IM read boundary. Responses are normalized from the
+    // existing Agent/QQ observer so the product UI does not depend on the
+    // legacy iframe protocol.
+    if (p === '/api/runtime/im/conversations' && method === 'GET') {
+      const accountId = req.headers['x-chihiro-account'] || url.searchParams.get('accountId')
+      if (!accountId) return json(res, { error: 'missing_account' }, 400)
+      const observed = await agent.observe({ kind: 'sessions', accountId })
+      return json(res, (observed.sessions || []).map((session) => ({
+        id: session.key,
+        title: session.title || session.peerId,
+        kind: session.type === 'group' ? 'group' : 'direct',
+        unread: 0,
+      })))
+    }
+    const messageMatch = p.match(/^\/api\/runtime\/im\/conversations\/([^/]+)\/messages$/)
+    if (messageMatch && method === 'GET') {
+      const accountId = req.headers['x-chihiro-account'] || url.searchParams.get('accountId')
+      if (!accountId) return json(res, { error: 'missing_account' }, 400)
+      const key = decodeURIComponent(messageMatch[1])
+      const observed = await agent.observe({ kind: 'messages', accountId, key, count: 100 })
+      return json(res, (observed.messages || []).map((message, index) => ({
+        id: String(message.id ?? `${key}:${index}`),
+        text: String(message.text ?? message.content ?? ''),
+        sender: String(message.sender ?? message.user_id ?? ''),
+        at: message.time,
+        outgoing: Boolean(message.outgoing ?? message.self),
+      })))
+    }
+
     if (p === '/api/runtime/bot/enable' && method === 'POST') {
       const body = await readJson(req)
       if (!body.id) return json(res, { error: 'missing_id' }, 400)
