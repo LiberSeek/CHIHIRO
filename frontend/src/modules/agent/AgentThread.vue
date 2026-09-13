@@ -1,20 +1,15 @@
 <script setup lang="ts">
-import { inject, ref } from 'vue'
-import { agentWorkspaceKey } from './useAgentWorkspace'
-const workspace = inject(agentWorkspaceKey)
-const input = ref('')
+import { useAgentWorkspace } from './useAgentWorkspace'
+const workspace = useAgentWorkspace()
 async function send() {
-  const text = input.value.trim()
-  if (!text || !workspace) return
-  input.value = ''
-  await workspace.send(text)
+  await workspace.send()
 }
 </script>
 <template>
   <div class="agent-thread">
-    <div class="thread-empty" v-if="!workspace?.messages.value.length">开始一个 Agent 会话</div>
-    <article v-for="(message, index) in workspace?.messages.value" :key="index" :class="['message', message.role]">{{ message.content }}</article>
-    <form class="composer" @submit.prevent="send"><textarea v-model="input" rows="2" placeholder="向 Agent 提问…" /><button type="submit">发送</button></form>
+    <div class="thread-empty" v-if="!workspace.messages.value.length">开始一个 Agent 会话</div>
+    <article v-for="(message, index) in workspace.messages.value" :key="index" :class="['message', message.role]">{{ message.content }}</article>
+    <form class="composer" @submit.prevent="send"><textarea v-model="workspace.draft.value" rows="2" placeholder="向 Agent 提问…" /><button type="submit">发送</button></form>
   </div>
 </template>
 <style scoped>
