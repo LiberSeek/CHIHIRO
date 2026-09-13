@@ -15,3 +15,4 @@ data/
 vendor/**/node_modules/
 vendor/**/dist/
 vendor/**/out/
+.gstack/
