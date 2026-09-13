@@ -5,7 +5,7 @@ import AssistantModule from '@/modules/assistant/AssistantModule.vue'
 import ImModule from '@/modules/im/ImModule.vue'
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory('/next/'),
   routes: [
     { path: '/', redirect: '/im' },
     { path: '/im', name: 'im', component: ImModule, meta: { title: '消息' } },

@@ -4,16 +4,15 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import httpProxy from 'http-proxy'
 import { serveAstrbotChatui, authorizeAstrbotRequest } from './astrbot-chatui.mjs'
+import { mime, serveLegacyStatic, serveNextPreviewStatic } from './static-preview.mjs'
 import { createRuntime } from '../../runtime/src/api.mjs'
 import { liveNapcatSecrets } from '../../runtime/src/napcat-secrets.mjs'
 import { log, logError } from '../../runtime/src/log.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '../../..')
-// Prefer the unified Vue build; retain apps/web during migration and for
-// recovery images that do not contain frontend/dist.
-const unifiedWebDir = path.join(root, 'frontend/dist')
-const webDir = fs.existsSync(path.join(unifiedWebDir, 'index.html')) ? unifiedWebDir : path.join(root, 'apps/web')
+const nextWebDir = path.join(root, 'frontend/dist')
+const webDir = path.join(root, 'apps/web')
 const pluginStaticDir = path.join(root, 'dist/plugins/napcat-plugin-ssqq/webui/dist')
 // ChatUI is bundled with Chihiro.  Keep these assets local so opening the
 // workbench does not depend on AstrBot already listening on port 6185.
@@ -174,35 +173,8 @@ proxy.on('error', (err, _req, res) => {
   }
 })
 
-const mime = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.png': 'image/png',
-  '.svg': 'image/svg+xml',
-  '.json': 'application/json; charset=utf-8',
-  '.md': 'text/markdown; charset=utf-8',
-  '.webmanifest': 'application/manifest+json; charset=utf-8'
-}
-
 function serveStatic(url, res) {
-  let rel = url.pathname === '/' ? '/index.html' : url.pathname
-  if (rel.includes('..')) return false
-  const file = path.join(webDir, rel)
-  if (!file.startsWith(webDir)) return false
-  if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) return false
-  const ext = path.extname(file)
-  const headers = { 'Content-Type': mime[ext] || 'application/octet-stream' }
-  if (rel === '/sw.js') {
-    headers['Service-Worker-Allowed'] = '/'
-    headers['Cache-Control'] = 'no-cache'
-  }
-  if (rel === '/manifest.webmanifest') {
-    headers['Cache-Control'] = 'no-cache'
-  }
-  res.writeHead(200, headers)
-  fs.createReadStream(file).pipe(res)
-  return true
+  return serveLegacyStatic(webDir, url, res)
 }
 
 function servePluginStatic(pathname, res) {
@@ -288,6 +260,8 @@ const server = http.createServer(async (req, res) => {
     res.end()
     return
   }
+
+  if (serveNextPreviewStatic(nextWebDir, url, res)) return
 
   if (
     routedPath === '/webui' ||
