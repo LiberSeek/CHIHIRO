@@ -1,0 +1,3757 @@
+<!--
+ * @FileDescription: 聊天面板页面
+ * @Author: Stapxs
+ * @Date:
+ *      2022/08/14
+ *      2022/12/12
+ * @Version:
+ *      1.0 - 初始版本
+ *      1.5 - 重构为 ts 版本，代码格式优化
+-->
+
+<template>
+    <div id="chat-pan"
+        v-move="chatMoveOptions"
+        :class="'chat-pan user-skin' +
+            (uiStore.openSideBar ? ' open' : '') +
+            (multipleSelectList.length > 0 ? ' is-multiselect' : '') +
+            (['linux', 'win32'].includes(backend.platform ?? '') ? ' withBar' : '')"
+        :style="{
+            'background-image': toBackgroundImageStyle(!settingsStore.sysConfig.chat_more_blur ? settingsStore.sysConfig.chat_background : ''),
+            'background-position': settingsStore.sysConfig.chat_background_align ?? 'center',
+            'background-size': settingsStore.sysConfig.chat_background_fit ?? 'cover'
+        }"
+        @v-move-right.prevent="exitWin()">
+        <slot name="chat-extra" />
+        <!-- 聊天基本信息 -->
+        <div class="info">
+            <font-awesome-icon class="back" :icon="['fas', 'angle-left']" @click="exitWin" />
+            <img :src="chat.show.avatar">
+            <div class="info">
+                <p>
+                    {{ chat.show.name }}
+                    <template
+                        v-if="chat.show.type == 'group'">
+                        ({{
+                            chat.info.group_members.length
+                        }})
+                    </template>
+                </p>
+                <span v-if="chat.show.temp">
+                    {{ $t('来自群聊：{group}', { group: chat.show.temp }) }}
+                </span>
+                <span v-else>
+                    <template v-if="chat.show.appendInfo">
+                        {{ chat.show.appendInfo }}
+                    </template>
+                    <template v-else>
+                        {{
+                            list[list.length - 1] ? $t('上次消息 - {time}', {
+                                time: Intl.DateTimeFormat(trueLang, {
+                                    hour: 'numeric',
+                                    minute: 'numeric',
+                                    second: 'numeric',
+                                }).format(new Date(list[list.length - 1].time * 1000)),
+                            }) : $t('暂无消息')
+                        }}
+                    </template>
+                </span>
+            </div>
+            <div class="space" />
+            <div class="chihiro-head-actions">
+                <div class="chihiro-feature-btn" :class="{ active: chihiroFeatureOpen }" title="AI 功能区" @click.stop="toggleChihiroFeature">
+                    <font-awesome-icon :icon="['fas', 'wand-magic-sparkles']" />
+                </div>
+                <div class="chihiro-history-btn" :class="{ active: chihiroHistory.open }" :title="$t('搜索消息')" @click.stop="toggleChihiroHistory">
+                    <font-awesome-icon :icon="['fas', 'clock-rotate-left']" />
+                </div>
+                <div class="more">
+                    <font-awesome-icon :icon="['fas', 'ellipsis-vertical']" @click="openChatInfoPan" />
+                </div>
+            </div>
+        </div>
+        <div v-if="chihiroHistory.open" class="chihiro-history-mask" @click.self="closeChihiroHistory">
+            <div class="chihiro-history-win" @click.stop>
+                <div class="chihiro-history-head">
+                    <span class="chihiro-history-title">{{ chat.show.name }}</span>
+                    <div class="chihiro-history-close" title="关闭" @click="closeChihiroHistory">
+                        <font-awesome-icon :icon="['fas', 'xmark']" />
+                    </div>
+                </div>
+                <div class="chihiro-history-search">
+                    <font-awesome-icon :icon="['fas', 'search']" />
+                    <input v-model="chihiroHistory.query"
+                        :placeholder="$t('搜索')"
+                        @input="runChihiroHistorySearch"
+                        @keydown.esc.prevent="closeChihiroHistory">
+                </div>
+                <div class="chihiro-history-tabs">
+                    <button type="button" :class="{ active: chihiroHistory.tab === 'all' }" @click="setChihiroHistoryTab('all')">全部</button>
+                    <button type="button" :class="{ active: chihiroHistory.tab === 'media' }" @click="setChihiroHistoryTab('media')">图片/视频</button>
+                    <button type="button" :class="{ active: chihiroHistory.tab === 'face' }" @click="setChihiroHistoryTab('face')">表情</button>
+                    <button type="button" :class="{ active: chihiroHistory.tab === 'file' }" @click="setChihiroHistoryTab('file')">文件</button>
+                    <button type="button" :class="{ active: chihiroHistory.tab === 'link' }" @click="setChihiroHistoryTab('link')">链接</button>
+                </div>
+                <div class="chihiro-history-list">
+                    <template v-if="chihiroHistoryGroups().length">
+                        <template v-for="group in chihiroHistoryGroups()" :key="group.date">
+                            <div class="chihiro-history-date">{{ group.date }}</div>
+                            <div v-for="item in group.items"
+                                :key="item.message_id || item.fake_message_id"
+                                class="chihiro-history-item"
+                                @click="jumpChihiroHistory(item)">
+                                <img :src="chihiroMsgAvatar(item)">
+                                <div class="chihiro-history-text">{{ chihiroMsgPreview(item) }}</div>
+                            </div>
+                        </template>
+                    </template>
+                    <div v-else class="chihiro-history-empty">暂无相关记录</div>
+                </div>
+            </div>
+        </div>
+        <!-- 加载中指示器 -->
+        <div :class=" 'loading' + (uiStore.nowGetHistory && uiStore.canLoadHistory ? ' show' : '')">
+            <font-awesome-icon :icon="['fas', 'spinner']" />
+            <span>{{ $t('加载中') }}</span>
+        </div>
+        <!-- 消息显示区 -->
+        <div id="msgPan" ref="msgPan" class="chat"
+            style="scroll-behavior: smooth"
+            @scroll="chatScroll($event, details[3].open)">
+            <template v-if="!details[3].open">
+                <div v-if="!uiStore.canLoadHistory" class="note note-nomsg">
+                    <hr>
+                    <a>{{ $t('没有更多消息了') }}</a>
+                </div>
+                <div v-if="uiStore.loadHistoryFail" class="note note-nomsg">
+                    <hr>
+                    <a>{{ $t('获取历史记录失败') }}</a>
+                </div>
+                <!-- 时间戳，在下滑加载的时候会显示，方便在大段的相连消息上让用户知道消息时间 -->
+                <NoticeBody v-if="uiStore.nowGetHistory && list.length > 0"
+                    :data="{ sub_type: 'time', time: list[0].time }" />
+                <TransitionGroup :name="settingsStore.sysConfig.opt_fast_animation ? '' : 'msglist'" tag="div">
+                    <template v-for="(msgIndex, index) in list">
+                        <!-- 时间戳 -->
+                        <NoticeBody
+                            v-if="isShowTime(list[Number(index) - 1] ? list[Number(index) - 1].time : undefined, msgIndex.time)"
+                            :key="'notice-time-' + (msgIndex.time / ( 4 * 60 )).toFixed(0)"
+                            :data="{ sub_type: 'time', time: msgIndex.time }" />
+                        <!-- [已删除]消息 -->
+                        <NoticeBody
+                            v-if="isDeleteMsg(msgIndex)"
+                            :key="'delete-' + msgIndex.message_id"
+                            :data="{ sub_type: 'delete' }" />
+                        <!-- 消息体 -->
+                        <MsgBody v-else-if="(msgIndex.post_type === 'message' ||
+                                     msgIndex.post_type === 'message_sent') &&
+                                     msgIndex.message.length > 0"
+                            :key="msgIndex.fake_message_id ?? msgIndex.message_id"
+                            :selected="multipleSelectList.includes(msgIndex.message_id)"
+                            :selecting="multipleSelectList.length > 0"
+                            :data="msgIndex"
+                            :image-list-header="chatImg"
+                            @click="msgClick($event, msgIndex)"
+                            @show-menu="showMsgMeun"
+                            @scroll-to-msg="scrollToMsg"
+                            @image-loaded="imgLoadedScroll"
+                            @left-move="replyMsg"
+                            @send-poke="sendPoke"
+                            @open-profile="openProfilePop" />
+                        <!-- 其他通知消息 -->
+                        <NoticeBody v-else-if="msgIndex.post_type === 'notice'"
+                            :id="uuid()"
+                            :key="'notice-' + index"
+                            :data="msgIndex" />
+                    </template>
+                </TransitionGroup>
+            </template>
+            <template v-else>
+                <!-- 搜索消息结果显示 -->
+                <TransitionGroup
+                    :name="settingsStore.sysConfig.opt_fast_animation ? '' : 'msglist'"
+                    tag="div">
+                    <template v-for="(msgIndex, index) in tags.search.list">
+                        <!-- 时间戳 -->
+                        <NoticeBody
+                            v-if="isShowTime(list[Number(index) - 1] ? list[Number(index) - 1].time : undefined, msgIndex.time)"
+                            :key="'notice-time-' + index"
+                            :data="{ sub_type: 'time', time: msgIndex.time }" />
+                        <!-- 消息体 -->
+                        <MsgBody v-if=" (msgIndex.post_type === 'message' ||
+                                     msgIndex.post_type === 'message_sent') &&
+                                     msgIndex.message.length > 0"
+                            :key="msgIndex.fake_message_id ?? msgIndex.message_id"
+                            :selected="multipleSelectList.includes(msgIndex.message_id)"
+                            :selecting="multipleSelectList.length > 0"
+                            :data="msgIndex"
+                            @scroll-to-msg="scrollToMsg"
+                            @show-menu="showMsgMeun"
+                            @image-loaded="imgLoadedScroll"
+                            @left-move="replyMsg"
+                            @open-profile="openProfilePop" />
+                    </template>
+                </TransitionGroup>
+            </template>
+            <span ref="chatPadding" class="chat-padding">&nbsp;</span>
+        </div>
+        <!-- 底部区域 -->
+        <div id="send-more" ref="sendMore" class="more">
+            <!-- 功能附加 -->
+            <div>
+                <div>
+                    <!-- 表情面板 -->
+                    <Transition name="pan">
+                        <FacePan v-if="details[1].open"
+                            @click.stop
+                            @add-special-msg="onChihiroFaceAdd" @send-msg="onChihiroFaceSend" />
+                    </Transition>
+                    <!-- 精华消息 -->
+                    <Transition name="pan">
+                        <div v-show="details[2].open && chat.info.jin_info.list.length > 0"
+                            class="ss-card jin-pan">
+                            <div>
+                                <font-awesome-icon :icon="['fas', 'message']" />
+                                <span>{{ $t('精华消息') }}</span>
+                                <font-awesome-icon :icon="['fas', 'xmark']" @click="details[2].open = !details[2].open" />
+                            </div>
+                            <div
+                                class="jin-pan-body"
+                                @scroll="jinScroll">
+                                <div v-for="(item, index) in chat.info.jin_info.list"
+                                    :key="'jin-' + index">
+                                    <div>
+                                        <img :src="`https://q1.qlogo.cn/g?b=qq&s=0&nk=${item.sender_uin}`">
+                                        <div>
+                                            <a>{{ item.sender_nick }}</a>
+                                            <span>{{ item.sender_time ? Intl.DateTimeFormat(
+                                                      trueLang,
+                                                      {
+                                                          hour: 'numeric',
+                                                          minute: 'numeric',
+                                                      },
+                                                  ).format(new Date(item.sender_time * 1000))
+                                                      : '' }}
+                                                {{ $t('发送') }}</span>
+                                        </div>
+                                        <span>{{
+                                            $t('{time}，由 {name} 设置', {
+                                                time: item.sender_time ? Intl.DateTimeFormat(
+                                                    trueLang,
+                                                    {
+                                                        hour: 'numeric',
+                                                        minute: 'numeric',
+                                                    },
+                                                ).format(new Date(item.sender_time * 1000)) : '',
+                                                name: item.add_digest_nick,
+                                            })
+                                        }}</span>
+                                    </div>
+                                    <div class="context">
+                                        <template
+                                            v-for="(context, indexc) in item.msg_content"
+                                            :key="'jinc-' + index + '-' + indexc">
+                                            <span v-if="context.type === 'text'">
+                                                {{ context.data.text }}
+                                            </span>
+                                            <EmojiFace v-if="context.type === 'face'"
+                                                :emoji="Emoji.get(Number(context.data.id))" />
+                                            <img v-if="context.type === 'image'"
+                                                :src="context.data.url"
+                                                @click="viewerEssImg(context.data.url)">
+                                        </template>
+                                    </div>
+                                </div>
+                                <div v-show="tags.isJinLoading" class="jin-pan-load">
+                                    <font-awesome-icon :icon="['fas', 'spinner']" />
+                                </div>
+                            </div>
+                        </div>
+                    </Transition>
+                </div>
+                <!-- 搜索指示器 -->
+                <div :class="details[3].open ? 'search-tag show' : 'search-tag'">
+                    <font-awesome-icon :icon="['fas', 'search']" />
+                    <span>{{ settingsStore.sysConfig.enable_local_history ? $t('搜索已保存的消息') : $t('搜索已加载的消息') }}</span>
+                    <div @click="closeSearch">
+                        <font-awesome-icon :icon="['fas', 'xmark']" />
+                    </div>
+                </div>
+                <!-- At 指示器 -->
+                <div
+                    :class="atFindList != null ? 'at-tag show' : 'at-tag'"
+                    contenteditable="true"
+                    @blur="choiceAt(undefined)">
+                    <div v-for="(item, index) in atFindList != null ? atFindList : []"
+                        :key="'atFind-' + item.user_id"
+                        :class="{ selected: index === atSelectedIndex }"
+                        @click="choiceAt(item.user_id)">
+                        <img :src="'https://q1.qlogo.cn/g?b=qq&s=0&nk=' + item.user_id">
+                        <span>{{
+                            item.card != '' && item.card != null ? item.card : item.nickname
+                        }}</span>
+                        <a>{{ item.user_id }}</a>
+                    </div>
+                    <div v-if="atFindList?.length == 0" class="emp">
+                        <span>{{ $t('没有找到匹配的群成员') }}</span>
+                    </div>
+                </div>
+                <!-- 更多功能 -->
+                <div :class="tags.showMoreDetail ? 'more-detail show' : 'more-detail'">
+                    <div
+                        :title="$t('图片')"
+                        @click="runSelectImg">
+                        <font-awesome-icon :icon="['fas', 'image']" />
+                    </div>
+                    <div
+                        :title="$t('文件')"
+                        @click="runSelectFile">
+                        <font-awesome-icon :icon="['fas', 'folder']" />
+                    </div>
+                    <div
+                        :title="$t('表情')"
+                        @click="(details[1].open = !details[1].open),
+                                (tags.showMoreDetail = false)">
+                        <font-awesome-icon :icon="['fas', 'face-laugh']" />
+                    </div>
+                    <div v-if="chat.show.type === 'user'"
+                        :title="$t('戳一戳')"
+                        @click="sendPoke(chat.show.id)">
+                        <font-awesome-icon :icon="['fas', 'fa-hand-point-up']" />
+                    </div>
+                    <div v-if="chat.show.type === 'group'"
+                        :title="$t('精华消息')" @click="showJin">
+                        <font-awesome-icon :icon="['fas', 'star']" />
+                    </div>
+                    <div class="space" />
+                    <div :title="$t('搜索消息')" @click="openSearch">
+                        <font-awesome-icon :icon="['fas', 'search']" />
+                    </div>
+                </div>
+            </div>
+            <!-- 消息发送框 -->
+            <UserComposer
+                ref="composer"
+                v-model="msg"
+                :selecting="multipleSelectList.length > 0"
+                :img-cache="imgCache"
+                :is-reply="tags.isReply"
+                :reply-name="selectedMsg?.sender?.card || selectedMsg?.sender?.nickname || ''"
+                :reply-text="selectedMsg ? getMsgRawTxt(selectedMsg) : ''"
+                :show-bottom="tags.showBottomButton"
+                :new-msg-num="NewMsgNum"
+                :plus-open="chihiroPlusOpen"
+                :face-open="details[1].open"
+                :bot-on="botOn"
+                :bot-think-text="botThinkText"
+                :bot-draft="botDraft"
+                :disabled="uiStore.openSideBar || chat.info.me_info.shut_up_timestamp > 0"
+                :placeholder="
+                    chat.info.me_info.shut_up_timestamp > 0
+                        ? $t('已被禁言至：{time}', {
+                            time: Intl.DateTimeFormat(
+                                trueLang, getTimeConfig(
+                                    new Date(chat.info.me_info.shut_up_timestamp * 1000),
+                                ),
+                            ).format(new Date(chat.info.me_info.shut_up_timestamp * 1000)),
+                        }) : $t('发送消息')"
+                @submit="mainSubmit"
+                @send="sendMsg()"
+                @paste="addImg"
+                @keydown="mainKey"
+                @keyup="mainKeyUp"
+                @input-click="selectSQIn"
+                @input="handleInput"
+                @compositionstart="handleCompositionStart"
+                @compositionend="handleCompositionEnd"
+                @compositioncancel="handleCompositionCancel"
+                @toggle-plus="toggleChihiroPlus"
+                @pick-image="pickChihiroImage"
+                @pick-file="pickChihiroFile"
+                @toggle-face="toggleChihiroFace"
+                @toggle-bot="toggleSessionBot"
+                @bot-approve="approveBotDraft"
+                @bot-discard="discardBotDraft"
+                @jump-bottom="scrollBottom(true)"
+                @attach-edit="editImg"
+                @attach-delete="deleteImg"
+                @cancel-reply="cancelReply"
+                @forward-individual="showForWard('individual-messages')"
+                @forward-merged="showForWard('merged-messages')"
+                @copy="copyMsgs"
+                @delete="delMsgs"
+                @cancel-select="exitMultipleSelect"
+                @select-pic="selectImg"
+                @select-file="selectFile">
+                <template #extra>
+                    <slot name="main-input-button" />
+                </template>
+            </UserComposer>
+            <div />
+        </div>
+        <!-- 合并转发消息预览器 -->
+        <MergePan ref="mergePan" />
+        <!-- 消息右击菜单 -->
+        <Teleport to="body">
+            <div :class="'msg-menu' + (['linux', 'win32'].includes(backend.platform ?? '') ? ' withBar' : '')">
+                <div v-show="tags.showMsgMenu" class="msg-menu-bg" @click="closeMsgMenu" />
+                <div id="msgMenu" :class="tags.showMsgMenu ?
+                    'ss-card msg-menu-body show' : 'ss-card msg-menu-body'">
+                    <div v-if="chatStore.chatInfo.show.type == 'group'"
+                        v-show="tags.menuDisplay.showRespond"
+                        :class="'ss-card respond' + (tags.menuDisplay.respond ? ' open' : '')">
+                        <template v-for="(num, index) in Emoji.responseId" :key="'respond-' + num">
+                            <EmojiFace :emoji="Emoji.get(num)!"
+                                @click="sendRespond(num)" />
+                            <font-awesome-icon v-if="index == 4" :icon="['fas', 'angle-up']"
+                                @click="tags.menuDisplay.respond = true" />
+                        </template>
+                    </div>
+                    <div v-show="tags.menuDisplay.relpy" @click="menuReplyMsg(true)">
+                        <div><font-awesome-icon :icon="['fas', 'message']" /></div>
+                        <a>{{ $t('回复') }}</a>
+                    </div>
+                    <div v-show="tags.menuDisplay.forward" @click="showForWard()">
+                        <div><font-awesome-icon :icon="['fas', 'share']" /></div>
+                        <a>{{ $t('转发') }}</a>
+                    </div>
+                    <div v-show="tags.menuDisplay.select" @click="intoMultipleSelect()">
+                        <div><font-awesome-icon :icon="['fas', 'circle-check']" /></div>
+                        <a>{{ $t('多选') }}</a>
+                    </div>
+                    <div v-show="tags.menuDisplay.copy" @click="copyMsg">
+                        <div><font-awesome-icon :icon="['fas', 'clipboard']" /></div>
+                        <a>{{ $t('复制') }}</a>
+                    </div>
+                    <div v-show="tags.menuDisplay.copySelect" @click="copySelectMsg">
+                        <div><font-awesome-icon :icon="['fas', 'code']" /></div>
+                        <a>{{ $t('复制选中文本') }}</a>
+                    </div>
+                    <div v-show="tags.menuDisplay.copyImg" @click="copyImg">
+                        <div><font-awesome-icon :icon="['fas', 'object-ungroup']" /></div>
+                        <a>{{ $t('复制图片') }}</a>
+                    </div>
+                    <div v-show="tags.menuDisplay.downloadImg != false" @click="downloadImg">
+                        <div><font-awesome-icon :icon="['fas', 'floppy-disk']" /></div>
+                        <a>{{ $t('下载图片') }}</a>
+                    </div>
+                    <div v-show="tags.menuDisplay.revoke" @click="revokeMsg">
+                        <div><font-awesome-icon :icon="['fas', 'xmark']" /></div>
+                        <a>{{ $t('撤回') }}</a>
+                    </div>
+                    <div v-show="tags.menuDisplay.reedit" @click="reeditMsg">
+                        <div><font-awesome-icon :icon="['fas', 'pencil']" /></div>
+                        <a>{{ $t('重新编辑') }}</a>
+                    </div>
+                    <div v-show="tags.menuDisplay.at"
+                        @click="selectedMsg ? addSpecialMsg({ msgObj: { type: 'at', qq: Number(selectedMsg.sender.user_id) }, addText: true, }): '';
+                                toMainInput();
+                                closeMsgMenu()">
+                        <div><font-awesome-icon :icon="['fas', 'at']" /></div>
+                        <a>{{ $t('提及') }}</a>
+                    </div>
+                    <div v-show="tags.menuDisplay.poke" @click="sendPoke(selectedMsg ? selectedMsg.sender.user_id : undefined)">
+                        <div><font-awesome-icon :icon="['fas', 'fa-hand-point-up']" /></div>
+                        <a>{{ $t('戳一戳') }}</a>
+                    </div>
+                    <div v-show="tags.menuDisplay.remove" @click="removeUser">
+                        <div><font-awesome-icon :icon="['fas', 'trash-can']" /></div>
+                        <a>{{ $t('移出群聊') }}</a>
+                    </div>
+                    <div v-show="tags.menuDisplay.config"
+                        @click="openChatInfoPan();
+                                ($refs.infoRef as any).openMoreConfig(selectedMsg?.sender.user_id);
+                                closeMsgMenu();">
+                        <div><font-awesome-icon :icon="['fas', 'cog']" /></div>
+                        <a>{{ $t('成员设置') }}</a>
+                    </div>
+                    <div v-show="tags.menuDisplay.jumpToMsg" @click="jumpSearchMsg">
+                        <div><font-awesome-icon :icon="['fas', 'arrow-up-right-from-square']" /></div>
+                        <a>{{ $t('跳转到消息') }}</a>
+                    </div>
+                    <div v-show="isDev" @click="consoleLogMsg">
+                        <div><font-awesome-icon :icon="['fas', 'screwdriver-wrench']" /></div>
+                        <a>{{ $t('调试信息') }}</a>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+        <UserProfilePop
+            v-if="profilePop"
+            :user-id="profilePop.userId"
+            :nickname="profilePop.nickname"
+            :card="profilePop.card"
+            :anchor="profilePop.anchor"
+            @close="closeProfilePop" />
+        <!-- 群 / 好友信息弹窗 -->
+        <Transition name="chat-info-float" :duration="{ enter: 220, leave: 180 }">
+            <Info v-if="tags.openChatInfo" ref="infoRef" :chat="chat" :tags="tags"
+                @close="openChatInfoPan" />
+        </Transition>
+        <!-- 转发面板 -->
+        <Transition name="forward-float" :duration="{ enter: 220, leave: 180 }">
+            <div v-if="tags.showForwardPan" class="forward-pan">
+                <div class="ss-card card">
+                    <header>
+                        <span>{{ $t('转发消息') }}</span>
+                        <font-awesome-icon :icon="['fas', 'xmark']" @click="cancelForward" />
+                    </header>
+                    <label for="chat-forward-search" class="sr-only">{{ $t('搜索转发对象') }}</label>
+                    <input id="chat-forward-search" :placeholder="$t('搜索 ……')" @input="searchForward">
+                    <div>
+                        <div v-for="data in forwardList"
+                            :key=" 'forwardList-' + data.user_id ? data.user_id : data.group_id"
+                            @click="forwardMsg(data)">
+                            <img loading="lazy"
+                                :title="getShowName(data.group_name || data.nickname, data.remark)"
+                                :src="data.user_id ?
+                                    'https://q1.qlogo.cn/g?b=qq&s=0&nk=' + data.user_id :
+                                    'https://p.qlogo.cn/gh/' + data.group_id + '/' + data.group_id + '/0'">
+                            <div>
+                                <p>
+                                    {{ data.group_name ?
+                                        data.group_name : data.remark === data.nickname ?
+                                            data.nickname : data.remark + '（' + data.nickname + '）'
+                                    }}
+                                </p>
+                                <span>{{ data.group_id ? $t('群组') : $t('好友') }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg" @click="cancelForward" />
+            </div>
+        </Transition>
+        <div class="bg" :style="{
+            'backdrop-filter': `blur(${!settingsStore.sysConfig.chat_more_blur ? settingsStore.sysConfig .chat_background_blur : 0}px)`
+        }" />
+    </div>
+</template>
+
+<script setup lang="ts">
+import app from '@chihiro/im-native/host'
+import { i18n } from '@chihiro/im-native/host'
+import SendUtil from '@renderer/function/sender'
+import Option, { get } from '@renderer/function/option'
+import Info from '@renderer/pages/user/UserInfo.vue'
+import MsgBody from '@renderer/components/user/UserMsgBody.vue'
+import UserProfilePop from '@renderer/components/user/UserProfilePop.vue'
+import NoticeBody from '@renderer/components/user/UserNoticeBody.vue'
+import FacePan from '@renderer/components/user/UserFacePan.vue'
+import MergePan from '@renderer/components/user/UserMergePan.vue'
+import UserComposer from '@renderer/components/user/UserComposer.vue'
+import imageCompression from 'browser-image-compression'
+
+import {
+    ref,
+    watch,
+    onMounted,
+    onBeforeUnmount,
+    markRaw,
+    nextTick,
+    reactive,
+    inject,
+    toRaw,
+    useTemplateRef,
+} from 'vue'
+import { v4 as uuid } from 'uuid'
+import {
+	scrollToMsg,
+    downloadFile,
+    loadHistory as loadHistoryFirst,
+    shouldAutoFocus,
+	vMenu,
+	vMove,
+	VMoveOptions,
+} from '@renderer/function/utils/appUtil'
+import {
+    copyToClipboard,
+    getTimeConfig,
+    getTrueLang,
+    getViewTime,
+} from '@renderer/function/utils/systemUtil'
+import {
+    getMsgRawTxt,
+    sendMsgRaw,
+    getShowName,
+    isShowTime,
+    isDeleteMsg,
+    getImageUrlData,
+    getDifferencesWithRanges
+} from '@renderer/function/utils/msgUtil'
+import { Logger, LogType, PopInfo, PopType } from '@renderer/function/base'
+import { Connector } from '@renderer/function/connect'
+import {
+    BaseChatInfoElem,
+    MsgItemElem,
+    SQCodeElem,
+    GroupMemberInfoElem,
+    UserFriendElem,
+    UserGroupElem,
+    MenuEventData,
+} from '@renderer/function/elements/information'
+import { backend } from '@renderer/runtime/backend'
+import { toBackgroundImageStyle } from '@renderer/function/utils/backgroundUtil'
+import { dbGetBefore, dbGetBeforeByTime, dbSearchMessages } from '@renderer/function/utils/localHistoryUtil'
+import Emoji from '@renderer/function/model/emoji'
+import EmojiFace from '@renderer/components/user/UserEmojiFace.vue'
+import { Img } from '@renderer/function/model/img'
+import { useSessionHistoryStore } from '@renderer/state/sessionHistory'
+import { useConnectionStore } from '@renderer/state/connection'
+import { useUIStore } from '@renderer/state/ui'
+import { useSettingsStore } from '@renderer/state/settings'
+import { useAuthStore } from '@renderer/state/auth'
+import { useChatStore } from '@renderer/state/chat'
+import { useContactStore } from '@renderer/state/contact'
+import { addUploadTask, failUploadTask } from '@renderer/components/user/UserFileManager.vue'
+
+defineOptions({ name: 'UserChat' })
+
+const $t = i18n.global.t
+const { viewer: viewerRef } = inject<{ viewer: any }>('viewer', { viewer: null })
+
+const { chat, list } = defineProps<{
+    chat: any
+    list: any[]
+    imgView?: any
+}>()
+const chihiroFeatureOpen = ref(false)
+function onChihiroFeatureStatus(ev: MessageEvent) {
+    const data = ev.data
+    if (!data || data.source !== 'chihiro-shell') return
+    if (data.kind === 'feature-status') {
+        chihiroFeatureOpen.value = data.status === 'open' || data.status === 'expanded'
+        return
+    }
+    if (data.kind === 'chat-sync') publishChihiroChat()
+    if (data.kind === 'bot-think' && String(data.peerId) === String(chat.show?.id)) {
+        botThinkText.value = data.text || ''
+        botDraft.value = data.draft || null
+    }
+}
+function toggleChihiroFeature() {
+    try { window.parent.postMessage({ source: 'chihiro-im', kind: 'toggle-feature' }, '*') } catch (e) {}
+}
+function toggleChihiroPlus() {
+    chihiroPlusOpen.value = !chihiroPlusOpen.value
+    if (chihiroPlusOpen.value) {
+        details.value[1].open = false
+        tags.value.showMoreDetail = false
+    }
+}
+function closeChihiroPlus() {
+    chihiroPlusOpen.value = false
+}
+function pickChihiroImage() {
+    closeChihiroPlus()
+    runSelectImg()
+}
+function pickChihiroFile() {
+    closeChihiroPlus()
+    runSelectFile()
+}
+function toggleChihiroFace() {
+    details.value[1].open = !details.value[1].open
+    tags.value.showMoreDetail = false
+    chihiroPlusOpen.value = false
+    if (details.value[1].open) chihiroHistory.open = false
+}
+function closeChihiroFace() {
+    details.value[1].open = false
+}
+function onChihiroFaceAdd(data: SQCodeElem) {
+    const obj = data?.msgObj
+    if (obj?.type === 'text' && typeof obj.text === 'string') {
+        insertTextAtCursor(obj.text)
+    } else if (obj?.type === 'face' && obj.id != null && !Number.isNaN(Number(obj.id))) {
+        insertFaceAtCursor(Number(obj.id))
+    } else if (obj?.type === 'image') {
+        const src = stickerSrcFromFile(String(obj.file || obj.url || ''))
+        if (src) addAttachSrc(src)
+        else addSpecialMsg(data)
+    } else {
+        addSpecialMsg(data)
+    }
+    closeChihiroFace()
+}
+function onChihiroFaceSend(echo?: string) {
+    closeChihiroFace()
+    sendMsg(echo)
+}
+function closeChihiroHistory() {
+    chihiroHistory.open = false
+    chihiroHistory.query = ''
+    chihiroHistory.tab = 'all'
+    chihiroHistory.list = []
+}
+function toggleChihiroHistory() {
+    if (chihiroHistory.open) {
+        closeChihiroHistory()
+        return
+    }
+    details.value[1].open = false
+    tags.value.showMoreDetail = false
+    chihiroPlusOpen.value = false
+    chihiroHistory.open = true
+    chihiroHistory.query = ''
+    chihiroHistory.tab = 'all'
+    runChihiroHistorySearch()
+}
+function chihiroMsgTypes(item: any): string[] {
+    return (item?.message || []).map((seg: any) => seg?.type).filter(Boolean)
+}
+function chihiroMatchTab(item: any, tab: string) {
+    const types = chihiroMsgTypes(item)
+    if (tab === 'media') return types.some((t: string) => t === 'image' || t === 'video')
+    if (tab === 'face') {
+        return types.some((t: string) => t === 'face' || t === 'bface' || t === 'mface') ||
+            (item?.message || []).some((seg: any) => seg?.type === 'image' && (seg.subType == 1 || seg.sub_type == 1))
+    }
+    if (tab === 'file') return types.includes('file')
+    if (tab === 'link') {
+        try { return /https?:\/\//i.test(getMsgRawTxt(item) || '') } catch { return false }
+    }
+    return true
+}
+function chihiroSourceList() {
+    return (list || []).filter((item: any) => item && (item.post_type === 'message' || item.post_type === 'message_sent' || !item.post_type))
+}
+async function runChihiroHistorySearch() {
+    const value = String(chihiroHistory.query || '').trim()
+    if (searchDebounceTimer.value) {
+        clearTimeout(searchDebounceTimer.value)
+        searchDebounceTimer.value = null
+    }
+    const apply = (items: any[]) => {
+        const filtered = items.filter((item: any) => chihiroMatchTab(item, chihiroHistory.tab))
+        filtered.sort((a: any, b: any) => (b?.time || 0) - (a?.time || 0))
+        chihiroHistory.list = filtered
+    }
+    if (!value) {
+        apply(chihiroSourceList())
+        return
+    }
+    if (settingsStore.sysConfig.enable_local_history) {
+        const requestId = ++searchRequestId.value
+        searchDebounceTimer.value = setTimeout(async () => {
+            let results: any[] = []
+            try {
+                results = await dbSearchMessages(authStore.loginInfo.uin, chat.show.id, value)
+            } catch (e) {
+                results = []
+            }
+            if (requestId !== searchRequestId.value || !chihiroHistory.open) return
+            if (!results || results.length === 0) {
+                results = chihiroSourceList().filter((item: any) => {
+                    try { return getMsgRawTxt(item).indexOf(value) !== -1 } catch { return false }
+                })
+            }
+            apply(results)
+        }, 180)
+        return
+    }
+    apply(chihiroSourceList().filter((item: any) => {
+        try { return getMsgRawTxt(item).indexOf(value) !== -1 } catch { return false }
+    }))
+}
+function setChihiroHistoryTab(tab: string) {
+    chihiroHistory.tab = tab
+    runChihiroHistorySearch()
+}
+function chihiroHistoryGroups() {
+    const groups: { date: string, items: any[] }[] = []
+    let current: { date: string, items: any[] } | null = null
+    for (const item of chihiroHistory.list || []) {
+        const d = new Date((item?.time || 0) * 1000)
+        if (Number.isNaN(d.getTime())) continue
+        const date = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+        if (!current || current.date !== date) {
+            current = { date, items: [] }
+            groups.push(current)
+        }
+        current.items.push(item)
+    }
+    return groups
+}
+function chihiroMsgPreview(item: any) {
+    try { return getMsgRawTxt(item) || '' } catch { return '' }
+}
+function chihiroMsgAvatar(item: any) {
+    const uin = item?.sender?.user_id ?? item?.user_id ?? ''
+    if (uin) return `https://q1.qlogo.cn/g?b=qq&s=100&nk=${uin}`
+    return chat.show?.avatar || ''
+}
+function jumpChihiroHistory(item: any) {
+    const id = item?.message_id || item?.fake_message_id
+    closeChihiroHistory()
+    if (!id) return
+    nextTick(() => {
+        if (!scrollToMsg(String(id), true)) {
+            new PopInfo().add(PopType.INFO, $t('无法定位上下文'))
+        }
+    })
+}
+function publishChihiroChat() {
+    try {
+        if (window.parent === window) return
+        const show = chat.show || {}
+        const info = chat.info || {}
+        const members = (info.group_members || []).slice(0, 300).map((m) => ({
+            user_id: m.user_id,
+            nickname: m.nickname,
+            card: m.card,
+            role: m.role
+        }))
+        const notices = (info.group_notices || []).slice(0, 8).map((n) => ({
+            cn: n.cn || n.message || n.content || n.text || '',
+            time: n.publish_time || n.time
+        }))
+        window.parent.postMessage({
+            source: 'chihiro-im',
+            kind: 'chat',
+            chat: {
+                type: show.type,
+                id: show.id,
+                name: show.name || '',
+                memberCount: (info.group_members || []).length,
+                members,
+                notices
+            }
+        }, '*')
+    } catch (e) {}
+}
+watch(() => [chat.show?.id, chat.show?.type, (chat.info?.group_members || []).length, (chat.info?.group_notices || []).length], publishChihiroChat)
+
+
+const connectionStore = useConnectionStore()
+const uiStore = useUIStore()
+const settingsStore = useSettingsStore()
+const authStore = useAuthStore()
+const chatStore = useChatStore()
+const contactStore = useContactStore()
+const mergePan = useTemplateRef<InstanceType<typeof MergePan>>('mergePan')
+const msgPan = useTemplateRef<HTMLDivElement>('msgPan')
+const chatPadding = useTemplateRef<HTMLSpanElement>('chatPadding')
+const sendMore = useTemplateRef<HTMLDivElement>('sendMore')
+const composer = useTemplateRef<{
+    getInput: () => HTMLElement | null
+    insertText: (text: string) => void
+    insertFace: (id: number) => void
+    replaceFromLastAt: (text: string) => void
+    serialize: (cache: MsgItemElem[]) => string
+    clear: () => void
+    getPlainText: () => string
+    hasInlineFaces: () => boolean
+}>('composer')
+function getMainInput() {
+    return composer.value?.getInput?.() ?? null
+}
+
+type ForwardAction = 'single-message' | 'individual-messages' | 'merged-messages'
+
+const multipleSelectList = ref<string[]>([])
+const profilePop = ref<null | {
+    userId: number
+    nickname?: string
+    card?: string
+    anchor: {
+        top: number
+        left: number
+        right: number
+        bottom: number
+        width: number
+        height: number
+    }
+}>(null)
+watch(() => chat.show?.id, () => { profilePop.value = null })
+const selectedForwardAction = ref<ForwardAction>('single-message')
+const tags = ref({
+    sendTag: 'REFUSE' as 'READY' | 'PASS' | 'REFUSE',
+    showBottomButton: true,
+    showMoreDetail: false,
+    showMsgMenu: false,
+    showForwardPan: false,
+    openChatInfo: false,
+    isReply: false,
+    isJinLoading: false,
+    onAtFind: false,
+    menuDisplay: {
+        menuSelectedMsgId: null as string | null,
+        jumpToMsg: false,
+        add: true,
+        relpy: true,
+        askBot: true,
+        forward: true,
+        select: true,
+        copy: true,
+        copySelect: false,
+        copyImg: false,
+        downloadImg: false as string | false,
+        revoke: false,
+        reedit: false,
+        at: true,
+        poke: false,
+        remove: false,
+        respond: false,
+        showRespond: true,
+        config: false,
+    },
+    search: {
+        userId: -1,
+        list: reactive(list),
+    },
+    msgTouch: {
+        x: -1,
+        y: -1,
+        msgOnTouchDown: false,
+        onMove: 'no',
+    },
+    checkNewLineFlag: false,
+})
+const details = ref([
+    { open: false },
+    { open: false },
+    { open: false },
+    { open: false },
+])
+const chihiroHistory = reactive({
+    open: false,
+    query: '',
+    tab: 'all',
+    list: [] as any[],
+})
+const chihiroPlusOpen = ref(false)
+const BOT_DEFAULT_KEY = 'chihiro-bot-new-default'
+const BOT_SESSIONS_KEY = 'chihiro-bot-sessions'
+const botOn = ref(false)
+const botThinkText = ref('')
+const botDraft = ref<{ id: string, text: string } | null>(null)
+
+function sessionBotKey() {
+    const type = chat.show?.type === 'group' ? 'group' : 'private'
+    return `${type}:${chat.show?.id}`
+}
+function readBotMap(): Record<string, boolean> {
+    try { return JSON.parse(localStorage.getItem(BOT_SESSIONS_KEY) || '{}') } catch { return {} }
+}
+function newBotDefault() {
+    return localStorage.getItem(BOT_DEFAULT_KEY) === '1'
+}
+function syncBotFromStore() {
+    const map = readBotMap()
+    const key = sessionBotKey()
+    botOn.value = Object.prototype.hasOwnProperty.call(map, key) ? Boolean(map[key]) : newBotDefault()
+    botThinkText.value = ''
+    botDraft.value = null
+    if (botOn.value && chat.show?.id) {
+        try {
+            window.parent.postMessage({
+                source: 'chihiro-im',
+                kind: 'session-bot',
+                type: chat.show?.type === 'group' ? 'group' : 'private',
+                peerId: String(chat.show.id),
+                enabled: true
+            }, '*')
+        } catch (e) {}
+    }
+}
+function toggleSessionBot() {
+    botOn.value = !botOn.value
+    const map = readBotMap()
+    map[sessionBotKey()] = botOn.value
+    localStorage.setItem(BOT_SESSIONS_KEY, JSON.stringify(map))
+    try {
+        window.parent.postMessage({
+            source: 'chihiro-im',
+            kind: 'session-bot',
+            type: chat.show?.type === 'group' ? 'group' : 'private',
+            peerId: String(chat.show?.id || ''),
+            enabled: botOn.value
+        }, '*')
+    } catch (e) {}
+}
+function approveBotDraft() {
+    const id = botDraft.value?.id
+    if (!id) return
+    try {
+        window.parent.postMessage({ source: 'chihiro-im', kind: 'draft-approve', id }, '*')
+    } catch (e) {}
+    botDraft.value = null
+    botThinkText.value = ''
+}
+function discardBotDraft() {
+    const id = botDraft.value?.id
+    if (!id) return
+    try {
+        window.parent.postMessage({ source: 'chihiro-im', kind: 'draft-discard', id }, '*')
+    } catch (e) {}
+    botDraft.value = null
+    botThinkText.value = ''
+}
+watch(() => chat.show?.id, syncBotFromStore, { immediate: true })
+function onChihiroDocClick(e: Event) {
+    const t = e.target as HTMLElement | null
+    if (t && typeof t.closest === 'function' && (
+        t.closest('.face-pan') ||
+        t.closest('.chihiro-face-btn') ||
+        t.closest('.chihiro-input-face')
+    )) return
+    if (t && typeof t.closest === 'function' && t.closest('.chihiro-plus-wrap')) return
+    if (details.value[1].open) details.value[1].open = false
+    if (chihiroPlusOpen.value) chihiroPlusOpen.value = false
+}
+function onChihiroDocKey(e: KeyboardEvent) {
+    if (e.key !== 'Escape') return
+    if (tags.value.openChatInfo) return
+    if (profilePop.value) {
+        profilePop.value = null
+        e.preventDefault()
+        return
+    }
+    if (multipleSelectList.value.length > 0) {
+        exitMultipleSelect()
+        e.preventDefault()
+        return
+    }
+    if (chihiroHistory.open) {
+        closeChihiroHistory()
+        return
+    }
+    if (chihiroPlusOpen.value) {
+        chihiroPlusOpen.value = false
+        return
+    }
+    if (details.value[1].open) details.value[1].open = false
+}
+document.addEventListener('click', onChihiroDocClick)
+document.addEventListener('keydown', onChihiroDocKey)
+const msgMenus = ref<any[]>([])
+const NewMsgNum = ref(0)
+const msg = ref('')
+const oldMsg = ref('')
+const IME_ENTER_GUARD_MS = 80
+let imeComposing = false
+let lastImeCompositionEndAt = 0
+const imgCache = ref(new Map<number, string>())
+const sendCache = ref<MsgItemElem[]>([])
+const selectedMsg = ref<{ [key: string]: any } | null>(null)
+const selectCache = ref('')
+const atFindList = ref<GroupMemberInfoElem[] | null>(null)
+const atSelectedIndex = ref(0)
+const atScrollTimer = ref<NodeJS.Timeout | null>(null)
+const atScrollInterval = ref<NodeJS.Timeout | null>(null)
+const searchDebounceTimer = ref<NodeJS.Timeout | null>(null)
+const searchRequestId = ref(0)
+const forwardList = ref(contactStore.userList)
+const chatImg = ref<any>(undefined)
+const trueLang = getTrueLang()
+const isDev = import.meta.env.DEV
+
+//#region == 窗口移动相关 ==================================================
+const chatMoveOptions: VMoveOptions<HTMLDivElement> = {
+    beforeHook: (_) => {
+        const target = getTargetWin()
+        if (!target) return
+        target.style.transition = 'all 0s'
+        const pan = document.getElementById('chat-pan')
+        if (!pan) return
+        const chatEl = pan.getElementsByClassName('chat')[0] as HTMLDivElement
+        if(chatEl)
+            chatEl.style.overflowY = 'hidden'
+    },
+    moveHook: (_, move: number) => {
+        const target = getTargetWin()
+        if (!target) return
+        target.style.transform = 'translateX(' + move + 'px)'
+    },
+    endHook: (_) => {
+        const pan = document.getElementById('chat-pan')
+        const chatEl = pan?.getElementsByClassName('chat')[0] as HTMLDivElement
+        if(chatEl) {
+            chatEl.style.overflowY = 'scroll'
+        }
+        const target = getTargetWin()
+        if (!target) return
+        target.style.transition = 'transform 0.3s'
+        target.style.transform = ''
+    },
+    rightLimit: {
+        value: 100,
+        type: '%',
+    },
+    speedCondition: {
+        minMove: {
+            value: 0.5 * uiStore.inch,
+            type: 'px',
+        },
+        minSpeed: 5 * uiStore.inch,
+    },
+    moveCondition: {
+        minMove: {
+            value: 33,
+            type: '%',
+        }
+    },
+}
+//#endregion
+
+function resetState() {
+    chihiroHistory.open = false
+    chihiroHistory.query = ''
+    chihiroHistory.tab = 'all'
+    chihiroHistory.list = []
+    imeComposing = false
+    lastImeCompositionEndAt = 0
+    tags.value = {
+        sendTag: 'REFUSE',
+        showBottomButton: true,
+        showMoreDetail: false,
+        showMsgMenu: false,
+        showForwardPan: false,
+        openChatInfo: false,
+        isReply: false,
+        isJinLoading: false,
+        onAtFind: false,
+        menuDisplay: {
+            menuSelectedMsgId: null,
+            jumpToMsg: false,
+            add: true,
+            relpy: true,
+            askBot: true,
+            forward: true,
+            select: true,
+            copy: true,
+            copySelect: false,
+            copyImg: false,
+            downloadImg: false,
+            revoke: false,
+            reedit: false,
+            at: true,
+            poke: false,
+            remove: false,
+            respond: false,
+            showRespond: true,
+            config: false,
+        },
+        search: {
+            userId: -1,
+            list: reactive(list),
+        },
+        msgTouch: {
+            x: -1,
+            y: -1,
+            msgOnTouchDown: false,
+            onMove: 'no',
+        },
+        checkNewLineFlag: false,
+    }
+    msgMenus.value = []
+}
+
+watch(() => chat, () => {
+    resetState()
+    sendCache.value = []
+    imgCache.value = new Map()
+    composer.value?.clear?.()
+    multipleSelectList.value = []
+    initMenuDisplay()
+    nextTick(() => {
+        scheduleResizeMainInput()
+    })
+    const history = useSessionHistoryStore()
+    const sessionId = chat.show.id
+    const session = [...contactStore.userList].find(i => (i.user_id ?? i.group_id) === sessionId)
+    if (session) history.add(session)
+})
+
+watch(() => msg.value, (_newMsg, oldMsgVal) => {
+    oldMsg.value = oldMsgVal
+    scheduleResizeMainInput()
+})
+
+onMounted(() => {
+    const history = useSessionHistoryStore()
+    const sessionId = chat.show.id
+    const session = [...contactStore.userList].find(i => (i.user_id ?? i.group_id) === sessionId)
+    if (session) history.add(session)
+
+    updateList(list.length, 0)
+    watch(() => list.map((item) => item.message_id + '_' + item.fake_msg),
+        (newIds, oldIds = []) => {
+            updateList(newIds.length, oldIds.length)
+        },
+    )
+    watch(() => chat.info.jin_info?.list?.length ?? 0, () => {
+            tags.value.isJinLoading = false
+        },
+    )
+    if(backend.type == 'capacitor' && backend.platform === 'android') {
+        backend.addListener('App', 'backButton', () => {
+            exitWin()
+        })
+    }
+    watch(() => connectionStore.backTimes, () => {
+        exitWin()
+    })
+    nextTick(() => {
+        setupChatPaddingObserver()
+        scheduleResizeMainInput()
+    })
+    window.addEventListener('chihiro-viewer-forward', onViewerForward as EventListener)
+    window.addEventListener('chihiro-viewer-delete', onViewerDelete as EventListener)
+    window.addEventListener('chihiro-viewer-edit-send', onViewerEditSend as EventListener)
+    window.addEventListener('message', onChihiroFeatureStatus)
+    try { window.parent.postMessage({ source: 'chihiro-im', kind: 'feature-sync' }, '*') } catch (e) {}
+})
+
+onBeforeUnmount(() => {
+    try { window.parent.postMessage({ source: 'chihiro-im', kind: 'chat', chat: null }, '*') } catch (e) {}
+    document.removeEventListener('click', onChihiroDocClick)
+    document.removeEventListener('keydown', onChihiroDocKey)
+    window.removeEventListener('message', onChihiroFeatureStatus)
+    window.removeEventListener('chihiro-viewer-forward', onViewerForward as EventListener)
+    window.removeEventListener('chihiro-viewer-delete', onViewerDelete as EventListener)
+    window.removeEventListener('chihiro-viewer-edit-send', onViewerEditSend as EventListener)
+    if (resizeMainInputFrame !== null) {
+        cancelAnimationFrame(resizeMainInputFrame)
+        resizeMainInputFrame = null
+    }
+    if (chatPaddingFrame !== null) {
+        cancelAnimationFrame(chatPaddingFrame)
+        chatPaddingFrame = null
+    }
+    if (sendMoreResizeObserver !== null) {
+        sendMoreResizeObserver.disconnect()
+        sendMoreResizeObserver = null
+    }
+})
+
+let resizeMainInputFrame: number | null = null
+let chatPaddingFrame: number | null = null
+let sendMoreResizeObserver: ResizeObserver | null = null
+let chatPaddingAfterUpdate: Array<() => void> = []
+const COMPOSER_INPUT_HEIGHT = 36
+const TEXTAREA_SCROLL_HEIGHT_COMPACT_OFFSET = 4
+
+function scheduleResizeMainInput(target?: HTMLElement | null, keepBottom = false) {
+    // The template switches between input and textarea, so measure only after Vue
+    // has applied the branch and coalesce rapid input changes into one frame.
+    nextTick(() => {
+        if (resizeMainInputFrame !== null) {
+            cancelAnimationFrame(resizeMainInputFrame)
+        }
+        resizeMainInputFrame = requestAnimationFrame(() => {
+            resizeMainInputFrame = null
+            resizeMainInput(target ?? getMainInput())
+            scheduleChatPaddingUpdate(keepBottom ? () => scrollBottom() : undefined)
+        })
+    })
+}
+
+function updateChatPadding() {
+    const morePan = sendMore.value
+    const padding = chatPadding.value
+    const chatPan = msgPan.value
+    if (!morePan || !padding || !chatPan) return
+
+    const scrollbarGap = 12
+    chatPan.style.marginBottom = `${morePan.offsetHeight + scrollbarGap}px`
+
+    const contentBlocks = Array.from(morePan.children)
+        .flatMap(child => Array.from(child.children))
+        .filter((child): child is HTMLElement =>
+            child instanceof HTMLElement && child.offsetHeight > 0,
+        )
+    const contentTop = contentBlocks.length > 0? contentBlocks.reduce(
+            (top, child) => Math.min(top, child.getBoundingClientRect().top),
+            Number.POSITIVE_INFINITY,
+        ): morePan.getBoundingClientRect().top
+    const chatBottom = chatPan.getBoundingClientRect().bottom
+    padding.style.height = Math.max(0, chatBottom - contentTop) + 'px'
+}
+
+function scheduleChatPaddingUpdate(afterUpdate?: () => void) {
+    if (afterUpdate) {
+        chatPaddingAfterUpdate.push(afterUpdate)
+    }
+    if (chatPaddingFrame !== null) {
+        return
+    }
+    chatPaddingFrame = requestAnimationFrame(() => {
+        chatPaddingFrame = null
+        updateChatPadding()
+        const callbacks = chatPaddingAfterUpdate
+        chatPaddingAfterUpdate = []
+        callbacks.forEach(callback => callback())
+    })
+}
+
+function setupChatPaddingObserver() {
+    if (sendMoreResizeObserver !== null) return
+    const morePan = sendMore.value
+    if (!morePan || typeof ResizeObserver === 'undefined') {
+        scheduleChatPaddingUpdate()
+        return
+    }
+    sendMoreResizeObserver = new ResizeObserver(() => {
+        scheduleChatPaddingUpdate()
+    })
+    sendMoreResizeObserver.observe(morePan)
+    scheduleChatPaddingUpdate()
+}
+
+function resizeMainInput(target?: HTMLElement | null) {
+    const input = target ?? getMainInput()
+    if (!input) return
+    const empty = composer.value?.getPlainText?.() === '' && !composer.value?.hasInlineFaces?.()
+    if (!Option.get('use_breakline')) {
+        input.style.height = COMPOSER_INPUT_HEIGHT + 'px'
+        input.classList.remove('is-multiline')
+        return
+    }
+
+    const oldTransition = input.style.transition
+    input.style.transition = 'none'
+
+    if (empty) {
+        input.classList.remove('is-multiline')
+        input.style.height = COMPOSER_INPUT_HEIGHT + 'px'
+    } else {
+        const oldOverflow = input.style.overflow
+        input.classList.add('is-multiline')
+        input.style.overflow = 'hidden'
+        input.style.height = '0px'
+        const targetHeight = Math.max(
+            input.scrollHeight - TEXTAREA_SCROLL_HEIGHT_COMPACT_OFFSET,
+            COMPOSER_INPUT_HEIGHT,
+        )
+        const multiline = targetHeight > COMPOSER_INPUT_HEIGHT + 1
+        input.classList.toggle('is-multiline', multiline)
+        input.style.height = (multiline ? targetHeight : COMPOSER_INPUT_HEIGHT) + 'px'
+        input.style.overflow = oldOverflow
+    }
+
+    input.getBoundingClientRect()
+    input.style.transition = oldTransition
+}
+function jumpSearchMsg() {
+    closeSearch()
+    setTimeout(() => {
+        if (!selectedMsg.value) return
+        scrollToMsg('chat-' + selectedMsg.value?.message_id, true)
+        closeMsgMenu()
+    }, 100)
+}
+
+function chatScroll(event: Event, pass: boolean) {
+    if(pass) return
+
+    const body = event.target as HTMLDivElement
+    if (body.scrollTop === 0 && list.length > 0) {
+        loadMoreHistory()
+    }
+    if ((body.scrollTop + body.clientHeight + 10) >= body.scrollHeight) {
+        NewMsgNum.value = 0
+        tags.value.showBottomButton = false
+    }
+    if (
+        body.scrollTop <
+            body.scrollHeight - body.clientHeight * 2 &&
+        tags.value.showBottomButton !== true
+    ) {
+        tags.value.showBottomButton = true
+    }
+}
+
+async function loadMoreHistory() {
+    if (
+        !uiStore.nowGetHistory &&
+        uiStore.canLoadHistory !== false
+    ) {
+        const firstMsgId = list[0].message_id
+        const firstMsgTime = Number(list[0]?.time)
+        const useMixedHistory =
+            settingsStore.sysConfig.enable_local_history &&
+            settingsStore.sysConfig.mixed_load_messages !== false
+        uiStore.nowGetHistory = true
+        if (useMixedHistory && Number.isFinite(firstMsgTime)) {
+            uiStore.historyBeforeTime = firstMsgTime
+        } else {
+            uiStore.historyBeforeTime = undefined
+        }
+        uiStore.loadHistoryFail = false
+
+        if (useMixedHistory) {
+            let localMsgs = [] as any[]
+            if (Number.isFinite(firstMsgTime)) {
+                localMsgs = await dbGetBeforeByTime(
+                    authStore.loginInfo.uin,
+                    chatStore.chatInfo.show.id,
+                    firstMsgTime,
+                    20,
+                )
+            } else {
+                localMsgs = await dbGetBefore(
+                    authStore.loginInfo.uin,
+                    chatStore.chatInfo.show.id,
+                    firstMsgId,
+                    20,
+                )
+            }
+            if (localMsgs.length > 0) {
+                const existingIds = new Set(chatStore.messageList.map((m) => String(m.message_id ?? '')))
+                const addList = localMsgs.filter((m) => {
+                    const msgId = String(m?.message_id ?? '')
+                    return msgId.length === 0 || !existingIds.has(msgId)
+                })
+                if (addList.length > 0) {
+                    chatStore.messageList.splice(0, 0, ...addList)
+                }
+                const boundary = list[addList.length] ?? list[addList.length - 1]
+                const seqGapAnchors = detectSeqGaps([...addList, boundary])
+                if (seqGapAnchors.length > 0) {
+                    fillSeqGaps(seqGapAnchors)
+                }
+            }
+        }
+
+        const fullPage =
+            authStore.jsonMap.message_list?.pagerType == 'full'
+        const type = chatStore.chatInfo.show.type
+        const id = chatStore.chatInfo.show.id
+        let name
+        if (authStore.jsonMap.message_list && type != 'group') {
+            name = authStore.jsonMap.message_list.private_name
+        } else {
+            name = authStore.jsonMap.message_list.name
+        }
+        Connector.send(
+            name ?? 'get_chat_history',
+            {
+                group_id: type == 'group' ? id : undefined,
+                user_id: type != 'group' ? id : undefined,
+                message_id: firstMsgId,
+                count: fullPage? chatStore.messageList.length + 20: 20,
+            },
+            'getChatHistory',
+        )
+    }
+}
+
+function detectSeqGaps(msgs: any[]): string[] {
+    const gaps: string[] = []
+    for (let i = 0; i < msgs.length - 1; i++) {
+        const seqA: number | null = msgs[i].message_seq ?? msgs[i].seq ?? null
+        const seqB: number | null = msgs[i + 1].message_seq ?? msgs[i + 1].seq ?? null
+        if (seqA == null || seqB == null) return []
+        if (seqB - seqA > 1) {
+            gaps.push(msgs[i + 1].message_id)
+        }
+    }
+    return gaps
+}
+
+function fillSeqGaps(anchorMsgIds: string[]) {
+    const type = chatStore.chatInfo.show.type
+    const id = chatStore.chatInfo.show.id
+    let name: string
+    if (authStore.jsonMap.message_list && type != 'group') {
+        name = authStore.jsonMap.message_list.private_name
+    } else {
+        name = authStore.jsonMap.message_list?.name
+    }
+    for (const anchorMsgId of anchorMsgIds) {
+        Connector.send(
+            name ?? 'get_chat_history',
+            {
+                group_id: type == 'group' ? id : undefined,
+                user_id: type != 'group' ? id : undefined,
+                message_id: anchorMsgId,
+                count: 20,
+            },
+            'getChatHistoryGapFill_' + anchorMsgId,
+        )
+    }
+}
+
+function scrollTo(where: number | undefined, showAnimation = true) {
+    const pan = document.getElementById('msgPan')
+    if (pan !== null && where) {
+        if (showAnimation === false) {
+            pan.style.scrollBehavior = 'unset'
+        } else {
+            pan.style.scrollBehavior = 'smooth'
+        }
+        pan.scrollTop = where
+        pan.style.scrollBehavior = 'smooth'
+    }
+}
+
+function scrollBottom(showAnimation = false) {
+    const pan = document.getElementById('msgPan')
+    if (pan !== null) {
+        scrollTo(pan.scrollHeight, showAnimation)
+    }
+}
+
+function scrollToMsgLocal(message_id: string) {
+    if (!scrollToMsg(message_id, true)) {
+        new PopInfo().add(PopType.INFO, $t('无法定位上下文'))
+    }
+}
+
+function imgLoadedScroll(height: number) {
+    const pan = document.getElementById('msgPan')
+    if(pan) {
+        if(list.length <= 20 && !tags.value.showBottomButton) {
+            scrollBottom()
+        } else {
+            scrollTo(pan.scrollTop + height, false)
+        }
+    }
+}
+
+function isImeInputEvent(event: KeyboardEvent) {
+    if (imeComposing || event.isComposing) return true
+    if (event.keyCode === 229) return true
+    if (tags.value.sendTag === 'PASS') return true
+    if (
+        lastImeCompositionEndAt > 0 &&
+        typeof event.timeStamp === 'number' &&
+        event.timeStamp >= lastImeCompositionEndAt &&
+        event.timeStamp - lastImeCompositionEndAt < IME_ENTER_GUARD_MS
+    ) {
+        return true
+    }
+    return false
+}
+
+function mainKey(event: KeyboardEvent) {
+    // 输入法选词 / 组字中的按键交给 IME，不发送、不抢 @ 列表
+    if (isImeInputEvent(event)) return
+
+    if (mainAtKey(event)) return
+
+    if(tags.value.onAtFind) return
+    if (event.key !== 'Enter') return
+    // Chihiro: Enter 发送，Shift+Enter 换行
+    if (event.shiftKey) return
+    event.preventDefault()
+    if (hasOutgoingContent()) {
+        sendMsg()
+    }
+    tags.value.sendTag = 'REFUSE'
+}
+
+function mainAtKey(event: KeyboardEvent) {
+    if (!tags.value.onAtFind) return false
+
+    if (event.keyCode === 38 || event.keyCode === 40) {
+        event.preventDefault()
+        const direction = event.keyCode === 38 ? -1 : 1
+        moveAtSelection(direction)
+        if (atScrollTimer.value !== null) return true
+        atScrollTimer.value = setTimeout(() => {
+            atScrollInterval.value = setInterval(() => {
+                moveAtSelection(direction)
+            }, 50)
+        }, 300)
+        return true
+    }
+
+    if (event.keyCode === 13) {
+        event.preventDefault()
+        const selectedMember = atFindList.value?.[atSelectedIndex.value]
+        if (selectedMember) {
+            choiceAt(selectedMember.user_id)
+        }
+        return true
+    }
+
+    if (event.keyCode === 27) {
+        event.preventDefault()
+        tags.value.onAtFind = false
+        atFindList.value = null
+        atSelectedIndex.value = 0
+        return true
+    }
+
+    return false
+}
+
+function handleCompositionStart() {
+    imeComposing = true
+    tags.value.sendTag = 'REFUSE'
+}
+
+function handleCompositionEnd(event?: CompositionEvent) {
+    imeComposing = false
+    lastImeCompositionEndAt = event?.timeStamp || performance.now()
+    tags.value.sendTag = 'PASS'
+    window.setTimeout(() => {
+        if (!imeComposing) tags.value.sendTag = 'REFUSE'
+    }, IME_ENTER_GUARD_MS)
+}
+
+function handleCompositionCancel() {
+    imeComposing = false
+    lastImeCompositionEndAt = 0
+    tags.value.sendTag = 'REFUSE'
+}
+
+function mainKeyUp(event: KeyboardEvent) {
+    const logger = new Logger()
+
+    if (event.keyCode === 27) {
+        if (chihiroHistory.open) {
+            closeChihiroHistory()
+            return
+        }
+        if (details.value[1].open) {
+            details.value[1].open = false
+            return
+        }
+        return
+    }
+
+    if (event.keyCode === 38 || event.keyCode === 40) {
+        if (atScrollTimer.value !== null) {
+            clearTimeout(atScrollTimer.value)
+            atScrollTimer.value = null
+        }
+        if (atScrollInterval.value !== null) {
+            clearInterval(atScrollInterval.value)
+            atScrollInterval.value = null
+        }
+    }
+
+    if (tags.value.checkNewLineFlag){
+        tags.value.checkNewLineFlag = false
+        if (msg.value == '\n'){
+            msg.value = ''
+            scheduleResizeMainInput()
+        }
+    }
+
+    if (tags.value.onAtFind && atFindList.value && atFindList.value.length > 0) {
+        if (event.keyCode === 38 || event.keyCode === 40 || event.keyCode === 13 || event.keyCode === 27) {
+            return
+        }
+    }
+
+    if (event.keyCode != 13) {
+        const lastInput = msg.value.substring(msg.value.length - 1)
+        if (
+            !tags.value.onAtFind &&
+            lastInput == '@' &&
+            chatStore.chatInfo.info.group_members.length > 0 &&
+            chatStore.chatInfo.show.type == 'group'
+        ) {
+            logger.add(LogType.UI, '开始匹配群成员列表 ……')
+            tags.value.onAtFind = true
+            atSelectedIndex.value = 0
+        }
+        if (tags.value.onAtFind) {
+            if (msg.value.lastIndexOf('@') < 0) {
+                logger.add(LogType.UI, '匹配群成员列表被打断 ……')
+                tags.value.onAtFind = false
+                atFindList.value = null
+                atSelectedIndex.value = 0
+            } else {
+                const atInfo = msg.value
+                    .substring(msg.value.lastIndexOf('@') + 1)
+                    .toLowerCase()
+                atFindList.value = chatStore.chatInfo.info.group_members
+                        .filter((item) => { return (
+                                (item.card != '' && item.card != null && item.card.toLowerCase().indexOf(atInfo) >=0) ||
+                                item.nickname.toLowerCase().indexOf(atInfo) >= 0 ||
+                                atInfo ==item.user_id.toString()
+                            )
+                        },
+                    )
+                if (atFindList.value.length == 0) {
+                    atFindList.value = chatStore.chatInfo.info.group_members
+                }
+                atSelectedIndex.value = 0
+            }
+        }
+    }
+}
+
+function mainSubmit(event: Event) {
+    event.preventDefault()
+    if (imeComposing) return
+    if (hasOutgoingContent()) {
+        sendMsg()
+    }
+}
+
+function choiceAt(id: number | undefined) {
+    if (id != undefined) {
+        const index = sendCache.value.length
+        sendCache.value.push({ type: 'at', qq: Number(id) })
+        const sqCode = `[SQ:${index}]`
+        if (composer.value?.replaceFromLastAt) composer.value.replaceFromLastAt(sqCode)
+        else {
+            msg.value = msg.value.substring(0, msg.value.lastIndexOf('@')) + sqCode
+        }
+    }
+    toMainInput()
+    tags.value.onAtFind = false
+    atFindList.value = null
+    atSelectedIndex.value = 0
+}
+
+function scrollAtListToSelected() {
+    nextTick(() => {
+        const container = document.querySelector('.at-tag.show')
+        const selectedItem = document.querySelector('.at-tag.show > div.selected')
+        if (container && selectedItem) {
+            const containerRect = container.getBoundingClientRect()
+            const itemRect = selectedItem.getBoundingClientRect()
+            if (itemRect.top < containerRect.top) {
+                selectedItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+            } else if (itemRect.bottom > containerRect.bottom) {
+                selectedItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+            }
+        }
+    })
+}
+
+function moveAtSelection(direction: number) {
+    if (!atFindList.value || atFindList.value.length === 0) return
+    if (direction === -1) {
+        atSelectedIndex.value = atSelectedIndex.value > 0? atSelectedIndex.value - 1: atFindList.value.length - 1
+    } else {
+        atSelectedIndex.value = atSelectedIndex.value < atFindList.value.length - 1? atSelectedIndex.value + 1: 0
+    }
+    scrollAtListToSelected()
+}
+
+function selectSQIn() {
+    const input = (document.getElementById( 'main-input') as HTMLTextAreaElement | HTMLInputElement | null) ??
+        (document.getElementById( 'main-input-ex') as HTMLTextAreaElement | HTMLInputElement | null)
+    if (
+        input !== null &&
+        input.selectionStart === input.selectionEnd
+    ) {
+        let cursurPosition = -1
+        if (typeof input.selectionStart === 'number') {
+            cursurPosition = input.selectionStart
+        }
+        const getSQCode = SendUtil.getSQList(msg.value)
+        if (getSQCode != null) {
+            getSQCode.forEach((item) => {
+                const start = msg.value.indexOf(item)
+                const end = start + item.length
+                if (
+                    start !== -1 &&
+                    cursurPosition > start &&
+                    cursurPosition < end
+                ) {
+                    nextTick(() => {
+                        input.selectionStart = start
+                        input.selectionEnd = end
+                    })
+                }
+            })
+        }
+    }
+}
+
+function showMsgMeun(event: MenuEventData, data: any) {
+    selectedMsg.value = data
+    tags.value.menuDisplay.menuSelectedMsgId = data.message_id
+
+    if (Option.get('log_level') === 'debug') {
+        new Logger().debug('右击消息：' + data)
+    }
+    if (multipleSelectList.value.length > 0) {
+        return
+    }
+
+    const menu = document.getElementById('msgMenu')
+    const select = event.target as HTMLElement
+    let selectUserType = 'member'
+    if (
+        chatStore.chatInfo.show.type == 'group' &&
+        chatStore.chatInfo.info.group_members
+    ) {
+        chatStore.chatInfo.info.group_members.forEach(
+            (item: any) => {
+                if (item.user_id == data.sender.user_id) {
+                    selectUserType = item.role
+                }
+            },
+        )
+    }
+
+    if (menu !== null && data !== null) {
+        if (get('close_respond') == true) {
+            tags.value.menuDisplay.showRespond = false
+        }
+        if (
+            select.nodeName == 'IMG' &&
+            (select as HTMLImageElement).name == 'avatar'
+        ) {
+            Object.keys(tags.value.menuDisplay).forEach(
+                (name: string) => {
+                    (tags.value.menuDisplay as any)[name] = false
+                },
+            )
+            tags.value.menuDisplay.showRespond = false
+            tags.value.menuDisplay.at = true
+            tags.value.menuDisplay.poke = true
+            tags.value.menuDisplay.remove = true
+            if (
+                chatStore.chatInfo.show.type != 'group' ||
+                data.sender.user_id === authStore.loginInfo.uin ||
+                chatStore.chatInfo.info.me_info.role === 'member' ||
+                selectUserType == 'owner' ||
+                (selectUserType == 'admin' && chatStore.chatInfo.info.me_info.role != 'owner')
+            ) {
+                tags.value.menuDisplay.remove = false
+            }
+            if (data.sender.user_id === authStore.loginInfo.uin) {
+                tags.value.menuDisplay.at = false
+            }
+            if(chatStore.chatInfo.show.type == 'group' &&
+            chatStore.chatInfo.info.me_info.role != 'member') {
+                tags.value.menuDisplay.config = true
+            }
+        } else {
+            if (
+                data.sender.user_id === authStore.loginInfo.uin ||
+                chatStore.chatInfo.info.me_info.role ===
+                    'admin' ||
+                chatStore.chatInfo.info.me_info.role === 'owner'
+            ) {
+                tags.value.menuDisplay.revoke = true
+            }
+            tags.value.menuDisplay.reedit = tags.value.menuDisplay.revoke && data.sender.user_id === authStore.loginInfo.uin
+            if (data.revoke === true) {
+                tags.value.menuDisplay.relpy = false
+                tags.value.menuDisplay.forward = false
+                tags.value.menuDisplay.revoke = false
+                tags.value.menuDisplay.select = false
+            }
+            if (details.value[3].open) {
+                Object.keys(tags.value.menuDisplay).forEach(
+                    (name: string) => {
+                        (tags.value.menuDisplay as any)[name] = false
+                    },
+                )
+                tags.value.menuDisplay.jumpToMsg = true
+            }
+            const selection = document.getSelection()
+            const textBody = selection?.anchorNode?.parentElement
+            let textMsg = null as HTMLElement | null
+            let msgParent = textBody
+            if (msgParent) {
+                while (msgParent.className != 'chat') {
+                    if (
+                        msgParent.className.startsWith('message') &&
+                        msgParent.className.indexOf('-') < 0
+                    ) {
+                        textMsg = msgParent
+                        break
+                    }
+                    msgParent =
+                        msgParent.parentElement as HTMLDivElement
+                    if (!msgParent) {
+                        break
+                    }
+                }
+            }
+            if (
+                textBody &&
+                textBody.className.indexOf('msg-text') > -1 &&
+                selection.focusNode == selection.anchorNode &&
+                textMsg &&
+                textMsg.id == data.message_id
+            ) {
+                selectCache.value = selection.toString()
+                if (selectCache.value.length > 0) {
+                    tags.value.menuDisplay.copySelect = true
+                }
+            }
+            const nList = ['xml', 'json']
+            data.message.forEach((item: any) => {
+                if (nList.indexOf(item.type as string) > 0) {
+                    tags.value.menuDisplay.forward = false
+                    tags.value.menuDisplay.add = false
+                }
+            })
+            if (isMessageImageTarget(select)) {
+                tags.value.menuDisplay.downloadImg = (
+                    select as HTMLImageElement
+                ).src
+            }
+        }
+        const pointX = event.x
+        const pointY = event.y
+        menu.style.marginLeft = pointX + 'px'
+        menu.style.marginTop = pointY + 'px'
+        let menuWidth = menu.clientWidth
+        if (tags.value.menuDisplay.showRespond) {
+            const item = menu.children[0] as HTMLDivElement
+            menuWidth = item.clientWidth
+        }
+        const maxWidth = window.innerWidth
+        if (pointX + menuWidth > maxWidth + 27) {
+            menu.style.marginLeft = maxWidth + 7 - menuWidth + 'px'
+        }
+        tags.value.showMsgMenu = true
+        setTimeout(() => {
+            const menuHeight = menu.clientHeight
+            const bodyHeight = document.body.clientHeight
+            if (pointY + menuHeight > bodyHeight - 20) {
+                menu.classList.add('topOut')
+                menu.style.marginTop =
+                    bodyHeight - menuHeight - 10 + 'px'
+            }
+        }, 100)
+    }
+}
+
+function initMenuDisplay() {
+    tags.value.menuDisplay = {
+        menuSelectedMsgId : null,
+        jumpToMsg: false,
+        add: true,
+        relpy: true,
+        askBot: true,
+        forward: true,
+        select: true,
+        copy: true,
+        copySelect: false,
+        downloadImg: false,
+        copyImg: false,
+        revoke: false,
+        reedit: false,
+        at: false,
+        poke: false,
+        remove: false,
+        respond: false,
+        showRespond: true,
+        config: false,
+    }
+}
+
+function menuReplyMsg(closeMenu = true) {
+    const msgData = selectedMsg.value
+    if (!msgData) return
+    replyMsg(msgData)
+    if (closeMenu) {
+        closeMsgMenu()
+    }
+}
+
+function quoteToBot() {
+    const msgData = selectedMsg.value
+    if (!msgData) return
+    let text = ''
+    if (tags.value.menuDisplay.copySelect && selectCache.value) {
+        text = String(selectCache.value)
+    } else {
+        text = String(msgData.raw_message || getMsgRawTxt(msgData) || '')
+    }
+    const show = chatStore.chatInfo.show || {}
+    try {
+        window.parent.postMessage({
+            source: 'chihiro-im',
+            kind: 'quote-bot',
+            text: text.trim(),
+            peerId: show.id,
+            type: show.type,
+            title: show.name || String(show.id || '')
+        }, '*')
+    } catch (e) {}
+    closeMsgMenu()
+}
+
+function replyMsg(msgData: any) {
+    const msgId = msgData.message_id
+    selectedMsg.value = msgData
+    addSpecialMsg({
+        msgObj: { type: 'reply', id: String(msgId) },
+        addText: false,
+        addTop: true,
+    })
+    tags.value.isReply = true
+    toMainInput()
+}
+
+function cancelReply() {
+    sendCache.value = sendCache.value.filter((item) => {
+        return item.type !== 'reply'
+    })
+    tags.value.isReply = false
+}
+
+function consoleLogMsg() {
+    if (!selectedMsg.value) return
+    // eslint-disable-next-line no-console
+    console.log(selectedMsg.value)
+    closeMsgMenu()
+}
+
+function cancelForward() {
+    forwardList.value = contactStore.userList
+    tags.value.showForwardPan = false
+    selectedForwardAction.value = 'single-message'
+    closeMsgMenu()
+}
+
+function searchForward(event: Event) {
+    const value = (event.target as HTMLInputElement).value
+    forwardList.value = contactStore.userList.filter(
+        (item: UserFriendElem & UserGroupElem) => {
+            const name = (
+                item.user_id? item.nickname + item.remark: item.group_name
+            ).toLowerCase()
+            const id = item.user_id ? item.user_id : item.group_id
+            return (
+                name.indexOf(value.toLowerCase()) !== -1 ||
+                id.toString() === value
+            )
+        },
+    )
+}
+
+function onViewerForward(event: Event) {
+    const msg = (event as CustomEvent).detail
+    if (!msg) return
+    selectedMsg.value = msg
+    showForWard()
+}
+
+function onViewerDelete(event: Event) {
+    const msg = (event as CustomEvent).detail
+    if (!msg) return
+    selectedMsg.value = msg
+    revokeMsg()
+}
+
+async function onViewerEditSend(event: Event) {
+    const dataurl = (event as CustomEvent).detail
+    if (!dataurl || typeof dataurl !== 'string') return
+    const file = dataUrlToFile(dataurl)
+    await setImg(file)
+    sendMsg()
+}
+
+function dataUrlToFile(dataurl: string, name = 'image.png') {
+    const arr = dataurl.split(',')
+    const mime = /:(.*?);/.exec(arr[0])?.[1] || 'image/png'
+    const bstr = atob(arr[1] || '')
+    let n = bstr.length
+    const u8 = new Uint8Array(n)
+    while (n--) u8[n] = bstr.charCodeAt(n)
+    return new File([u8], name, { type: mime })
+}
+
+function showForWard(action: ForwardAction = 'single-message') {
+    selectedForwardAction.value = action
+    tags.value.showForwardPan = true
+    const showList = [...contactStore.onMsgList].reverse()
+    showList.forEach((item: any) => {
+        const index = forwardList.value.indexOf(item)
+        if (index > -1) {
+            forwardList.value.splice(index, 1)
+            forwardList.value.unshift(item)
+        }
+    })
+    closeMsgMenu()
+}
+
+function forwardSelf() {
+    if (selectedMsg.value) {
+        const msgData = JSON.parse(JSON.stringify(selectedMsg.value))
+        sendMsgRaw(
+            chat.show.id,
+            chat.show.type,
+            msgData.message,
+            true,
+        )
+    }
+    closeMsgMenu()
+}
+
+function intoMultipleSelect() {
+    if (selectedMsg.value) {
+        multipleSelectList.value.push(selectedMsg.value.message_id)
+    }
+    profilePop.value = null
+    chihiroPlusOpen.value = false
+    details.value[1].open = false
+    closeMsgMenu()
+}
+
+function closeProfilePop() {
+    profilePop.value = null
+}
+
+function openProfilePop(payload: {
+    userId: number
+    nickname?: string
+    card?: string
+    anchor: {
+        top: number
+        left: number
+        right: number
+        bottom: number
+        width: number
+        height: number
+    }
+}) {
+    if (multipleSelectList.value.length > 0) return
+    profilePop.value = payload
+}
+
+function exitMultipleSelect() {
+    multipleSelectList.value = []
+}
+
+function cloneMessagePayload<T>(payload: T): T {
+    const rawPayload = toRaw(payload)
+    if (typeof structuredClone === 'function') {
+        try {
+            return structuredClone(rawPayload)
+        } catch {
+            return JSON.parse(JSON.stringify(rawPayload))
+        }
+    }
+    return JSON.parse(JSON.stringify(rawPayload))
+}
+
+function forwardMsg(data: UserFriendElem & UserGroupElem) {
+    const forwardAction = selectedForwardAction.value
+    const msgData = selectedMsg.value ? cloneMessagePayload(selectedMsg.value) : null
+    const id = data.group_id ? data.group_id : data.user_id
+    const targetId = String(id)
+    const targetType = data.group_id ? 'group' : 'user'
+    const msgList = chatStore.messageList.filter((item) => {
+        return multipleSelectList.value.includes(item.message_id)
+    })
+    const shouldPreShow = () =>
+        String(chat.show.id) === targetId && chat.show.type === targetType
+
+    if (forwardAction !== 'single-message' && msgList.length === 0) {
+        cancelForward()
+        return
+    }
+
+    if (forwardAction === 'individual-messages') {
+        const popInfo = {
+            title: $t('逐条转发'),
+            html: $t('将按顺序逐条转发 {count} 条消息，是否继续？', {
+                count: msgList.length,
+            }),
+            button: [
+                {
+                    text: $t('取消'),
+                    fun: () => {
+                        uiStore.popBoxList.shift()
+                    },
+                },
+                {
+                    text: $t('确定'),
+                    master: true,
+                    fun: () => {
+                        msgList.forEach((item) => {
+                            sendMsgRaw(
+                                targetId,
+                                targetType,
+                                cloneMessagePayload(item.message),
+                                shouldPreShow(),
+                            )
+                        })
+                        multipleSelectList.value = []
+                        uiStore.popBoxList.shift()
+                    },
+                },
+            ],
+        }
+        uiStore.popBoxList.push(popInfo)
+    } else if (forwardAction === 'merged-messages') {
+        const jsonMsg = {
+            app: 'com.tencent.multimsg',
+            meta: {
+                detail: {
+                    source: $t('合并转发消息'),
+                    news: [
+                        ...msgList.slice(0, 3).map((item) => {
+                            const name =
+                                item.sender.card &&
+                                item.sender.card != ''? item.sender.card: item.sender.nickname
+                            return {
+                                text:
+                                    name +
+                                    ': ' +
+                                    getMsgRawTxt(item),
+                            }
+                        }),
+                    ],
+                    summary: $t('查看 {count} 条转发消息', { count: msgList.length }),
+                    resid: '',
+                },
+            },
+        }
+        const previewMsg = {
+            message: [
+                { type: 'json', data: JSON.stringify(jsonMsg), id: '' },
+            ],
+            sender: {
+                user_id: authStore.loginInfo.uin,
+                nickname: authStore.loginInfo.nickname,
+            }
+        }
+        const popInfo = {
+            title: $t('合并转发消息'),
+            template: markRaw(MsgBody),
+            templateValue: markRaw({ data: previewMsg, type: 'forward' }),
+            button: [
+                {
+                    text: $t('取消'),
+                    fun: () => {
+                        uiStore.popBoxList.shift()
+                    },
+                },
+                {
+                    text: $t('确定'),
+                    master: true,
+                    fun: () => {
+                        const msgBody = msgList.map((item) => {
+                            return {
+                                type: 'node',
+                                id: item.message_id,
+                                user_id: item.sender.user_id,
+                                nickname: item.sender.nickname,
+                                content: cloneMessagePayload(item.message),
+                            }
+                        })
+                        sendMsgRaw(
+                            targetId,
+                            targetType,
+                            msgBody,
+                            shouldPreShow(),
+                        )
+                        multipleSelectList.value = []
+                        uiStore.popBoxList.shift()
+                    },
+                },
+            ],
+        }
+        uiStore.popBoxList.push(popInfo)
+    } else if (selectedMsg.value && msgData) {
+        const popInfo = {
+            title: $t('转发消息'),
+            template: markRaw(MsgBody),
+            templateValue: markRaw({ data: msgData, type: 'forward' }),
+            button: [
+                {
+                    text: $t('取消'),
+                    fun: () => {
+                        uiStore.popBoxList.shift()
+                    },
+                },
+                {
+                    text: $t('确定'),
+                    master: true,
+                    fun: () => {
+                        sendMsgRaw(
+                            targetId,
+                            targetType,
+                            cloneMessagePayload(msgData.message),
+                            shouldPreShow(),
+                        )
+                        uiStore.popBoxList.shift()
+                    },
+                },
+            ],
+        }
+        uiStore.popBoxList.push(popInfo)
+    }
+    cancelForward()
+    if(contactStore.baseOnMsgList.get(id) == undefined) {
+        contactStore.baseOnMsgList.set(id, data)
+    }
+    nextTick(() => {
+        const user = document.getElementById('user-' + id)
+        if (user) {
+            user.click()
+        }
+    })
+}
+
+function sendRespond(num: number) {
+    const msgData = selectedMsg.value
+    if (msgData !== null) {
+        const msgId = msgData.message_id
+        Connector.send(
+            authStore.jsonMap.send_respond.name,
+            {
+                group_id: chat.show.id,
+                message_id: msgId,
+                emoji_id: String(num),
+                code: String(num),
+            },
+            'SendRespondBack_' + msgId + '_' + num,
+        )
+    }
+    closeMsgMenu()
+}
+
+function isMessageImageTarget(el: HTMLElement | null) {
+    if (!el || el.nodeName !== 'IMG') return false
+    if ((el as HTMLImageElement).name === 'avatar') return false
+    if (el.classList.contains('emoji-face')) return false
+    return (el as HTMLImageElement).src.length > 0
+}
+
+async function copyMsg() {
+    const imgUrl = tags.value.menuDisplay.downloadImg
+    if (typeof imgUrl === 'string' && imgUrl) {
+        await copyImg()
+        return
+    }
+    const msgData = selectedMsg.value
+    closeMsgMenu()
+    if (!msgData) return
+    const popInfo = new PopInfo()
+    try {
+        await copyBubbleContent(msgData)
+        popInfo.add(PopType.INFO, $t('复制成功'), true)
+    } catch (e) {
+        popInfo.add(PopType.ERR, $t('复制失败'), true)
+        new Logger().error(e as unknown as Error, '复制消息失败')
+    }
+}
+
+function copySelectMsg() {
+    if (selectCache.value != '') {
+        const popInfo = new PopInfo()
+        app.config.globalProperties
+            .$copyText(selectCache.value)
+            .then(
+                () => {
+                    popInfo.add(PopType.INFO, $t('复制成功'), true)
+                },
+                () => {
+                    popInfo.add(PopType.ERR, $t('复制失败'), true)
+                },
+            )
+    }
+    closeMsgMenu()
+}
+
+async function copyImg() {
+    const url = tags.value.menuDisplay.downloadImg
+    if (!url) return
+    closeMsgMenu()
+    const popInfo = new PopInfo()
+    try {
+        await copyImageUrl(url)
+        popInfo.add(PopType.INFO, $t('复制成功'))
+    } catch (e) {
+        popInfo.add(PopType.ERR, $t('复制失败'))
+        new Logger().error(e as unknown as Error, '复制图片失败')
+    }
+}
+
+function downloadImg() {
+    const url = tags.value.menuDisplay.downloadImg
+    if (url != false) {
+        downloadFile(url as string, `img_${new Date().getTime()}.png`, () => undefined, () => undefined)
+    }
+    closeMsgMenu()
+}
+
+async function revokeMsg() {
+    const msgData = selectedMsg.value
+    closeMsgMenu()
+    if (!msgData) {
+        new PopInfo().add(PopType.ERR, $t('获取选中消息失败'))
+        return
+    }
+    const msgId = msgData.message_id
+    await Connector.callApi('delete_msg', { message_id: msgId })
+}
+
+async function reeditMsg() {
+    const msgData = selectedMsg.value
+    closeMsgMenu()
+    if (!msgData) {
+        new PopInfo().add(PopType.ERR, $t('获取选中消息失败'))
+        return
+    }
+    const msgId = msgData.message_id
+    await Connector.callApi('delete_msg', { message_id: msgId })
+    reedit(msgData)
+}
+
+function removeUser() {
+    const msgData = selectedMsg.value
+    if (msgData !== null) {
+        const popInfo = {
+            title: $t('提醒'),
+            html: `<span>${$t('真的要将 {user} 移出群聊吗', { user: msgData.sender.nickname })}</span>`,
+            button: [
+                {
+                    text: $t('确定'),
+                    fun: () => {
+                        if (msgData) {
+                            Connector.send(
+                                'set_group_kick',
+                                {
+                                    group_id:
+                                                    chatStore.chatInfo.show
+                                                        .id,
+                                    user_id: msgData.sender.user_id,
+                                },
+                                'setGroupKick',
+                            )
+                            closeMsgMenu()
+                            uiStore.popBoxList.shift()
+                        }
+                    },
+                },
+                {
+                    text: $t('取消'),
+                    master: true,
+                    fun: () => {
+                        uiStore.popBoxList.shift()
+                    },
+                },
+            ],
+        }
+        uiStore.popBoxList.push(popInfo)
+    }
+}
+
+function closeMsgMenu() {
+    tags.value.showMsgMenu = false
+    tags.value.menuDisplay.menuSelectedMsgId = null
+    setTimeout(() => {
+        initMenuDisplay()
+    }, 300)
+}
+
+function openChatInfoPan() {
+    tags.value.openChatInfo = !tags.value.openChatInfo
+    if (tags.value.openChatInfo) {
+        if (
+            chat.show.type === 'group' &&
+            chat.info.group_info.gc !== chat.show.id
+        ) {
+            const url = `https://qinfo.clt.qq.com/cgi-bin/qun_info/get_group_info_all?gc=${chat.show.id}&bkn=${authStore.loginInfo.bkn}`
+            Connector.send(
+                'http_proxy',
+                { url: url },
+                'getMoreGroupInfo',
+            )
+        } else if (
+            chat.show.type === 'user' &&
+            chat.info.user_info.uin !== chat.show.id
+        ) {
+            const userInfo = authStore.jsonMap.friend_info.name
+            if(userInfo != undefined) {
+                Connector.send(
+                    userInfo,
+                    { user_id: chat.show.id },
+                    'getMoreUserInfo',
+                )
+            }
+        }
+        const noticeName = authStore.jsonMap.group_notices.name
+        if (
+            chat.show.type === 'group' &&
+            (chat.info.group_notices === undefined ||
+                Object.keys(chat.info.group_notices).length ===
+                    0)
+        ) {
+            if (noticeName) {
+                Connector.send(
+                    noticeName,
+                    { group_id: chat.show.id },
+                    'getGroupNotices',
+                )
+            }
+        }
+        if (chat.show.type === 'group' && Object.keys(chat.info.group_files).length === 0) {
+            const name = authStore.jsonMap.group_files?.name
+            if(name) {
+                Connector.send(name, {
+                    group_id: chat.show.id
+                }, 'getGroupFiles')
+            }
+        }
+    }
+}
+
+function mutateImgCache(mut: (map: Map<number, string>) => void) {
+    const next = new Map(imgCache.value)
+    mut(next)
+    imgCache.value = next
+}
+
+function nextCacheKey(map: { size: number, keys: () => IterableIterator<number> }) {
+    return map.size === 0 ? 0 : Math.max(...map.keys()) + 1
+}
+
+function addAttachSrc(src: string) {
+    const value = src?.trim()
+    if (!value) return
+    mutateImgCache((map) => {
+        map.set(nextCacheKey(map), value)
+    })
+}
+
+function stickerSrcFromFile(file: string) {
+    const value = file?.trim()
+    if (!value) return ''
+    if (value.startsWith('base64://')) return 'data:image/png;base64,' + value.slice(9)
+    return value
+}
+
+function insertTextAtCursor(text: string) {
+    if (!text) return
+    if (composer.value?.insertText) {
+        composer.value.insertText(text)
+        return
+    }
+    msg.value += text
+}
+
+function insertFaceAtCursor(id: number) {
+    if (composer.value?.insertFace) {
+        composer.value.insertFace(id)
+        return
+    }
+    insertTextAtCursor(Emoji.get(id)?.value || '')
+}
+
+function hasOutgoingContent() {
+    return msg.value !== '' || imgCache.value.size > 0 || !!composer.value?.hasInlineFaces?.()
+}
+
+function imageSegFromSrc(src: string) {
+    if (src.startsWith('data:') && src.includes('base64,')) {
+        return {
+            type: 'image',
+            file: 'base64://' + src.substring(src.indexOf('base64,') + 7),
+        }
+    }
+    return { type: 'image', file: src }
+}
+
+function decodeHtmlEntities(text: string) {
+    if (!text || !text.includes('&')) return text
+    const box = document.createElement('textarea')
+    box.innerHTML = text
+    return box.value
+}
+
+function parseCqParams(body: string) {
+    const out: Record<string, string> = {}
+    for (const part of body.split(',')) {
+        const eq = part.indexOf('=')
+        if (eq <= 0) continue
+        out[part.slice(0, eq).trim()] = decodeHtmlEntities(part.slice(eq + 1).trim())
+    }
+    return out
+}
+
+function cqImageSrc(params: string) {
+    const info = parseCqParams(params)
+    const url = info.url || info.file || ''
+    if (/^https?:\/\//i.test(url) || url.startsWith('data:image/')) return url
+    return ''
+}
+
+function extractCqImageSrcs(text: string) {
+    const srcs: string[] = []
+    const re = /\[CQ:image,([^\]]*)\]/gi
+    let match: RegExpExecArray | null
+    while ((match = re.exec(text)) !== null) {
+        const src = cqImageSrc(match[1] || '')
+        if (src) srcs.push(src)
+    }
+    return srcs
+}
+
+function extractHtmlImageSrcs(html: string) {
+    const srcs: string[] = []
+    const re = /<img\b[^>]*\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))/gi
+    let match: RegExpExecArray | null
+    while ((match = re.exec(html)) !== null) {
+        const src = decodeHtmlEntities(match[1] || match[2] || match[3] || '').trim()
+        if (/^(https?:\/\/|data:image\/|blob:)/i.test(src)) srcs.push(src)
+    }
+    return srcs
+}
+
+function stripCqImages(text: string) {
+    return text.replace(/\[CQ:image,[^\]]*\]/gi, '')
+}
+
+function escapeHtml(text: string) {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+}
+
+function escapeAttr(text: string) {
+    return escapeHtml(text).replace(/"/g, '&quot;')
+}
+
+function bubbleCopyParts(msgData: any) {
+    let plain = ''
+    let html = ''
+    const urls: string[] = []
+    const segs = Array.isArray(msgData?.message) ? msgData.message : []
+    for (const seg of segs) {
+        if (!seg || typeof seg !== 'object') continue
+        if (seg.type === 'text' && typeof seg.text === 'string') {
+            plain += seg.text
+            html += escapeHtml(seg.text).replace(/\n/g, '<br>')
+        } else if (seg.type === 'at') {
+            const name = String(seg.text || seg.qq || '')
+            const piece = name ? '@' + name : ''
+            plain += piece
+            html += escapeHtml(piece)
+        } else if (seg.type === 'face') {
+            const emoji = Emoji.get(Number(seg.id))
+            const piece = emoji?.type === 'emoji'
+                ? emoji.value
+                : (emoji?.description ? '[' + emoji.description + ']' : '[' + $t('表情') + ']')
+            plain += piece
+            html += escapeHtml(piece)
+        } else if (seg.type === 'image' || seg.type === 'mface') {
+            const url = String(seg.url || '')
+            if (!url) continue
+            urls.push(url)
+            html += '<img src="' + escapeAttr(url) + '">'
+        }
+    }
+    return { plain, html, urls }
+}
+
+async function copyBubbleContent(msgData: any) {
+    const parts = bubbleCopyParts(msgData)
+    if (parts.urls.length === 1 && parts.plain.trim() === '') {
+        await copyImageUrl(parts.urls[0])
+        return
+    }
+    if (parts.urls.length === 0) {
+        const text = parts.plain || getMsgRawTxt(msgData) || ''
+        await copyToClipboard(text)
+        return
+    }
+    const html = '<div data-chihiro-copy="1">' + parts.html + '</div>'
+    await copyToClipboard([
+        new ClipboardItem({
+            'text/plain': new Blob([parts.plain], { type: 'text/plain' }),
+            'text/html': new Blob([html], { type: 'text/html' }),
+        }),
+    ])
+}
+
+function imageCopySources(url: string) {
+    if (!url) return []
+    if (url.startsWith('data:') || url.startsWith('blob:')) return [url]
+    const real = backend.unProxyUrl(url)
+    const sources: string[] = []
+    sources.push('/api/runtime/image-proxy?url=' + encodeURIComponent(real))
+    const proxied = backend.proxyUrl(real)
+    if (proxied !== real) sources.push(proxied)
+    return sources
+}
+
+async function copyImageUrl(url: string) {
+    let lastError: unknown
+    for (const src of imageCopySources(url)) {
+        try {
+            const data = await getImageUrlData(src)
+            if (backend.type === 'tauri') {
+                const Clipboard = await import('@tauri-apps/plugin-clipboard-manager')
+                await Clipboard.writeImage(data.buffer)
+                return
+            }
+            await copyToClipboard([new ClipboardItem({ [data.blob.type]: data.blob })])
+            return
+        } catch (e) {
+            lastError = e
+        }
+    }
+    throw lastError instanceof Error ? lastError : new Error('图片加载失败')
+}
+
+function consumeCqImagesFromMsg() {
+    if (!/\[CQ:image,/i.test(msg.value)) return false
+    const srcs = extractCqImageSrcs(msg.value)
+    if (srcs.length === 0) return false
+    srcs.forEach(addAttachSrc)
+    msg.value = stripCqImages(msg.value)
+    return true
+}
+
+function deleteImg(index: number) {
+    mutateImgCache((map) => { map.delete(index) })
+    msg.value = msg.value.replace(
+        '[SQ:' + index + ']',
+        '',
+    )
+    msg.value = msg.value.replace(
+        '[SQ:' + index,
+        '',
+    )
+}
+
+async function editImg(key: number) {
+    const img = imgCache.value.get(key)
+    if (!img) return
+    if (!viewerRef?.value) return
+    const dataurl = await viewerRef.value.edit(img)
+    mutateImgCache((map) => { map.set(key, dataurl) })
+}
+
+function addSpecialMsg(data: SQCodeElem) {
+    if (data !== undefined) {
+        const index = sendCache.value.length
+        sendCache.value.push(data.msgObj)
+        if (!data.addText) return index
+
+        const sqCode = `[SQ:${index}]`
+        if (data.addTop === true) {
+            const current = composer.value?.getPlainText?.() ?? msg.value
+            if (composer.value?.clear && composer.value?.insertText) {
+                composer.value.clear()
+                composer.value.insertText(sqCode + current)
+            } else {
+                msg.value = sqCode + msg.value
+            }
+        } else if (composer.value?.insertText) {
+            composer.value.insertText(sqCode)
+        } else {
+            msg.value += sqCode
+        }
+        return index
+    }
+    return -1
+}
+
+function addImg(event: ClipboardEvent) {
+    const data = event.clipboardData
+    if (!data) return
+
+    const imageFiles: File[] = []
+    if (data.items) {
+        for (let i = 0; i < data.items.length; i++) {
+            const item = data.items[i]
+            if (item.kind === 'file' && item.type.startsWith('image/')) {
+                const file = item.getAsFile()
+                if (file) imageFiles.push(file)
+            }
+        }
+    }
+    if (imageFiles.length === 0 && data.files) {
+        for (let i = 0; i < data.files.length; i++) {
+            const file = data.files[i]
+            if (file.type.startsWith('image/')) imageFiles.push(file)
+        }
+    }
+    if (imageFiles.length > 0) {
+        event.preventDefault()
+        imageFiles.forEach((file) => { void setImg(file) })
+        return
+    }
+
+    const html = decodeHtmlEntities(data.getData('text/html') || '')
+    const plain = decodeHtmlEntities(data.getData('text/plain') || '')
+    const srcs = extractCqImageSrcs(plain)
+        .concat(extractCqImageSrcs(html))
+        .concat(extractHtmlImageSrcs(html))
+    const unique = [...new Set(srcs)]
+    if (unique.length > 0) {
+        event.preventDefault()
+        unique.forEach(addAttachSrc)
+        const leftover = stripCqImages(plain).trim()
+        if (leftover) insertTextAtCursor(leftover)
+    }
+}
+
+function runSelectImg() {
+    const input = document.getElementById('choice-pic')
+    if (input) {
+        input.click()
+    }
+}
+
+function selectImg(event: Event) {
+    tags.value.showMoreDetail = false
+    const sender = event.target as HTMLInputElement
+    if (sender && sender.files) {
+        setImg(sender.files[0])
+    }
+}
+
+function runSelectFile() {
+    const input = document.getElementById('choice-file')
+    if (input) {
+        input.click()
+    }
+}
+
+function selectFile(event: Event) {
+    tags.value.showMoreDetail = false
+    const sender = event.target as HTMLInputElement
+    if (sender.files != null) {
+        const file = sender.files[0]
+        const fileName = file.name
+        const size = file.size
+        if (size > 1073741824) {
+            const popInfo = {
+                title: $t('提醒'),
+                html: `<span>${$t('文件大于 1GB。发送速度可能会非常缓慢；确认要发送吗？')}</span>`,
+                button: [
+                    {
+                        text: $t('发送'),
+                        fun: () => {
+                            uiStore.popBoxList.shift()
+                        },
+                    },
+                    {
+                        text: $t('取消'),
+                        master: true,
+                        fun: () => {
+                            uiStore.popBoxList.shift()
+                        },
+                    },
+                ],
+            }
+            uiStore.popBoxList.push(popInfo)
+        } else {
+            sendFile(file, fileName)
+        }
+        sender.value = ''
+    }
+}
+
+function sendFile(file: File, fileName: string | null) {
+    const displayName = fileName ?? file.name ?? $t('未知文件')
+    const taskId = addUploadTask({
+        fileName: displayName,
+        fileSize: file.size,
+        execute: (onProgress) => {
+            const reader = new FileReader()
+            reader.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    onProgress(event.loaded, event.total)
+                }
+            }
+            reader.readAsDataURL(file)
+            reader.onloadend = () => {
+                let base64data = reader.result as string
+                base64data = base64data.substring(
+                    base64data.indexOf('base64,') + 7,
+                    base64data.length,
+                )
+                sendCache.value = []
+                imgCache.value = new Map()
+                composer.value?.clear?.()
+                msg.value = ''
+                addSpecialMsg({
+                    addText: true,
+                    msgObj: {
+                        type: 'file',
+                        file: 'base64://' + base64data,
+                        name: displayName,
+                    },
+                })
+                sendMsg('sendFileBack_' + taskId)
+            }
+            reader.onerror = () => {
+                failUploadTask(taskId, '文件读取失败')
+            }
+        }
+    })
+}
+
+async function setImg(file: File | null) {
+    const popInfo = new PopInfo()
+    if (!file) return
+    if (!file.type.includes('image/')) return
+    if (file.size === 0) return
+
+    if (file.size > 3145728) {
+        const options = { maxSizeMB: 3, useWebWorker: true }
+        try {
+            popInfo.add(PopType.INFO, $t('正在压缩图片 ……'))
+            const compressedFile = await imageCompression(file, options)
+            new Logger().add(
+                LogType.INFO,
+                '图片压缩成功，原大小：' +
+                    file.size / 1024 / 1024 +
+                    ' MB，压缩后大小：' +
+                    compressedFile.size / 1024 / 1024 +
+                    ' MB',
+            )
+            setImg(compressedFile)
+        } catch (error) {
+            new Logger().error(error as Error, '图片压缩失败')
+            popInfo.add(PopType.INFO, $t('压缩图片失败'))
+        }
+        return
+    }
+
+    addAttachSrc(await fileToDataURL(file))
+}
+
+async function fileToDataURL(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = function(event) {
+            if (!event.target) reject(new Error('读取文件失败'))
+            else resolve(event.target.result as string)
+        }
+        reader.onerror = function(error) {
+            reject(error)
+        }
+        reader.readAsDataURL(file)
+    })
+}
+
+function toMainInput() {
+    const input = (document.getElementById( 'main-input') as HTMLTextAreaElement | HTMLInputElement) ??
+        (document.getElementById( 'main-input-ex') as HTMLTextAreaElement | HTMLInputElement)
+    if (input !== null) {
+        input.focus()
+    }
+}
+
+function sendMsg(echo = 'sendMsgBack') {
+    if (details.value[3].open) {
+        return
+    }
+    details.value.forEach((item) => {
+        item.open = false
+    })
+
+    const cache = sendCache.value
+    let text = composer.value?.serialize?.(cache) ?? msg.value
+    const attachStart = cache.length
+    for (const src of imgCache.value.values()) {
+        cache.push(imageSegFromSrc(src))
+    }
+    if (imgCache.value.size > 0) {
+        let prefix = ''
+        for (let i = 0; i < imgCache.value.size; i++) {
+            prefix += `[SQ:${attachStart + i}]`
+        }
+        text = prefix + text
+    }
+    const parsedMsg = SendUtil.parseMsg(
+        text,
+        cache,
+        [],
+    )
+    if (chat.show.temp) {
+        sendMsgRaw(
+            chat.show.id + '/' + chat.show.temp,
+            chat.show.type,
+            parsedMsg,
+            true,
+            echo,
+        )
+    } else {
+        sendMsgRaw(
+            chat.show.id,
+            chat.show.type,
+            parsedMsg,
+            true,
+            echo,
+        )
+    }
+    tags.value.checkNewLineFlag = true
+    msg.value = ''
+    sendCache.value = []
+    imgCache.value = new Map()
+    composer.value?.clear?.()
+    scrollBottom()
+    cancelReply()
+    scheduleResizeMainInput(undefined, true)
+}
+
+function updateList(newLength: number, oldLength: number) {
+    if (oldLength == 0 && newLength > 0) {
+        const name =
+            authStore.jsonMap.set_message_read?.name ?? undefined
+        let private_name =
+            authStore.jsonMap.set_message_read?.private_name ??
+            name
+        if (!private_name) private_name = name
+        if (chatStore.chatInfo.show.type == 'group') {
+            Connector.send(
+                name,
+                {
+                    group_id: chat.show.id,
+                    message_id:
+                        list[list.length - 1].message_id,
+                },
+                'setMessageRead',
+            )
+        } else {
+            Connector.send(
+                private_name,
+                {
+                    user_id: chat.show.id,
+                    message_id:
+                        list[list.length - 1].message_id,
+                },
+                'setMessageRead',
+            )
+        }
+        if(shouldAutoFocus()) {
+            toMainInput()
+        }
+    }
+
+    if (
+        tags.value.showBottomButton &&
+        !uiStore.nowGetHistory &&
+        oldLength > 0
+    ) {
+        if (NewMsgNum.value !== 0) {
+            NewMsgNum.value =
+                NewMsgNum.value + Math.abs(newLength - oldLength)
+        } else {
+            NewMsgNum.value = Math.abs(newLength - oldLength)
+        }
+    }
+    if (
+        list.length > 200 &&
+        !uiStore.nowGetHistory &&
+        !tags.value.showBottomButton
+    ) {
+        chatStore.messageList = []
+        const info = {
+            type: chat.show.type,
+            id: chat.show.id,
+            name: chat.show.name,
+            avatar: chat.show.avatar,
+            jump: chat.show.jump,
+        } as BaseChatInfoElem
+        loadHistoryFirst(info)
+        uiStore.nowGetHistory = true
+    }
+
+    const pan = document.getElementById('msgPan')
+    if (pan !== null) {
+        const height = pan.scrollHeight
+        nextTick(() => {
+            const newPan = document.getElementById('msgPan')
+            if (newPan !== null) {
+                if (uiStore.nowGetHistory) {
+                    scrollTo(
+                        newPan.scrollHeight - height,
+                        false,
+                    )
+                }
+                if (!uiStore.nowGetHistory) {
+                    if (!tags.value.showBottomButton) {
+                        scrollTo(newPan.scrollHeight)
+                    }
+                    if (oldLength <= 0) {
+                        scrollTo(newPan.scrollHeight, false)
+                    }
+                }
+                uiStore.nowGetHistory = false
+            }
+
+            const getImgList = () => {
+                const getImgList = [] as string[]
+                for(const item of list) {
+                    if (item.message !== undefined) {
+                        for(const msgItem of item.message) {
+                            if (
+                                msgItem.type === 'image' &&
+                                msgItem.file != 'marketface'
+                            ) {
+                                getImgList.push(msgItem.url)
+                            }
+                        }
+                    }
+                }
+                return getImgList
+            }
+            chatImg.value = Img.fromList(getImgList())
+            if (
+                chatStore.chatInfo.show &&
+                chatStore.chatInfo.show.jump
+            ) {
+                new Logger().debug(
+                    '进入跳转至消息：' +
+                        chatStore.chatInfo.show.jump,
+                )
+                scrollToMsgLocal(
+                    'chat-' + chatStore.chatInfo.show.jump,
+                )
+                chatStore.chatInfo.show.jump = undefined
+            }
+        })
+    }
+}
+
+function msgClick(_: Event, data: any) {
+    const message_id = data.message_id
+    if (multipleSelectList.value.length > 0) {
+        if (multipleSelectList.value.indexOf(message_id) > -1) {
+            multipleSelectList.value =
+                multipleSelectList.value.filter((item) => {
+                    return item != message_id
+                })
+        } else {
+            multipleSelectList.value.push(message_id)
+        }
+    }
+}
+
+function delMsgs() {
+    new PopInfo().add(
+        PopType.INFO,
+        $t('欸嘿，这个按钮只是用来占位置的'),
+    )
+}
+
+function copyMsgs() {
+    const msgList = list.filter((item: any) => {
+        return multipleSelectList.value.indexOf(item.message_id) > -1
+    })
+    let msgText = ''
+    let lastDate = ''
+    msgList.forEach((item: any) => {
+        const time = new Date(getViewTime(item.time))
+        const date =
+            time.getFullYear() +
+            '-' +
+            (time.getMonth() + 1) +
+            '-' +
+            time.getDate()
+        if (date != lastDate) {
+            msgText += '\n—— ' + date + ' ——\n'
+            lastDate = date
+        }
+        msgText +=
+            item.sender.nickname +
+            ' ' +
+            time.getHours() +
+            ':' +
+            time.getMinutes() +
+            ':' +
+            time.getSeconds() +
+            '\n' +
+            getMsgRawTxt(item) +
+            '\n\n'
+    })
+    const popInfo = new PopInfo()
+    app.config.globalProperties.$copyText(msgText).then(
+        () => {
+            popInfo.add(PopType.INFO, $t('复制成功'), true)
+            multipleSelectList.value = []
+        },
+        () => {
+            popInfo.add(PopType.ERR, $t('复制失败'), true)
+        },
+    )
+}
+
+async function recallMsgs() {
+    const msgList = list.filter((item: any) => multipleSelectList.value.includes(item.message_id))
+    const tasks: Promise<true | undefined>[] = []
+    for (const msgItem of msgList) {
+        const msgId = msgItem.message_id
+        tasks.push(Connector.callApi('delete_msg', { message_id: msgId }))
+    }
+    multipleSelectList.value = []
+    await Promise.all(tasks)
+}
+
+function showJin() {
+    details.value[2].open = !details.value[2].open
+    if (chatStore.chatInfo.info.jin_info.list.length == 0) {
+        const name =
+            authStore.jsonMap.group_essence.name ??
+            'get_essence_msg_list'
+        Connector.send(
+            name,
+            {
+                group_id: chat.show.id,
+                pages: 0,
+            },
+            'getJin',
+        )
+    }
+    tags.value.showMoreDetail = !tags.value.showMoreDetail
+}
+
+async function handleInput(event: Event) {
+    const input = event.target as HTMLElement
+    if (consumeCqImagesFromMsg()) {
+        scheduleResizeMainInput(input)
+        return
+    }
+    scheduleResizeMainInput(input)
+
+    const diff = getDifferencesWithRanges(msg.value, oldMsg.value)
+    let { end, str } = { end: 0, str: '' }
+    if(diff.length > 0) {
+        ({ end, str } = diff[0])
+    }
+
+    if(str.indexOf(']') >= 0) {
+        const sqIndex = oldMsg.value.substring(0, end).lastIndexOf('[SQ:')
+        if(sqIndex >= 0 && sqIndex < end) {
+            const msgHas = oldMsg.value.substring(sqIndex)
+            const sq = oldMsg.value.slice(sqIndex, msgHas.indexOf(']') + sqIndex + 1)
+            const numStr = sq.replace('[SQ:', '').replace(']', '')
+            const num = Number(numStr)
+            if(!isNaN(num) && imgCache.value.has(num)) {
+                deleteImg(num)
+            }
+        }
+    }
+
+    if (details.value[3].open) {
+        if (searchDebounceTimer.value) {
+            clearTimeout(searchDebounceTimer.value)
+            searchDebounceTimer.value = null
+        }
+        const value = msg.value
+        if (value.length == 0) {
+            searchRequestId.value++
+            tags.value.search.list = reactive(list)
+        } else if (settingsStore.sysConfig.enable_local_history) {
+            const requestId = ++searchRequestId.value
+            searchDebounceTimer.value = setTimeout(async () => {
+                const results = await dbSearchMessages(
+                    authStore.loginInfo.uin,
+                    chatStore.chatInfo.show.id,
+                    value,
+                )
+                if (requestId !== searchRequestId.value || !details.value[3].open) return
+                tags.value.search.list = results
+            }, 180)
+        } else {
+            searchRequestId.value++
+            tags.value.search.list = list.filter(
+                (item: any) => {
+                    const rawMessage = getMsgRawTxt(item)
+                    return rawMessage.indexOf(value) !== -1
+                },
+            )
+        }
+    }
+}
+
+function openSearch() {
+    details.value[3].open = !details.value[3].open
+    tags.value.showMoreDetail = !tags.value.showMoreDetail
+}
+
+function closeSearch() {
+    if (searchDebounceTimer.value) {
+        clearTimeout(searchDebounceTimer.value)
+        searchDebounceTimer.value = null
+    }
+    searchRequestId.value++
+    details.value[3].open = !details.value[3].open
+    msg.value = ''
+    tags.value.search.list = reactive(list)
+    scheduleResizeMainInput()
+}
+
+function sendPoke(userId: number) {
+    if (authStore.jsonMap.poke) {
+        let name = authStore.jsonMap.poke.name
+        if (
+            chat.show.type == 'user' &&
+            authStore.jsonMap.poke.private_name
+        ) {
+            name = authStore.jsonMap.poke.private_name
+        }
+        Connector.send(
+            name,
+            {
+                user_id: userId,
+                group_id: chat.show.id,
+            },
+            'sendPoke',
+        )
+    }
+    tags.value.showMoreDetail = false
+    tags.value.menuDisplay.poke = false
+}
+
+function reedit(msgData: any) {
+    msg.value = ''
+    sendCache.value = []
+    imgCache.value = new Map()
+    composer.value?.clear?.()
+    cancelReply()
+    for (const seg of msgData.message) {
+        if (seg.type === 'text') {
+            insertTextAtCursor(seg.text)
+        } else if (seg.type === 'reply') {
+            const foundMsg = list.find((item: any) => item.message_id == seg.id)
+            if (!foundMsg) continue
+            replyMsg(foundMsg)
+        } else if (seg.type === 'image') {
+            const url = String(seg.url || '')
+            const file = String(seg.file || '')
+            if (/^https?:\/\//i.test(url) || url.startsWith('data:')) addAttachSrc(url)
+            else if (/^https?:\/\//i.test(file) || file.startsWith('data:')) addAttachSrc(file)
+            else if (file.startsWith('base64://')) addAttachSrc('data:image/png;base64,' + file.slice(9))
+        } else if (seg.type === 'face' && seg.id != null && !Number.isNaN(Number(seg.id))) {
+            insertFaceAtCursor(Number(seg.id))
+        } else {
+            addSpecialMsg({
+                addText: true,
+                msgObj: seg,
+            })
+        }
+    }
+    toMainInput()
+}
+
+function jinScroll(event: Event) {
+    const body = event.target as HTMLDivElement
+    if (
+        body.scrollTop + body.clientHeight === body.scrollHeight &&
+        !tags.value.isJinLoading
+    ) {
+        if (chat.info.jin_info.is_end == false) {
+            tags.value.isJinLoading = true
+            const name =
+                authStore.jsonMap.group_essence.name ??
+                'get_essence_msg_list'
+            Connector.send(
+                name,
+                {
+                    group_id: chat.show.id,
+                    pages: chat.info.jin_info.pages + 1,
+                },
+                'getJin',
+            )
+        }
+    }
+}
+
+function viewerEssImg(url: string) {
+    if (!viewerRef?.value) return
+    viewerRef.value.open(new Img(url))
+}
+
+function moreFunClick(type = 'default') {
+    let hasOpen = false
+    details.value.forEach((item) => {
+        if (item.open) hasOpen = true
+        item.open = false
+    })
+    if (hasOpen) return
+    if (tags.value.showMoreDetail) {
+        tags.value.showMoreDetail = false
+        return
+    }
+    switch(type) {
+        case 'default': tags.value.showMoreDetail = true; break
+        case 'img': runSelectImg(); break
+        case 'file': runSelectFile(); break
+        case 'face': details.value[1].open = !details.value[1].open; break
+    }
+}
+
+function getTargetWin(): HTMLDivElement | undefined {
+    const chatPan = document.getElementById('chat-pan')
+    if (!chatPan) return
+    if(tags.value.openChatInfo) {
+        return chatPan.getElementsByClassName('chat-info-pan')[0] as HTMLDivElement
+    } else if(mergePan.value?.isMergeOpen()) {
+        return chatPan.getElementsByClassName('merge-pan')[0] as HTMLDivElement
+    } else {
+        return chatPan as HTMLDivElement
+    }
+}
+
+function exitWin() {
+    if(tags.value.openChatInfo) {
+        openChatInfoPan()
+    } else if(mergePan.value?.isMergeOpen()) {
+        mergePan.value?.closeMergeMsg()
+        setTimeout(() => {
+            const chatPan = document.getElementById('chat-pan')
+            const mergePanEl = chatPan!.getElementsByClassName('merge-pan')[0] as HTMLDivElement
+            if(mergePanEl) {
+                mergePanEl.style.transform = ''
+            }
+        }, 500)
+    } else {
+        chatStore.chatInfo.show.id = 0
+        uiStore.openSideBar = true
+        new Logger().add(LogType.UI, '右滑打开侧边栏触发完成')
+    }
+}
+</script>
+
+<style scoped>
+    /* 消息动画 */
+    .msglist-move {
+        transition: all 0.3s;
+    }
+
+    .msglist-enter-active {
+        transition: all 0.4s;
+    }
+
+    .msglist-leave-active {
+        transition: all 0.2s;
+    }
+
+    .msglist-enter-from {
+        transform: translateX(-20px);
+        opacity: 0;
+    }
+
+    .msglist-leave-to {
+        opacity: 0;
+    }
+
+    /* 更多功能面板动画 */
+    .pan-enter-active,
+    .pan-leave-active {
+        transition: opacity 0.3s;
+    }
+
+    .pan-enter-from {
+        transform: translateX(20px);
+        opacity: 0;
+    }
+
+    .pan-leave-to {
+        opacity: 0;
+    }
+</style>
+
+
+<style>
+/* chihiro-moved-from-user-css */
+.msg-menu {
+    overflow: visible !important;
+}
+.msg-menu-body {
+    width: max-content !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    padding: 6px !important;
+    position: relative;
+}
+.msg-menu-body > .respond {
+    position: absolute !important;
+    left: 0 !important;
+    right: auto !important;
+    bottom: calc(100% + 8px) !important;
+    width: max-content !important;
+    max-width: min(360px, calc(100vw - 24px)) !important;
+    margin: 0 !important;
+}
+.msg-menu-body > div:not(.respond) {
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    gap: 10px !important;
+    width: max-content !important;
+    min-width: 100% !important;
+    padding: 7px 10px !important;
+    box-sizing: border-box;
+}
+.msg-menu-body > div:not(.respond) > div {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+    margin: 0 !important;
+}
+.msg-menu-body > div:not(.respond) > div > svg {
+    margin: 0 !important;
+    width: 14px !important;
+    height: 14px !important;
+}
+.msg-menu-body > div:not(.respond) > a {
+    margin: 0 !important;
+    flex: 0 0 auto;
+    text-align: left;
+    font-size: 13px !important;
+    white-space: nowrap;
+}
+
+.chihiro-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    pointer-events: all;
+    flex: 0 0 auto;
+    margin-right: 0;
+}
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-feature-btn,
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-history-btn,
+.user-skin.chat-pan > div.info > .chihiro-head-actions .more {
+    background: transparent !important;
+    border-radius: 50%;
+    cursor: pointer;
+    height: 32px !important;
+    width: 32px !important;
+    margin: 0 !important;
+    display: grid;
+    place-items: center;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-feature-btn svg,
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-history-btn svg,
+.user-skin.chat-pan > div.info > .chihiro-head-actions .more svg {
+    color: var(--color-font-1) !important;
+    height: 16px !important;
+    width: 16px !important;
+    margin: 0 !important;
+}
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-feature-btn:hover,
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-feature-btn.active,
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-history-btn:hover,
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-history-btn.active,
+.user-skin.chat-pan > div.info > .chihiro-head-actions .more:hover {
+    background: rgba(127, 127, 127, 0.18) !important;
+}
+.chihiro-history-mask {
+    position: absolute;
+    inset: 0;
+    z-index: 25 !important;
+    background: rgba(0, 0, 0, 0.45);
+    pointer-events: all;
+    display: grid;
+    place-items: center;
+    padding: 28px 24px;
+    box-sizing: border-box;
+}
+.chihiro-history-win {
+    display: flex;
+    flex-direction: column;
+    width: min(780px, 100%);
+    height: min(680px, 100%);
+    min-height: 0;
+    padding: 0 20px 0;
+    background: var(--color-card);
+    border: 1px solid var(--color-card-2);
+    border-radius: 14px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    pointer-events: all;
+}
+.chihiro-history-head {
+    display: grid;
+    grid-template-columns: 36px 1fr 36px;
+    align-items: center;
+    padding: 12px 4px 12px;
+    margin: 0 -8px 10px;
+    color: var(--color-font);
+    border-bottom: 1px solid var(--color-card-2);
+}
+.chihiro-history-title {
+    grid-column: 2;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.chihiro-history-close {
+    grid-column: 3;
+    justify-self: end;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--color-font-1);
+}
+.chihiro-history-close:hover {
+    background: var(--color-card-2);
+}
+.chihiro-history-close svg {
+    width: 14px !important;
+    height: 14px !important;
+    margin: 0 !important;
+}
+.chihiro-history-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--color-main);
+    border-radius: 8px;
+    background: var(--color-card-1);
+}
+.chihiro-history-search svg {
+    width: 14px !important;
+    height: 14px !important;
+    margin: 0 !important;
+    color: var(--color-font-2) !important;
+    flex: 0 0 auto;
+}
+.chihiro-history-search input {
+    flex: 1;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--color-font);
+    font-size: 13px;
+    height: 100%;
+}
+.chihiro-history-tabs {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    padding: 14px 4px 0;
+    border-bottom: 1px solid var(--color-card-2);
+}
+.chihiro-history-tabs button {
+    appearance: none;
+    background: none;
+    border: 0;
+    color: var(--color-font-1);
+    font-size: 14px;
+    padding: 0 0 10px;
+    cursor: pointer;
+    position: relative;
+}
+.chihiro-history-tabs button.active {
+    color: var(--color-font);
+    font-weight: 600;
+}
+.chihiro-history-tabs button.active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--color-main);
+    border-radius: 2px;
+}
+.chihiro-history-list {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding: 4px 0 20px;
+}
+.chihiro-history-date {
+    color: var(--color-font-2);
+    font-size: 13px;
+    padding: 16px 4px 10px;
+    border-bottom: 1px solid var(--color-card-2);
+    margin-bottom: 2px;
+}
+.chihiro-history-item {
+    display: flex;
+    gap: 12px;
+    padding: 14px 4px;
+    border-bottom: 1px solid var(--color-card-2);
+    cursor: pointer;
+}
+.chihiro-history-item:hover {
+    background: var(--color-card-1);
+}
+.chihiro-history-item img {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex: 0 0 auto;
+    background: var(--color-card-2);
+}
+.chihiro-history-text {
+    color: var(--color-font);
+    font-size: 14px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-width: 0;
+}
+.chihiro-history-empty {
+    color: var(--color-font-2);
+    text-align: center;
+    padding: 56px 0;
+    font-size: 13px;
+}
+
+.user-skin.chat-pan > div.info {
+    margin: 0 !important;
+    width: 100% !important;
+    height: 48px !important;
+    min-height: 48px;
+    padding: 0 20px 0 16px !important;
+    box-sizing: border-box !important;
+    border-radius: 0 !important;
+    background: var(--color-bg) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    border-bottom: 1px solid rgba(127, 127, 127, 0.12);
+}
+.user-skin.chat-pan > div.info > img {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 50% !important;
+    border: 0 !important;
+    margin-right: 8px !important;
+}
+.user-skin.chat-pan > div.info > div.info p {
+    font-size: 14px !important;
+    font-weight: 600;
+}
+.user-skin.chat-pan > div.info > div.info span {
+    display: none;
+}
+.user-skin.chat-pan > div.info > svg.back {
+    width: 16px !important;
+    height: 16px !important;
+    padding: 8px !important;
+    margin-right: 8px !important;
+    border-radius: 50% !important;
+    background: transparent !important;
+}
+
+.forward-float-enter-active,
+.forward-float-leave-active {
+    transition: opacity 0.2s ease !important;
+}
+.forward-float-enter-active > div.card,
+.forward-float-leave-active > div.card {
+    animation: none !important;
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.forward-float-enter-from,
+.forward-float-leave-to {
+    opacity: 0;
+}
+.forward-float-enter-from > div.card,
+.forward-float-leave-to > div.card {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.96) !important;
+}
+</style>

@@ -1,0 +1,599 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "repository": "https://github.com/Stapxs/Stapxs-QQ-Lite-2.0.git",
+    "branch": "next",
+    "commit": "7a895b964a67faf72f912370eb769adce16e37cc",
+    "packageVersion": "3.5.0",
+    "license": "AGPL-3.0-only",
+    "licenseFile": "vendor/stapxs/LICENSE"
+  },
+  "roots": [
+    "pages/user/UserChat.vue",
+    "pages/user/UserMessages.vue"
+  ],
+  "transformations": [
+    {
+      "match": "@renderer/main",
+      "replacement": "@chihiro/im-native/host",
+      "reason": "Remove upstream createApp/i18n/Pinia bootstrap dependency; host must configure translation and clipboard."
+    }
+  ],
+  "files": [
+    {
+      "path": "src/assets/css/append/append_full_vibrancy.css",
+      "upstreamPath": "assets/css/append/append_full_vibrancy.css",
+      "sha256": "e682c9c7b3416be1be80cca1f6399650871063098704c1a57537369bd5667298"
+    },
+    {
+      "path": "src/assets/css/append/append_linux_vibrancy.css",
+      "upstreamPath": "assets/css/append/append_linux_vibrancy.css",
+      "sha256": "36bce17558603d6d12a54b5b84a3b92b20a281e64121fd330cfade0d6b1c393f"
+    },
+    {
+      "path": "src/assets/css/append/append_napcat.css",
+      "upstreamPath": "assets/css/append/append_napcat.css",
+      "sha256": "419964fcfbf9163cae5799be962a868ee6348b58caecac4b20fcb849e13d6107"
+    },
+    {
+      "path": "src/assets/css/append/append_new.css",
+      "upstreamPath": "assets/css/append/append_new.css",
+      "sha256": "77c3733725b566d53d9d2249eef97f8801307b3ab97a8a47c2702726d5c579c3"
+    },
+    {
+      "path": "src/assets/css/append/append_vibrancy.css",
+      "upstreamPath": "assets/css/append/append_vibrancy.css",
+      "sha256": "062ef2e50e7871f2abcc715cbd109a0fbaef58412bd1f316d63d11079815fec8"
+    },
+    {
+      "path": "src/assets/css/append/mobile/append_mobile_horizontal.css",
+      "upstreamPath": "assets/css/append/mobile/append_mobile_horizontal.css",
+      "sha256": "1a6109f1f13559141a54279edcfcca70053f094eae9e35760b5f215246117bb0"
+    },
+    {
+      "path": "src/assets/css/append/mobile/append_mobile_vertical.css",
+      "upstreamPath": "assets/css/append/mobile/append_mobile_vertical.css",
+      "sha256": "45405ec1b83870d7572e9d534ef6aefa795c4b78be4065aacb5caebaa36712b0"
+    },
+    {
+      "path": "src/assets/img/icons/AppIcon.png",
+      "upstreamPath": "assets/img/icons/AppIcon.png",
+      "sha256": "f063500920dac75663629032e38fa41836acf82c0eb80eb83fc0ca7eecd7f1ac"
+    },
+    {
+      "path": "src/assets/img/icons/AppIconDark.png",
+      "upstreamPath": "assets/img/icons/AppIconDark.png",
+      "sha256": "583d778352120b122c1468dd8c422f3d46adda0a8d8ee6799eb51952cb2feddd"
+    },
+    {
+      "path": "src/assets/img/icons/CapacitorAppIcon.png",
+      "upstreamPath": "assets/img/icons/CapacitorAppIcon.png",
+      "sha256": "186ae84285bcabb688fdfd30a73f068474f17054a89894aa51a78414b3aa913a"
+    },
+    {
+      "path": "src/assets/img/icons/CapacitorAppIconDark.png",
+      "upstreamPath": "assets/img/icons/CapacitorAppIconDark.png",
+      "sha256": "a80ed73e9775b783926d30f3655d1893d659df92bfb75a1a6865aa59b3e08d66"
+    },
+    {
+      "path": "src/assets/img/icons/exit.png",
+      "upstreamPath": "assets/img/icons/exit.png",
+      "sha256": "915db955dac0179b823e890d64159b655722b5088d9ede2c509309104556d93e"
+    },
+    {
+      "path": "src/assets/img/icons/icon.svg",
+      "upstreamPath": "assets/img/icons/icon.svg",
+      "sha256": "5aa60866ab3f419f9dd3c3ec8af3ca3fd2d4ccb3a37aaf0013446054a889ce0b"
+    },
+    {
+      "path": "src/assets/img/icons/NapcatAppIcon.png",
+      "upstreamPath": "assets/img/icons/NapcatAppIcon.png",
+      "sha256": "6a16cfecc1a589aee8a947b467297097f3593d2af45ff216b75481fd50c84fbd"
+    },
+    {
+      "path": "src/assets/img/icons/NapcatAppIconDark.png",
+      "upstreamPath": "assets/img/icons/NapcatAppIconDark.png",
+      "sha256": "6a16cfecc1a589aee8a947b467297097f3593d2af45ff216b75481fd50c84fbd"
+    },
+    {
+      "path": "src/assets/img/icons/pen.png",
+      "upstreamPath": "assets/img/icons/pen.png",
+      "sha256": "c09f574e29a837abdf2b45ef25392c33ba77315c0f1b3b9dd1fb0718fb5aec4d"
+    },
+    {
+      "path": "src/assets/img/qq-face/public/assets/qq_emoji/_index.json",
+      "upstreamPath": "assets/img/qq-face/public/assets/qq_emoji/_index.json",
+      "sha256": "9ef7b826939693447c245ae2fcc462ce64f9fafdc274321e7375c78cf3f18d3c"
+    },
+    {
+      "path": "src/assets/img/Vue.png",
+      "upstreamPath": "assets/img/Vue.png",
+      "sha256": "a6e46cc8326f3243b992a038589db81cf9e0e94da8f0a9b5ae099744c0e1d275"
+    },
+    {
+      "path": "src/assets/l10n/_About I10n.md",
+      "upstreamPath": "assets/l10n/_About I10n.md",
+      "sha256": "849842a7eee68434a808948264299d0e406595a827e8d7190500dd5e7bb7672f"
+    },
+    {
+      "path": "src/assets/l10n/_l10nconfig.json",
+      "upstreamPath": "assets/l10n/_l10nconfig.json",
+      "sha256": "a3d88882186aba1f5c61854714cbc05b5e97ac9aaf16f44c97846f351db3a9bc"
+    },
+    {
+      "path": "src/assets/l10n/zh-CAT.po",
+      "upstreamPath": "assets/l10n/zh-CAT.po",
+      "sha256": "ca29ae1bd9e39d14fba27d0d4fe40c8a39079fbf1b6a5f0904613119cbe59d49"
+    },
+    {
+      "path": "src/assets/l10n/zh-CN.po",
+      "upstreamPath": "assets/l10n/zh-CN.po",
+      "sha256": "7dfc52e94d675c4d2b927780dc9e985e55cc85dba5fa9e5249f61a8732c79c4b"
+    },
+    {
+      "path": "src/assets/l10n/zh-TW.po",
+      "upstreamPath": "assets/l10n/zh-TW.po",
+      "sha256": "53d145d6b9131532e38f4ffda8f18b922825c06db5ce74c40d0cb74521263a46"
+    },
+    {
+      "path": "src/assets/l10n/zh-YUE.po",
+      "upstreamPath": "assets/l10n/zh-YUE.po",
+      "sha256": "4f62bea226eb63eee636ae8091dbf5587071571a63ba371f83351a3a86b05d11"
+    },
+    {
+      "path": "src/assets/pathMap/Lagrange.OneBot.yaml",
+      "upstreamPath": "assets/pathMap/Lagrange.OneBot.yaml",
+      "sha256": "a0157ada0730c916043ad89bead5c07b1ff8f3b6110e3f24b366e8fa4c309507"
+    },
+    {
+      "path": "src/assets/pathMap/LLOneBot.yaml",
+      "upstreamPath": "assets/pathMap/LLOneBot.yaml",
+      "sha256": "d548fa591928775f2d922d737c2c0de792a5821942bd3bb7b0c7c1d026b344cb"
+    },
+    {
+      "path": "src/assets/pathMap/NapCat.Onebot.yaml",
+      "upstreamPath": "assets/pathMap/NapCat.Onebot.yaml",
+      "sha256": "15c1cce73d48f9b642053603a763c45a5e020a9eb613a9bf59955bdd9bf08db5"
+    },
+    {
+      "path": "src/assets/pathMap/SnowLuma.yaml",
+      "upstreamPath": "assets/pathMap/SnowLuma.yaml",
+      "sha256": "5e782573fb4deb96a45dfeb49c2b717d6a436b81f8a4f0792dd44d101e1e9650"
+    },
+    {
+      "path": "src/assets/qed.txt",
+      "upstreamPath": "assets/qed.txt",
+      "sha256": "5b4f4aa59292626ba6ed17085dc37403db98cec7d37d79e2ba14903c9bdcd406"
+    },
+    {
+      "path": "src/components/assets/font/方正喵呜体.ttf",
+      "upstreamPath": "components/assets/font/方正喵呜体.ttf",
+      "sha256": "e5336454a54d77b27d53e45bbce175ae57d5912cea3f1aa321285f05ff56d73f"
+    },
+    {
+      "path": "src/components/assets/img/cakes.svg",
+      "upstreamPath": "components/assets/img/cakes.svg",
+      "sha256": "0bec48bfbd7da5a9240853cf795378ce45ee68a9db07a0c8aae8fb1f502238dc"
+    },
+    {
+      "path": "src/components/assets/img/stars.svg",
+      "upstreamPath": "components/assets/img/stars.svg",
+      "sha256": "79a779e13bd2313408c258dd2eabde495af82f1746b6ab850429cadcc17ee41e"
+    },
+    {
+      "path": "src/components/assets/img/期待.png",
+      "upstreamPath": "components/assets/img/期待.png",
+      "sha256": "6a34388220dec3a62592bb1fa15a7af23eef3aec809604e901080c91a1817ac1"
+    },
+    {
+      "path": "src/components/user/AgentChatHost.vue",
+      "upstreamPath": "components/user/AgentChatHost.vue",
+      "sha256": "ff7158e4e30b0f110e6fd871ff7afdd82460e8b4e8fa7f66d01e2664deda245e"
+    },
+    {
+      "path": "src/components/user/notice-component/MealHungryPan.vue",
+      "upstreamPath": "components/user/notice-component/MealHungryPan.vue",
+      "sha256": "5186586feedfb78bc5bfca5a8ba174389d8d4b69d358a2ad3165599977b44795"
+    },
+    {
+      "path": "src/components/user/tooltip/UserCustomFaceTooltip.vue",
+      "upstreamPath": "components/user/tooltip/UserCustomFaceTooltip.vue",
+      "sha256": "4c0356f353c58e14e1af2436f14338b332cdd135cdd17ad31c53a3b547f0ccba"
+    },
+    {
+      "path": "src/components/user/tooltip/UserInfoTooltip.vue",
+      "upstreamPath": "components/user/tooltip/UserInfoTooltip.vue",
+      "sha256": "ff515b11c513a76b48c3909e5eb9a6a3a348d5dc730d0d9fa52a87762e28dd1d"
+    },
+    {
+      "path": "src/components/user/tooltip/UserTooltip.vue",
+      "upstreamPath": "components/user/tooltip/UserTooltip.vue",
+      "sha256": "aa3ed119fc0478ef5fb249bd6e516f95beec755c5409ac052cc5db1f32bf233c"
+    },
+    {
+      "path": "src/components/user/tooltip/UserTooltips.vue",
+      "upstreamPath": "components/user/tooltip/UserTooltips.vue",
+      "sha256": "b4935a370249702130ba6b3c72244f5c33954cbec38d4cace3e8e93c9c44acf7"
+    },
+    {
+      "path": "src/components/user/UserAboutPan.vue",
+      "upstreamPath": "components/user/UserAboutPan.vue",
+      "sha256": "72a23f1c4cc36eea68b1add0387f74e75322ef340cbde77bf6611c87c9a873cd"
+    },
+    {
+      "path": "src/components/user/UserBulletinBody.vue",
+      "upstreamPath": "components/user/UserBulletinBody.vue",
+      "sha256": "2f74ca3783aac1dc7e24a2b7911fb219509229f543236670ca46b7fe6cb1d787"
+    },
+    {
+      "path": "src/components/user/UserComposer.vue",
+      "upstreamPath": "components/user/UserComposer.vue",
+      "sha256": "bcba655d8676d6a06022b4a33a131a9f63297a8fd54b7ecff5f6d19056016650"
+    },
+    {
+      "path": "src/components/user/UserDepPan.vue",
+      "upstreamPath": "components/user/UserDepPan.vue",
+      "sha256": "361e2f48ceb9f6d3b4c1846f102671b796891283159351203d1fe4f2835f9b00"
+    },
+    {
+      "path": "src/components/user/UserEmojiFace.vue",
+      "upstreamPath": "components/user/UserEmojiFace.vue",
+      "sha256": "73ed26200866ade6f45d482f735e5f26e08d42485c071648dcf3101100d427e3"
+    },
+    {
+      "path": "src/components/user/UserFacePan.vue",
+      "upstreamPath": "components/user/UserFacePan.vue",
+      "sha256": "0c21e49095d5a566974f06eb704d768456ec3870518e0981fe53b568f9c8ae10"
+    },
+    {
+      "path": "src/components/user/UserFileBody.vue",
+      "upstreamPath": "components/user/UserFileBody.vue",
+      "sha256": "aa1616406f38356375693d59f082ab3b68e81ce774cb4e746b3911a2a95fe233"
+    },
+    {
+      "path": "src/components/user/UserFileManager.vue",
+      "upstreamPath": "components/user/UserFileManager.vue",
+      "sha256": "dab79343561e4eef4ba98ff0bf2c67132c695f26f69891ddd0aa8d4d8ff4cb72"
+    },
+    {
+      "path": "src/components/user/UserFriendBody.vue",
+      "upstreamPath": "components/user/UserFriendBody.vue",
+      "sha256": "0e2090940610e80bca091359d5f7e4c7b2071b8f370769ad0d3a026a1e4c0390"
+    },
+    {
+      "path": "src/components/user/UserGlobalSessionSearchBar.vue",
+      "upstreamPath": "components/user/UserGlobalSessionSearchBar.vue",
+      "sha256": "a35d06e0b93d3732ef39796688a4075b6292234b923c237853c87f5ec3293aa9"
+    },
+    {
+      "path": "src/components/user/UserJsonSegComp.vue",
+      "upstreamPath": "components/user/UserJsonSegComp.vue",
+      "sha256": "db0bae492040a3b3fab6af4864a6c6770b8ba739459d5cb9eb95aa2772d3d65f"
+    },
+    {
+      "path": "src/components/user/UserLazyLottie.vue",
+      "upstreamPath": "components/user/UserLazyLottie.vue",
+      "sha256": "55044c0f8c10f0c0940a545f0a95e39c224fc3d73552c0f5c3a6229a9b9c6ae4"
+    },
+    {
+      "path": "src/components/user/UserListHead.vue",
+      "upstreamPath": "components/user/UserListHead.vue",
+      "sha256": "ac73f4bfd550e919954a8c1ae98306f748fe2021ebd8deab4794223e72a914ca"
+    },
+    {
+      "path": "src/components/user/UserMergePan.vue",
+      "upstreamPath": "components/user/UserMergePan.vue",
+      "sha256": "b417622933c88208ec217868822f8c3406154a9053bf77251dfc80dd4a3e327d"
+    },
+    {
+      "path": "src/components/user/UserMsgBody.vue",
+      "upstreamPath": "components/user/UserMsgBody.vue",
+      "sha256": "52387ba4ff41a58814518999375b8b318c05cb43b3a965fb21edac86ff7b0338"
+    },
+    {
+      "path": "src/components/user/UserMusicPlayer.vue",
+      "upstreamPath": "components/user/UserMusicPlayer.vue",
+      "sha256": "d5cb98e332895525aced4c674a1e2edfd6f970d23444698fb994736c657f60b5"
+    },
+    {
+      "path": "src/components/user/UserNoticeBody.vue",
+      "upstreamPath": "components/user/UserNoticeBody.vue",
+      "sha256": "a7b8822bd1cfd465cc6e9afb1b7f258fbffbb05d9d69064112a493227b3d9984"
+    },
+    {
+      "path": "src/components/user/UserProfilePop.vue",
+      "upstreamPath": "components/user/UserProfilePop.vue",
+      "sha256": "40520d0c380b22b215ba8ba543b0df82caef031cebc6b4f53801f1ef311e72a5"
+    },
+    {
+      "path": "src/components/user/UserQzonePermissionPan.vue",
+      "upstreamPath": "components/user/UserQzonePermissionPan.vue",
+      "sha256": "b86441c97f6577a0a0a63b030f1a00c1148ec4333bc6e7672dded49171bcd957"
+    },
+    {
+      "path": "src/components/user/UserRawMsgRenderPreviewPan.vue",
+      "upstreamPath": "components/user/UserRawMsgRenderPreviewPan.vue",
+      "sha256": "bf3338abc3bd6b90eb4b5e9f652d3ad971c34e7a9cb5088228ed6c991feaf46a"
+    },
+    {
+      "path": "src/components/user/UserThemeColorPickerPan.vue",
+      "upstreamPath": "components/user/UserThemeColorPickerPan.vue",
+      "sha256": "ea1fcf28e2c3cb754e5f9da3143ad54bd61285aa99421f87c9e026d278c954df"
+    },
+    {
+      "path": "src/components/user/UserTinySessionBody.vue",
+      "upstreamPath": "components/user/UserTinySessionBody.vue",
+      "sha256": "a99f580f85115f94a46a8d3ad4a5a12984df23d8fdbd43efca1b68c5ecabeac6"
+    },
+    {
+      "path": "src/components/user/UserUmamiInfoPan.vue",
+      "upstreamPath": "components/user/UserUmamiInfoPan.vue",
+      "sha256": "8407163935d31b868f0443e5556b899202e5422129dd04717ec03772b77fbba4"
+    },
+    {
+      "path": "src/components/user/UserUpdatePan.vue",
+      "upstreamPath": "components/user/UserUpdatePan.vue",
+      "sha256": "252d572efc9fe254975334a206ee016ca0314626597a24b363bdb50e6e1a34cc"
+    },
+    {
+      "path": "src/components/user/UserViewerCom.vue",
+      "upstreamPath": "components/user/UserViewerCom.vue",
+      "sha256": "afc8ebbadf1a557789e677af4522aa54f3380bd86dc8e36f0448c6a2c1c75205"
+    },
+    {
+      "path": "src/components/user/UserVoiceMsg.vue",
+      "upstreamPath": "components/user/UserVoiceMsg.vue",
+      "sha256": "a383e06c5d5bd5a4c430695bac48b4b4f605f36f1154ebaded4d28e2af5409d3"
+    },
+    {
+      "path": "src/components/user/UserWelPan.vue",
+      "upstreamPath": "components/user/UserWelPan.vue",
+      "sha256": "87e46dd53a6272219eededed02488ac633049f3c9dd8d32d1e68b42203bfd20a"
+    },
+    {
+      "path": "src/components/user/UserXmlSegComp.vue",
+      "upstreamPath": "components/user/UserXmlSegComp.vue",
+      "sha256": "ce416038db93f1e869d32613345621500f0c48fffdcb73ff1f0c7c7d773a92ed"
+    },
+    {
+      "path": "src/function/base.ts",
+      "upstreamPath": "function/base.ts",
+      "sha256": "dbb257085ec31e2fe20d6e75332e200339452ac4007a0d0e47a4c6dd7ddd9af4"
+    },
+    {
+      "path": "src/function/connect.ts",
+      "upstreamPath": "function/connect.ts",
+      "sha256": "54e846402e619454fa8fd4180e0fe8e2ec8a463b4022e9f43f743a7cd81b1be1"
+    },
+    {
+      "path": "src/function/elements/information.ts",
+      "upstreamPath": "function/elements/information.ts",
+      "sha256": "c2cc0d196a3b38c440b0d397bc0b66f75be885e1afd135c394d3778a8456c701"
+    },
+    {
+      "path": "src/function/elements/system.ts",
+      "upstreamPath": "function/elements/system.ts",
+      "sha256": "671e6b074f4c50d9bf0d403568c5e61586ba8919ee783259aeab00c8e8ba3ca4"
+    },
+    {
+      "path": "src/function/elements/vueComp.ts",
+      "upstreamPath": "function/elements/vueComp.ts",
+      "sha256": "8720c2c77f3c4ef823c22ca421d67a82c70f650b06094fe0b3439006baad6bc2"
+    },
+    {
+      "path": "src/function/favicon.ts",
+      "upstreamPath": "function/favicon.ts",
+      "sha256": "3610761f5ac496b208708bd69b87c6e70f0e727e23e35b3a4e1a0703fa63789a"
+    },
+    {
+      "path": "src/function/input.ts",
+      "upstreamPath": "function/input.ts",
+      "sha256": "e3624e654ea4a03ff2b16e71c34059658140651280d3d309365401e2da0e202a"
+    },
+    {
+      "path": "src/function/model/emoji.ts",
+      "upstreamPath": "function/model/emoji.ts",
+      "sha256": "adc8b61cc82a90318e789041dceee9a15c671519af14249eda3a5dd6a7917f94"
+    },
+    {
+      "path": "src/function/model/img.ts",
+      "upstreamPath": "function/model/img.ts",
+      "sha256": "06851a214e11df87100d883c48e521cf9f73bd6c830337fd4047ff39f6b5380d"
+    },
+    {
+      "path": "src/function/model/msg-body.ts",
+      "upstreamPath": "function/model/msg-body.ts",
+      "sha256": "386572d68f9db75f5ab6e6d5f70fd6ad98081147a61ce4d2e77650252b8fd829"
+    },
+    {
+      "path": "src/function/msg.ts",
+      "upstreamPath": "function/msg.ts",
+      "sha256": "6a2cefefc07e90c244c3458f68f4b823cdab46928c804d7641c32c1af28003fe"
+    },
+    {
+      "path": "src/function/notify.ts",
+      "upstreamPath": "function/notify.ts",
+      "sha256": "3cce30dd2d11801f2e131ec8bb9c0dc71c29b46628c10e6714b53729e810e35c"
+    },
+    {
+      "path": "src/function/option.ts",
+      "upstreamPath": "function/option.ts",
+      "sha256": "8af2a9ab9b4c7cbfe2473cfbac3a863c68354e5c959c4ef706a04ded57f1c25c"
+    },
+    {
+      "path": "src/function/sender.ts",
+      "upstreamPath": "function/sender.ts",
+      "sha256": "a08cd87d7f5e84787df04ae47af21da2497e1b35f4239fec17d45fb80f21fc66"
+    },
+    {
+      "path": "src/function/tooltip.ts",
+      "upstreamPath": "function/tooltip.ts",
+      "sha256": "0d7dc9179c7713f9b0597f6908dc5f85985f756599187dc7c5b9ac8a1cad7cd8"
+    },
+    {
+      "path": "src/function/utils/appUtil.ts",
+      "upstreamPath": "function/utils/appUtil.ts",
+      "sha256": "f365cd0bffbcf023d7a76ffcd0fb4058ddfaed48b4360cffebfa54504c56d694"
+    },
+    {
+      "path": "src/function/utils/backgroundUtil.ts",
+      "upstreamPath": "function/utils/backgroundUtil.ts",
+      "sha256": "48e849b929fc261b9e74b72eb1351127e9d88ad3fe296ada2671444708abf638"
+    },
+    {
+      "path": "src/function/utils/linkViewUtil.ts",
+      "upstreamPath": "function/utils/linkViewUtil.ts",
+      "sha256": "566207f5cd2d249e5b2a6a837ba2b9929c2ec7e1bdb4dbf2a053cda034badd00"
+    },
+    {
+      "path": "src/function/utils/localHistoryUtil.ts",
+      "upstreamPath": "function/utils/localHistoryUtil.ts",
+      "sha256": "05bfa2c69690d2777f3fa03422f225b58dc351f985e18a35ac7cf3bea4c2a532"
+    },
+    {
+      "path": "src/function/utils/msgUtil.ts",
+      "upstreamPath": "function/utils/msgUtil.ts",
+      "sha256": "674b1680694e122125be16cf7d78a9895fa94d9d203679c09301d57aa7fb3038"
+    },
+    {
+      "path": "src/function/utils/pinyin.ts",
+      "upstreamPath": "function/utils/pinyin.ts",
+      "sha256": "4dee8aba5178495dc9c58df947c2d90f992767e95dc0dc0bdb71ac81e4da9eea"
+    },
+    {
+      "path": "src/function/utils/recordUtil.ts",
+      "upstreamPath": "function/utils/recordUtil.ts",
+      "sha256": "7d6374f6e09a69f9db0be2ebd7e67a43272d0d28571ba34280396a80fdf6a7f5"
+    },
+    {
+      "path": "src/function/utils/sessionUtil.ts",
+      "upstreamPath": "function/utils/sessionUtil.ts",
+      "sha256": "6d418abe625aa3aa56d49985f2dcdc6ecff60caa316db6278030809d4750e37a"
+    },
+    {
+      "path": "src/function/utils/systemUtil.ts",
+      "upstreamPath": "function/utils/systemUtil.ts",
+      "sha256": "71845d0508492cebe91bd0e7a514c6282d6c71c7e9d8b912b3fca51bd3e95137"
+    },
+    {
+      "path": "src/package-info.ts",
+      "upstreamPath": "package-info.ts",
+      "sha256": "016891f73d9f6924d0e4f0c73fe22e07009b1d7da4d0c4e4dc4d0872ac989a79"
+    },
+    {
+      "path": "src/pages/user/UserChat.vue",
+      "upstreamPath": "pages/user/UserChat.vue",
+      "sha256": "45204dcd1251b456692c72023973b9e5ac755bb3df5a3b057512e055ebbe388a"
+    },
+    {
+      "path": "src/pages/user/UserFriends.vue",
+      "upstreamPath": "pages/user/UserFriends.vue",
+      "sha256": "ef0cc9abd3db62e3fefc7f437e8cb948de196b09d3017b26d20de5876cb22082"
+    },
+    {
+      "path": "src/pages/user/UserInfo.vue",
+      "upstreamPath": "pages/user/UserInfo.vue",
+      "sha256": "3aa5dbca03e38ad0a4c32c16d6cb819e592126315fb0f0ad64c9e25ce68669d9"
+    },
+    {
+      "path": "src/pages/user/UserMessages.vue",
+      "upstreamPath": "pages/user/UserMessages.vue",
+      "sha256": "c31c9d735b0c0d416ddbb068cc4b4c756f6436733291e041631c84406e8b7985"
+    },
+    {
+      "path": "src/pages/user/UserOptAccount.vue",
+      "upstreamPath": "pages/user/UserOptAccount.vue",
+      "sha256": "e79db3d7790e355739f0437df2bcbee4abfaf3d602a142e46ad81e251067e4cf"
+    },
+    {
+      "path": "src/pages/user/UserOptAddon.vue",
+      "upstreamPath": "pages/user/UserOptAddon.vue",
+      "sha256": "43434119556c302da900434ee77ff72568cb44fa8410c028c58307e065026d2a"
+    },
+    {
+      "path": "src/pages/user/UserOptDev.vue",
+      "upstreamPath": "pages/user/UserOptDev.vue",
+      "sha256": "7aa7ecea5ce9d11be2ea94c827cb3a08326ff427b23572a44132575727a786c6"
+    },
+    {
+      "path": "src/pages/user/UserOptFunction.vue",
+      "upstreamPath": "pages/user/UserOptFunction.vue",
+      "sha256": "d4161d17c77391057e3d29b7ec78f4a6428a3a99251d5fa40a74ca8de2cec2b2"
+    },
+    {
+      "path": "src/pages/user/UserOptInfo.vue",
+      "upstreamPath": "pages/user/UserOptInfo.vue",
+      "sha256": "f9f54522c44e6035448105b910de0a188f878ec443a79fd60a39f1d8b9cac15f"
+    },
+    {
+      "path": "src/pages/user/UserOptions.vue",
+      "upstreamPath": "pages/user/UserOptions.vue",
+      "sha256": "255487512283e3a099ffc77c32907d6d5c1542361ec2da1eeea57fb9b80ad54e"
+    },
+    {
+      "path": "src/pages/user/UserOptView.vue",
+      "upstreamPath": "pages/user/UserOptView.vue",
+      "sha256": "7ad7a08c824654145952d2385e3bdfc5ba04040cdf131402eba0ed2af32988dc"
+    },
+    {
+      "path": "src/pages/user/UserQzone.vue",
+      "upstreamPath": "pages/user/UserQzone.vue",
+      "sha256": "d01c434a5af063954831e9d501df4927bd64234d2ee3c4662806e8136fdf6b68"
+    },
+    {
+      "path": "src/pages/user/UserWorkbench.vue",
+      "upstreamPath": "pages/user/UserWorkbench.vue",
+      "sha256": "8626cf484308d63e88f25b4fe78430d9aa473f3075a8266330451c647071b2b7"
+    },
+    {
+      "path": "src/runtime/backend.ts",
+      "upstreamPath": "runtime/backend.ts",
+      "sha256": "e0e629e7df3c397b066b35f38ee24ae374d36c26981411f8fd90659f9c4df50f"
+    },
+    {
+      "path": "src/state/auth.ts",
+      "upstreamPath": "state/auth.ts",
+      "sha256": "4cdc5940fcddca1295d93000afc9b81a6f9bd26f5032b4ea8ba8f12d873f356d"
+    },
+    {
+      "path": "src/state/chat.ts",
+      "upstreamPath": "state/chat.ts",
+      "sha256": "89e0bc4532c78a2a87a2cdd5a5526348c372f4668b28cd87cf34c221526bcd0c"
+    },
+    {
+      "path": "src/state/connection.ts",
+      "upstreamPath": "state/connection.ts",
+      "sha256": "a2337e024faf16bbf7f169b5849b3f6ad6c1416188905f6a379f5d7a7a26a7c2"
+    },
+    {
+      "path": "src/state/contact.ts",
+      "upstreamPath": "state/contact.ts",
+      "sha256": "9921c2e21f3fc464107a5ed0f456dafaff40e9470cbab78be570b5496b7cdcb7"
+    },
+    {
+      "path": "src/state/qzone.ts",
+      "upstreamPath": "state/qzone.ts",
+      "sha256": "e61e9a41bc032e8b5423c20652ab508387919760ea7131d56d588d0c103e1688"
+    },
+    {
+      "path": "src/state/sessionHistory.ts",
+      "upstreamPath": "state/sessionHistory.ts",
+      "sha256": "922536991b4437bda75efde3ec7cbfd1e944960d898a09f8220b664d6000a841"
+    },
+    {
+      "path": "src/state/settings.ts",
+      "upstreamPath": "state/settings.ts",
+      "sha256": "f8b4db9e565e305653d2b732db26bb70440561d3f88fd67413d58a7f3819ccf4"
+    },
+    {
+      "path": "src/state/sticker.ts",
+      "upstreamPath": "state/sticker.ts",
+      "sha256": "be7d41c1a2f783fa0eb53226ea420726f3525496b96b0b818ff211a7e1a49416"
+    },
+    {
+      "path": "src/state/ui.ts",
+      "upstreamPath": "state/ui.ts",
+      "sha256": "143c1d765494c7bada6ec583723e52a74a3c0c0377b1947c666c28e8cd79e2da"
+    }
+  ]
+}
