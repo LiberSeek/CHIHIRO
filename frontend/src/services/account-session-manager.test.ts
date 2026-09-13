@@ -57,8 +57,8 @@ describe('AccountSessionManager', () => {
 
   it('rejects cancelled work even when the transport ignores abort', async () => {
     const connection = fakeConnection()
-    let finish!: (value: unknown) => void
-    connection.request = () => new Promise(resolve => { finish = resolve })
+    let finish!: (value: string) => void
+    connection.request = () => new Promise(resolve => { finish = resolve as (value: string) => void })
     const manager = new AccountSessionManager(() => connection)
     const session = await manager.connect(account('a'))
     const request = session.requestWithSequence({ method: 'history' })
