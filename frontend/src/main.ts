@@ -4,7 +4,8 @@ import { createPinia } from 'pinia'
 import AppShell from './app/AppShell.vue'
 import router from './router'
 import './styles/base.css'
-import { installAgentNative } from './modules/agent/native/runtime'
+import { agentLoaderKey, createAgentLoader } from './modules/agent/loader'
 
 const app = createApp(AppShell).use(createPinia()).use(router)
-void installAgentNative(app, { hosted: true }).then(() => app.mount('#app'))
+app.provide(agentLoaderKey, createAgentLoader(app))
+app.mount('#app')

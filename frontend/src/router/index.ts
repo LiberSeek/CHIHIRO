@@ -8,7 +8,7 @@ const router = createRouter({
   routes: [
     { path: '/', redirect: '/im' },
     { path: '/im', name: 'im', component: ImModule, meta: { title: '消息' } },
-    { path: '/agent/:conversationId?', name: 'agent', component: () => import('@/modules/agent/AgentModule.vue'), meta: { title: '工作台' } },
+    { path: '/agent/:conversationId?', name: 'agent', component: () => import('@/modules/agent/AgentEntry.vue'), meta: { title: '工作台' } },
     {
       path: '/assistant',
       name: 'assistant',
