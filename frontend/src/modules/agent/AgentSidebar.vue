@@ -1,0 +1,26 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import { useAgentWorkspace } from './useAgentWorkspace'
+defineProps<{ mobileOpen?: boolean }>()
+const emit = defineEmits<{ close: [] }>()
+const workspace = useAgentWorkspace(); const editingId = ref(''); const titleDraft = ref('')
+function beginRename(id: string, title: string | null) { editingId.value = id; titleDraft.value = title || '' }
+async function saveRename() { if (editingId.value) await workspace.renameSession(editingId.value, titleDraft.value); editingId.value = '' }
+async function remove(id: string) { if (window.confirm('删除此会话？')) await workspace.deleteSession(id) }
+</script>
+<template>
+  <aside class="agent-sidebar" :class="{ 'is-mobile-open': mobileOpen }" aria-label="Agent 会话列表">
+    <div class="sidebar-head"><div class="brand"><span class="brand-mark">✦</span><span>AstrBot <small>ChatUI</small></span></div><button class="close-mobile" type="button" @click="emit('close')">×</button></div>
+    <button class="new-session" type="button" @click="workspace.newSession(); emit('close')">＋ 新建会话</button>
+    <section v-if="workspace.projects.value.length" class="project-list"><h2>项目</h2><div v-for="project in workspace.projects.value" :key="project.project_id" class="project-item"><span>{{ project.emoji || '◈' }}</span>{{ project.title }}</div></section>
+    <section class="session-list"><h2>会话</h2><div v-if="workspace.loading.value && !workspace.sessions.value.length" class="empty">加载中…</div><div v-for="session in workspace.sessions.value" :key="session.session_id" class="session-row" :class="{ active: workspace.activeSessionId.value === session.session_id }"><button class="session-select" type="button" @click="workspace.selectSession(session.session_id); emit('close')"><span class="session-name">{{ session.display_name || '未命名会话' }}</span><time v-if="session.updated_at">{{ new Date(session.updated_at).toLocaleDateString() }}</time></button><div class="session-actions"><button type="button" aria-label="重命名" @click="beginRename(session.session_id, session.display_name)">✎</button><button type="button" aria-label="删除" @click="remove(session.session_id)">×</button></div></div><p v-if="!workspace.sessions.value.length && !workspace.loading.value" class="empty">还没有会话，创建一个开始对话。</p></section>
+    <form v-if="editingId" class="rename" @submit.prevent="saveRename"><input v-model="titleDraft" autofocus aria-label="会话名称" /><button type="submit">保存</button><button type="button" @click="editingId = ''">取消</button></form>
+    <p v-if="workspace.error.value" class="sidebar-error">{{ workspace.error.value }}</p>
+  </aside>
+</template>
+<style scoped>
+.agent-sidebar { display: flex; width: 276px; flex: 0 0 276px; flex-direction: column; border-right: 1px solid #26344a; background: #121d2f; }
+.sidebar-head { display: flex; align-items: center; justify-content: space-between; min-height: 64px; padding: 0 18px; border-bottom: 1px solid #26344a; }.brand { display: flex; align-items: center; gap: 9px; font-weight: 700; }.brand small { color: #879ab5; font-weight: 500; }.brand-mark { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 8px; color: #0c1925; background: #79dfc1; }.close-mobile { display: none; border: 0; background: none; color: #b8c9df; font-size: 23px; }
+.new-session { margin: 16px; padding: 10px 12px; border: 1px solid #38516a; border-radius: 8px; background: #1a3041; color: #d7f9ed; text-align: left; cursor: pointer; }.new-session:hover { background: #214555; }.project-list, .session-list { padding: 0 12px; }.session-list { min-height: 0; overflow: auto; }.project-list h2, .session-list h2 { margin: 4px 8px 7px; color: #7d90ab; font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }.project-item { display: flex; gap: 8px; padding: 8px; color: #b7c8dc; font-size: 13px; }.session-row { display: flex; align-items: center; min-height: 39px; margin: 2px 0; border-radius: 7px; }.session-row.active, .session-row:hover { background: #20334a; }.session-select { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 2px; padding: 8px; border: 0; background: none; color: #dbe6f5; text-align: left; cursor: pointer; }.session-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }.session-select time { color: #7286a1; font-size: 10px; }.session-actions { display: flex; padding-right: 4px; opacity: 0; }.session-row:hover .session-actions, .session-row:focus-within .session-actions { opacity: 1; }.session-actions button { border: 0; background: none; color: #91a5bf; cursor: pointer; }.empty { padding: 16px 8px; color: #7589a3; font-size: 12px; line-height: 1.5; }.rename { display: flex; gap: 5px; margin: 12px; }.rename input { min-width: 0; flex: 1; padding: 6px; border: 1px solid #3b526b; border-radius: 5px; background: #18263a; color: #e2ecf8; }.rename button { border: 1px solid #38516a; border-radius: 5px; background: #1d3349; color: #bfd3e8; }.sidebar-error { margin: auto 14px 14px; color: #f0a6a6; font-size: 11px; }
+@media (max-width: 720px) { .agent-sidebar { position: fixed; z-index: 20; top: 0; bottom: 0; left: 0; transform: translateX(-102%); transition: transform .2s ease; box-shadow: 12px 0 35px #0008; }.agent-sidebar.is-mobile-open { transform: translateX(0); }.close-mobile { display: block; } }
+</style>
