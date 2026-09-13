@@ -86,8 +86,135 @@ async function listenerPid(port) {
   }
 }
 
+function tokenEnvName(astrCfg) {
+  return astrCfg.dashboardTokenEnv || 'CHIHIRO_ASTRBOT_DASHBOARD_TOKEN'
+}
+
+function externalAccounts(astrCfg) {
+  return astrCfg.accounts && typeof astrCfg.accounts === 'object' ? astrCfg.accounts : {}
+}
+
+function externalAccountConfig(astrCfg, uin) {
+  const accounts = externalAccounts(astrCfg)
+  const key = String(uin || '')
+  return accounts[key] || accounts[`qq:${key}`] || null
+}
+
+function externalReverseFromAccount(astrCfg, uin) {
+  const account = externalAccountConfig(astrCfg, uin)
+  const reverse = account?.reverse || account?.adapter || account?.reverseEndpoint || account
+  if (!reverse?.url) return null
+  return {
+    host: reverse.host || '127.0.0.1',
+    port: Number(reverse.port || new URL(reverse.url).port || 0) || null,
+    token: reverse.token || '',
+    url: reverse.url,
+    id: reverse.id || `external-qq-${uin}`
+  }
+}
+
+function createExternalAstrbotRuntime({ astrCfg, dataDir, host, port, reverseHost, reversePort, url }) {
+  const dashboardTokenEnv = tokenEnvName(astrCfg)
+  let lastError = ''
+  let lastProbe = null
+
+  function status() {
+    return {
+      mode: 'external',
+      running: Boolean(lastProbe?.running),
+      pid: null,
+      owned: false,
+      url,
+      host,
+      port,
+      reverseHost,
+      reversePort,
+      external: true,
+      healthy: Boolean(lastProbe?.running),
+      statusCode: lastProbe?.statusCode || null,
+      error: lastError || ''
+    }
+  }
+
+  async function probe() {
+    try {
+      const res = await fetch(url, {
+        method: 'GET',
+        signal: AbortSignal.timeout(1500)
+      })
+      const running = res.ok || res.status === 401 || res.status === 403
+      lastProbe = { running, statusCode: res.status }
+      lastError = running ? '' : `外部 AstrBot 返回 HTTP ${res.status}`
+      return running
+    } catch (e) {
+      lastProbe = { running: false, statusCode: null }
+      lastError = `外部 AstrBot 不可用: ${e.message}`
+      return false
+    }
+  }
+
+  async function refreshStatus() {
+    await probe()
+    return status()
+  }
+
+  async function ensure() {
+    if (!(await probe())) throw new Error(lastError)
+    return status()
+  }
+
+  async function health() {
+    return probe()
+  }
+
+  async function stopIfOwned() {
+    return refreshStatus()
+  }
+
+  function mintDashboardToken() {
+    const token = process.env[dashboardTokenEnv] || ''
+    if (!token) throw new Error(`外部 AstrBot Dashboard token 缺失：请设置 ${dashboardTokenEnv}`)
+    return token
+  }
+
+  function configuredReverse(uin) {
+    const reverse = externalReverseFromAccount(astrCfg, uin)
+    if (!reverse) {
+      throw new Error(`外部 AstrBot 未配置账号 ${uin || '-'} 的反向 OneBot 地址；请在 cfg.astrbot.accounts 中显式配置`)
+    }
+    return reverse
+  }
+
+  async function ensureAdapter({ uin }) {
+    if (!uin) throw new Error('缺少账号 UIN')
+    await ensure()
+    return configuredReverse(uin)
+  }
+
+  async function reverseEndpoint(uin) {
+    if (!uin) throw new Error('缺少账号 UIN')
+    return configuredReverse(uin)
+  }
+
+  return {
+    ensure,
+    ensureAdapter,
+    stopIfOwned,
+    refreshStatus,
+    status,
+    reverseEndpoint,
+    mintDashboardToken,
+    health,
+    dataDir,
+    url,
+    port,
+    reversePort
+  }
+}
+
 export function createAstrbotRuntime({ root, cfg }) {
   const astrCfg = cfg.astrbot || {}
+  const mode = astrCfg.mode === 'external' ? 'external' : 'local'
   const dataDir = path.resolve(root, astrCfg.dataDir || 'data/astrbot')
   const cmdConfigPath = path.join(dataDir, 'data/cmd_config.json')
   const logDir = path.join(root, 'data/logs')
@@ -96,6 +223,10 @@ export function createAstrbotRuntime({ root, cfg }) {
   const reverseHost = astrCfg.reverseHost || '127.0.0.1'
   const reversePort = Number(astrCfg.reversePort || 6199)
   const url = astrCfg.url || `http://${host}:${port}`
+
+  if (mode === 'external') {
+    return createExternalAstrbotRuntime({ astrCfg, dataDir, host, port, reverseHost, reversePort, url })
+  }
 
   let child = null
   let ownedPid = null
@@ -200,6 +331,7 @@ export function createAstrbotRuntime({ root, cfg }) {
 
   function status() {
     return {
+      mode,
       running: Boolean(ownedPid) || false,
       pid: ownedPid,
       owned: Boolean(child),
@@ -307,20 +439,22 @@ export function createAstrbotRuntime({ root, cfg }) {
 
   async function restartOwned() {
     const pid = ownedPid
-    if (pid) {
-      log('astrbot', `restart pid=${pid}`)
-      try { process.kill(pid, 'SIGTERM') } catch { /* gone */ }
-      const start = Date.now()
-      while (Date.now() - start < 4000) {
-        try {
-          process.kill(pid, 0)
-          await sleep(200)
-        } catch {
-          break
-        }
-      }
-      try { process.kill(pid, 'SIGKILL') } catch { /* gone */ }
+    if (!child || !pid) {
+      lastError = 'AstrBot 已在运行，但不是千寻启动的进程；请手动重启 AstrBot 以加载配置'
+      throw new Error(lastError)
     }
+    log('astrbot', `restart pid=${pid}`)
+    try { process.kill(pid, 'SIGTERM') } catch { /* gone */ }
+    const start = Date.now()
+    while (Date.now() - start < 4000) {
+      try {
+        process.kill(pid, 0)
+        await sleep(200)
+      } catch {
+        break
+      }
+    }
+    try { process.kill(pid, 'SIGKILL') } catch { /* gone */ }
     child = null
     ownedPid = null
     return spawnProcess()
