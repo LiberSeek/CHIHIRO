@@ -4,6 +4,25 @@ This is **千寻 (Chihiro)** — a QQ IM workbench. Product repo: [LiberSeek/CHI
 
 Read this before changing code. The old Stapxs **overlay** path is gone.
 
+## Unified engineering migration (2026-09-14)
+
+The user has authorized the `frontend/`, `backend/`, `deploy/` migration in
+`docs/development-plan.md` and `docs/frontend-unification-plan.md`. Those paths
+are the destination for new product code. The sections below describe the
+legacy runtime while migration is in progress, not a requirement to retain
+separate frontend applications.
+
+- `frontend/src/modules/{im,agent,assistant}` owns migrated product UI. Extract
+  the existing User* dependency closure with source/version/license records;
+  do not import upstream app bootstrap files or introduce another createApp.
+- `backend/src/{gateway,runtime,mcp}` owns migrated Node services. Keep root
+  configuration/data paths stable and update scripts and deployment together.
+- Keep the legacy shell available until real IM and Agent feature parity is
+  verified; a placeholder build is not grounds to switch the default UI.
+- Reference trees stay unchanged during extraction. NapCat remains read-only.
+- The local `0.0.1` tag is the immutable migration baseline.
+
+
 ## What you are looking at
 
 ```text
