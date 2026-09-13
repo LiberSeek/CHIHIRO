@@ -48,3 +48,5 @@ a { color: inherit; text-decoration: none; }
   .nav-link span { display: none; }
   .app-content { padding: 20px 14px; }
 }
+
+.app-content.workspace-content { padding: 0; overflow: hidden; }

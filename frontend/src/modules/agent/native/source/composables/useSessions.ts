@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue';
+import { isHosted } from '../api/http';
 import { useRouter } from 'vue-router';
 import { chatApi, configRouteApi } from '@/modules/agent/native/source/api/v1';
 import { buildWebchatUmoDetails, getStoredSelectedChatConfigId } from '@/modules/agent/native/source/utils/chatConfigBinding';
@@ -40,7 +41,7 @@ export function useSessions(chatboxMode: boolean = false) {
 
     
         } catch (err: any) {
-            if (err.response?.status === 401) {
+            if (!isHosted() && err.response?.status === 401) {
                 router.push('/auth/login?redirect=/chatbox');
             }
             console.error(err);
@@ -66,7 +67,7 @@ export function useSessions(chatboxMode: boolean = false) {
             }
 
             // 更新 URL
-            const basePath = chatboxMode ? '/chatbox' : '/chat';
+            const basePath = isHosted() ? '/agent' : chatboxMode ? '/chatbox' : '/chat';
             router.push(`${basePath}/${sessionId}`);
 
             // 确保新创建的会话被选中高亮
@@ -194,7 +195,7 @@ export function useSessions(chatboxMode: boolean = false) {
         currSessionId.value = '';
         selectedSessions.value = [];
         
-        const basePath = chatboxMode ? '/chatbox' : '/chat';
+        const basePath = isHosted() ? '/agent' : chatboxMode ? '/chatbox' : '/chat';
         router.push(basePath);
         
         if (closeMobileSidebar) {

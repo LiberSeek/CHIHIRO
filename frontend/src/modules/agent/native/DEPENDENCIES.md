@@ -25,3 +25,7 @@ metadata published for those versions.
 The unified frontend already owns Vue, Vue Router, and Pinia. Their root
 versions satisfy the extracted module's APIs, so this module uses the root
 instances and never creates a second application, router, or Pinia store.
+
+The host also installs `@mdi/font` 7.4.47 for native Vuetify `mdi-*` controls
+that were previously supplied by AstrBot's app-level stylesheet. The package
+contains Apache-2.0 icons and OFL-1.1 fonts; its CSS/code is MIT.

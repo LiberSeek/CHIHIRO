@@ -1,17 +1,11 @@
 # AstrBot ChatUI source record
 
-`AgentModule.vue`, `AgentSidebar.vue`, `AgentThread.vue`, and `useAgentWorkspace.ts` are a Chihiro rewrite prototype. They are not a source extraction of AstrBot ChatUI and must not be used as evidence of feature parity. Their HTTP and stream contract differs from the pinned implementation; see `docs/chatui-source-audit.md`.
+The `/next/agent/:conversationId?` preview now mounts `native/source/components/user/UserChat.vue` inside the root Vue application. `AgentModule.vue` provides its ordinary two-pane container, responsive list/thread navigation, Vuetify theme and toast surface. Pinia and Router are shared with the product shell; no iframe, extra createApp or runtime IIFE is used.
 
-The only source-extracted code currently in this directory is `astrbot-protocol.ts`. It preserves `buildChatRequestFlags`, `partToPayload`, and `readSseStream` from `dashboard/src/composables/useMessages.ts`; it is not yet wired into the prototype.
+The native module preserves the recursive dependency closure of pinned AstrBot `8b958b08e7fef3948d750d2891aabd80c0828f76`. See `native/UPSTREAM.md`, `native/source-manifest.json`, and `native/LICENSE` for source and AGPL attribution. Hosted HTTP uses private Axios clients, the Gateway `/astrbot/api/v1` namespace, and `/agent` session routes. It does not install global fetch patches or redirect the shell to AstrBot login.
 
-- Repository: `https://github.com/AstrBotDevs/AstrBot`
-- Chihiro submodule commit: `8b958b08e7fef3948d750d2891aabd80c0828f76`
-- Extracted source path: `dashboard/src/composables/useMessages.ts`
-- Extraction date: 2026-09-14
-- License: GNU Affero General Public License v3.0, inherited from AstrBot. The repository license text remains at `vendor/astrbot/LICENSE`.
+`AgentSidebar.vue`, `AgentThread.vue`, and `useAgentWorkspace.ts` are retired rewrite prototypes, retained temporarily for comparison. They are no longer mounted by the preview. `astrbot-protocol.ts` is an earlier helper extraction, also retained for reference.
 
-The real migration entry is `dashboard/src/components/user/UserChat.vue` and requires the dependency closure in the audit. It must preserve source behavior while adapting Vuetify, router, Pinia, i18n, confirmation, toast, and hosted layout boundaries to the single frontend. It must not import AstrBot bootstrap code or create another Vue application.
+## Acceptance boundary
 
-## Host integration
-
-Do not switch the product route to `AgentModule` until the full source migration has contract tests against pinned AstrBot and feature parity is verified.
+The built native preview has been checked with an isolated mock server for session history rendering, visible sidebar/composer, and desktop/mobile layout. Frontend typecheck, build, and 20 existing tests pass. These tests do not establish full protocol parity: real streaming, stop/resume, uploads, project mutations and provider configuration still require acceptance. The default `/` route remains the legacy workbench until IM and Agent parity is verified.

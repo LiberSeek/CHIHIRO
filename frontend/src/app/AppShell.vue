@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
-import { RouterLink, RouterView } from 'vue-router'
+import { RouterLink, RouterView, useRoute } from 'vue-router'
 
 import { useShellStore } from '@/stores/shell'
 
+const route = useRoute()
 const shell = useShellStore()
 onMounted(() => { void shell.refreshAccounts() })
 onUnmounted(shell.cancelRefresh)
@@ -39,7 +40,7 @@ function selectAccount(event: Event) {
         <RouterLink to="/im" class="nav-link" active-class="is-active">
           <span aria-hidden="true">◉</span>消息
         </RouterLink>
-        <RouterLink to="/agent" class="nav-link" active-class="is-active">
+        <RouterLink to="/agent" class="nav-link" :class="{ 'is-active': route.name === 'agent' }">
           <span aria-hidden="true">✦</span>工作台
         </RouterLink>
         <RouterLink to="/assistant" class="nav-link" active-class="is-active">
@@ -47,7 +48,7 @@ function selectAccount(event: Event) {
         </RouterLink>
       </nav>
 
-      <main class="app-content">
+      <main class="app-content" :class="{ 'workspace-content': route.name === 'agent' }">
         <RouterView />
       </main>
     </div>

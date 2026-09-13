@@ -1,39 +1,55 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useShellStore } from '@/stores/shell'
-import AgentSidebar from './AgentSidebar.vue'
-import AgentThread from './AgentThread.vue'
-import { createAgentWorkspace, provideAgentWorkspace, type AgentWorkspaceOptions } from './useAgentWorkspace'
-const props = withDefaults(defineProps<AgentWorkspaceOptions>(), { apiBase: '/astrbot/api/v1', workspaceId: 'default' })
-const shell = useShellStore()
-const workspace = createAgentWorkspace({ ...props, accountId: props.accountId ?? shell.activeAccountId ?? undefined })
-provideAgentWorkspace(workspace)
-const mobileSidebar = ref(false)
-const activeTitle = computed(() => workspace.activeSession.value?.display_name || '新会话')
-onMounted(() => workspace.load())
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { UserChat } from './native'
+import { useCustomizerStore } from './native/source/stores/customizer'
+import { useToastStore } from './native/source/stores/toast.js'
+
+const customizer = useCustomizerStore()
+const route = useRoute()
+const mobilePane = ref<'list' | 'chat'>(route.params.conversationId ? 'chat' : 'list')
+watch(() => route.params.conversationId, () => { mobilePane.value = 'chat' })
+const toast = useToastStore()
+const currentToast = computed(() => toast.current as {
+  message: string; color: string; timeout: number; multiLine: boolean; closable: boolean
+} | undefined)
+const snackbarOpen = computed({ get: () => !!currentToast.value, set: (value) => { if (!value) toast.shift() } })
+onBeforeUnmount(() => { while (toast.current) toast.shift() })
 </script>
+
 <template>
-  <section class="agent-module" aria-label="AstrBot Agent 工作台">
-    <AgentSidebar :mobile-open="mobileSidebar" @close="mobileSidebar = false" />
-    <div class="agent-content">
-      <header class="agent-header">
-        <button class="mobile-menu" type="button" aria-label="打开会话列表" @click="mobileSidebar = true">☰</button>
-        <div class="agent-title"><span class="agent-kicker">ASTRBOT AGENT</span><strong>{{ activeTitle }}</strong></div>
-        <label class="model-select">模型<select v-model="workspace.selectedModel.value" aria-label="选择模型"><option value="">默认模型</option><option v-for="model in workspace.models.value" :key="model" :value="model">{{ model }}</option></select></label>
-      </header>
-      <AgentThread />
+  <section class="agent-module" :class="`mobile-${mobilePane}`" aria-label="Agent 工作台">
+    <div class="agent-mobile-tabs" aria-label="工作台区域">
+      <button type="button" :aria-pressed="mobilePane === 'list'" @click="mobilePane = 'list'">会话列表</button>
+      <button type="button" :aria-pressed="mobilePane === 'chat'" @click="mobilePane = 'chat'">聊天</button>
     </div>
+    <v-app class="agent-v-app" :theme="customizer.uiTheme">
+      <UserChat :chihiro-hosted="true" />
+      <v-snackbar v-if="currentToast" v-model="snackbarOpen" :color="currentToast.color"
+        :timeout="currentToast.timeout" :multi-line="currentToast.multiLine" location="top center">
+        {{ currentToast.message }}
+        <template v-if="currentToast.closable" #actions>
+          <v-btn variant="text" @click="snackbarOpen = false">关闭</v-btn>
+        </template>
+      </v-snackbar>
+    </v-app>
   </section>
 </template>
+
 <style scoped>
-.agent-module { display: flex; height: 100%; min-height: 560px; overflow: hidden; border: 1px solid #26344a; border-radius: 14px; background: #101a2a; color: #e8effa; }
-.agent-content { display: flex; min-width: 0; flex: 1; flex-direction: column; }
-.agent-header { display: flex; align-items: center; gap: 14px; min-height: 64px; padding: 0 22px; border-bottom: 1px solid #26344a; background: #141f31; }
-.agent-title { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 4px; }
-.agent-title strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
-.agent-kicker { color: #79dfc1; font-size: 10px; font-weight: 700; letter-spacing: .14em; }
-.model-select { display: flex; align-items: center; gap: 8px; color: #899bb6; font-size: 11px; }
-.model-select select { max-width: 190px; padding: 7px 10px; border: 1px solid #32445e; border-radius: 7px; background: #18263a; color: #dbe6f6; }
-.mobile-menu { display: none; border: 0; background: none; color: #c6d4e8; font-size: 20px; }
-@media (max-width: 720px) { .agent-module { border-radius: 0; border-inline: 0; } .mobile-menu { display: block; } .model-select { display: none; } }
+.agent-module { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
+.agent-v-app { width: 100%; height: 100%; min-height: 0; flex: 1; }
+.agent-mobile-tabs { display: none; }
+.agent-v-app :deep(.v-application__wrap) { min-height: 0; height: 100%; }
+.agent-v-app :deep(.chat-ui) { display: grid; grid-template-columns: 280px minmax(0, 1fr); width: 100%; height: 100%; min-height: 0; }
+.agent-v-app :deep(.native-chat-sidebar-root),
+.agent-v-app :deep(.native-chat-main-root) { position: relative; min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
+@media (max-width: 760px) {
+  .agent-mobile-tabs { display: flex; gap: 8px; padding: 8px; background: #172338; }
+  .agent-mobile-tabs button { padding: 6px 12px; color: #bdcce2; border-radius: 5px; }
+  .agent-mobile-tabs button[aria-pressed="true"] { color: #d8fff2; background: #1f4e4a; }
+  .agent-v-app :deep(.chat-ui) { grid-template-columns: minmax(0, 1fr); }
+  .mobile-list :deep(.native-chat-main-root),
+  .mobile-chat :deep(.native-chat-sidebar-root) { display: none; }
+}
 </style>

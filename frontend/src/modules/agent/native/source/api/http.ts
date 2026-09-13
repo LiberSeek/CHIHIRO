@@ -10,7 +10,7 @@ const LOCALE_HEADER = 'Accept-Language';
 let configured = false;
 let hosted = false;
 
-export const httpClient = axios;
+export const httpClient = axios.create();
 export const apiV1Client = axios.create({ baseURL: '/api/v1' });
 
 export function isHosted(): boolean {
@@ -125,6 +125,7 @@ export function fetchWithAuth(input: RequestInfo | URL, init?: RequestInit) {
 
 export function setupHttpClient() {
   if (configured) return;
+  installAxiosInterceptors(httpClient);
   installAxiosInterceptors(apiV1Client);
   configured = true;
 }

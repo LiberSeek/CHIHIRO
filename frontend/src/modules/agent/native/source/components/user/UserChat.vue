@@ -1135,7 +1135,7 @@ function getRouteSessionId() {
 }
 
 function basePath() {
-  return props.chatboxMode ? "/chatbox" : "/chat";
+  return props.chihiroHosted ? "/agent" : props.chatboxMode ? "/chatbox" : "/chat";
 }
 
 function closeMobileSidebar() {

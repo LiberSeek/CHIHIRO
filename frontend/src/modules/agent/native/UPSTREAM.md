@@ -24,3 +24,10 @@ in-tree layout roots in `UserChat.vue`, and explicit HTTP initialization that
 does not replace the host application's global `window.fetch`. The HTTP
 adaptation also keeps hosted mode in module state, uses private Axios instances,
 and disables AstrBot dashboard login redirects and token cleanup when hosted.
+
+Host integration additionally adapts session navigation to `/agent`, suppresses
+hosted login redirects in useSessions, supplies the MDI icon font, and creates
+ordinary positioned sidebar/main containers in the parent AgentModule. The
+extractor reproduces source changes; runtime.ts installs services into the one
+root Vue app. Large renderers and global Vuetify CSS still require size/style
+optimization before the default UI can be replaced.

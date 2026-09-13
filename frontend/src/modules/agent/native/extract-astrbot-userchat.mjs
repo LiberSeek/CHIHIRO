@@ -113,6 +113,13 @@ function adaptSource(sourcePath, source) {
       .replaceAll("(globalThis as any).__CHIHIRO_CHATUI_HOSTED__ ? '' : token", "isHosted() ? '' : token")
   }
 
+  if (sourcePath === 'composables/useSessions.ts') {
+    adapted = adapted
+      .replace("import { ref, computed } from 'vue';", "import { ref, computed } from 'vue';\nimport { isHosted } from '../api/http';")
+      .replace('if (err.response?.status === 401)', 'if (!isHosted() && err.response?.status === 401)')
+      .replaceAll("chatboxMode ? '/chatbox' : '/chat'", "isHosted() ? '/agent' : chatboxMode ? '/chatbox' : '/chat'")
+  }
+
   if (sourcePath === 'components/user/UserChat.vue') {
     adapted = adapted
       .replace(
@@ -129,6 +136,7 @@ function adaptSource(sourcePath, source) {
       .replace('  sidebarTarget?: string;\n  mainTarget?: string;\n', '')
       .replace('  sidebarTarget: "",\n  mainTarget: "",\n', '')
       .replace('type UserChatProps = {', 'export type UserChatProps = {')
+      .replace('return props.chatboxMode ? "/chatbox" : "/chat";', 'return props.chihiroHosted ? "/agent" : props.chatboxMode ? "/chatbox" : "/chat";')
   }
 
   return adapted
