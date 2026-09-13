@@ -6,6 +6,7 @@ import { useShellStore } from '@/stores/shell'
 
 const shell = useShellStore()
 const accountLabel = computed(() => shell.activeAccountId ?? '未选择账号')
+shell.refreshAccounts().catch(() => undefined)
 </script>
 
 <template>
