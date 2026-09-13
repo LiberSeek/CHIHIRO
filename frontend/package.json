@@ -6,14 +6,30 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
+    "build:agent-native": "vue-tsc -b && vite build --config src/modules/agent/native/vite.config.ts",
     "preview": "vite preview",
     "typecheck": "vue-tsc -b --pretty false",
     "test": "vitest run"
   },
   "dependencies": {
+    "@guolao/vue-monaco-editor": "^1.5.4",
+    "@hey-api/client-axios": "0.2.12",
+    "@lucide/vue": "^1.23.0",
+    "axios": "1.13.5",
+    "dompurify": "^3.3.2",
+    "highlight.js": "11.11.1",
+    "katex": "^0.16.27",
+    "markdown-it": "^14.1.1",
+    "markstream-vue": "1.0.5-beta.0",
+    "mermaid": "^11.12.2",
+    "monaco-editor": "^0.52.2",
     "pinia": "^3.0.3",
+    "qrcode": "^1.5.4",
+    "shiki": "^3.23.0",
+    "stream-markdown": "^0.0.16",
     "vue": "^3.5.42",
-    "vue-router": "^4.5.1"
+    "vue-router": "^4.5.1",
+    "vuetify": "3.7.11"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.4",
