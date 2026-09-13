@@ -13,7 +13,8 @@ const template = fs.readFileSync(templatePath, 'utf8')
 const rendered = template.replace(/\$\{([A-Z0-9_]+)\}/g, (_, name) => {
   const value = process.env[name]
   if (value == null) throw new Error(`missing deployment environment variable: ${name}`)
-  return value.replaceAll('\\', '\\\\').replaceAll('"', '\\"')
+  // Place an environment value inside a JSON string, including control chars.
+  return JSON.stringify(value).slice(1, -1)
 })
 
 function merge(current, desired) {
