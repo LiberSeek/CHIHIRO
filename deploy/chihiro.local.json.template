@@ -9,10 +9,12 @@
     "onebotWs": "${CHIHIRO_ONEBOT_WS_URL}"
   },
   "astrbot": {
+    "mode": "external",
+    "dashboardTokenEnv": "CHIHIRO_ASTRBOT_DASHBOARD_TOKEN",
     "url": "${CHIHIRO_ASTRBOT_URL}",
     "host": "0.0.0.0",
     "port": 6185,
-    "reverseHost": "chihiro",
+    "reverseHost": "astrbot",
     "reversePort": 6199,
     "dataDir": "/app/data/astrbot"
   }

@@ -60,3 +60,11 @@ make compose-config-external
 ```
 
 根目录 `docker-compose.yml` 是早期只启动 AstrBot 的兼容文件。新部署使用本目录的 Compose 文件；它不会自动启动 macOS QQ，也不会把 Docker socket 暴露给业务容器。
+
+## 外部 AstrBot 生命周期
+
+Compose 配置明确使用 `astrbot.mode = external`：千寻检查配置的服务 URL，不在 Node 容器内启动 Python、不接管宿主进程，也不修改远端 AstrBot 的配置。外部 AstrBot 由其部署环境负责启动/停止；本机开发仍保留按需启动模式。
+
+ChatUI 代理需要 `CHIHIRO_ASTRBOT_DASHBOARD_TOKEN`，应填写对应 AstrBot 的有效 Dashboard 访问令牌。令牌只由 Gateway 注入上游 HTTP/WS 请求，不进入浏览器存储；到期后需更新部署环境并重启千寻。未配置令牌时 ChatUI API 会返回不可用，单纯健康检查通过不代表鉴权已完成。目前尚无自动签发/刷新外部令牌流程。
+
+外部 OneBot 适配器必须在 AstrBot 中预先配置，并在持久化千寻配置的 `astrbot.accounts.<uin>.reverse` 指定 `url`、`token`、可选 `id`。例如 `url` 为 `ws://astrbot:6199/ws`。没有账号映射时返回明确错误，不会写入一个无效的本机适配器。外部 QQ 登录与连接验收仍未完成。

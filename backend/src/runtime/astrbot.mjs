@@ -104,9 +104,11 @@ function externalReverseFromAccount(astrCfg, uin) {
   const account = externalAccountConfig(astrCfg, uin)
   const reverse = account?.reverse || account?.adapter || account?.reverseEndpoint || account
   if (!reverse?.url) return null
+  const endpoint = new URL(reverse.url)
+  if (!['ws:', 'wss:'].includes(endpoint.protocol)) throw new Error('外部 AstrBot 反向地址必须使用 ws 或 wss')
   return {
-    host: reverse.host || '127.0.0.1',
-    port: Number(reverse.port || new URL(reverse.url).port || 0) || null,
+    host: reverse.host || endpoint.hostname,
+    port: Number(reverse.port || endpoint.port || (endpoint.protocol === 'wss:' ? 443 : 80)),
     token: reverse.token || '',
     url: reverse.url,
     id: reverse.id || `external-qq-${uin}`
@@ -143,6 +145,7 @@ function createExternalAstrbotRuntime({ astrCfg, dataDir, host, port, reverseHos
         signal: AbortSignal.timeout(1500)
       })
       const running = res.ok || res.status === 401 || res.status === 403
+      await res.body?.cancel()
       lastProbe = { running, statusCode: res.status }
       lastError = running ? '' : `外部 AstrBot 返回 HTTP ${res.status}`
       return running
@@ -359,6 +362,8 @@ export function createAstrbotRuntime({ root, cfg }) {
   }
 
   async function adoptIfRunning() {
+    // Retain ownership when ensure() is called again for our existing child.
+    if (child && ownedPid) return true
     if (await portOpen(port, '127.0.0.1')) {
       ownedPid = await listenerPid(port)
       child = null
