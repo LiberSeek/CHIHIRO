@@ -109,6 +109,14 @@ export function createRuntime({ root, cfg }) {
         outgoing: Boolean(message.outgoing ?? message.self),
       })))
     }
+    if (p === '/api/runtime/im/send' && method === 'POST') {
+      const accountId = req.headers['x-chihiro-account']
+      const body = await readJson(req)
+      if (!accountId || !body.conversationId || !body.text) return json(res, { error: 'missing_message_fields' }, 400)
+      const observed = await agent.observe({ kind: 'session', accountId, key: body.conversationId })
+      const result = await agent.sendToPeer(accountId, { type: observed.type, peerId: observed.peerId, text: body.text })
+      return json(res, result)
+    }
 
     if (p === '/api/runtime/bot/enable' && method === 'POST') {
       const body = await readJson(req)

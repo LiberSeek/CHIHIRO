@@ -1030,6 +1030,7 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     handleUpgrade,
     subscribe,
     view,
+    sendToPeer,
     pendingCounts: () => persist.pendingCounts(),
     persist
   }

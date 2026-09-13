@@ -6,6 +6,7 @@ export interface ImMessage { id: string; text: string; sender: string; at?: stri
 export interface ImClient {
   conversations(accountId: AccountId): Promise<ImConversation[]>
   messages(accountId: AccountId, conversationId: ConversationId): Promise<ImMessage[]>
+  send(accountId: AccountId, conversationId: ConversationId, text: string): Promise<void>
 }
 
 export function createImClient(base = '/api'): ImClient {
@@ -17,5 +18,9 @@ export function createImClient(base = '/api'): ImClient {
   return {
     conversations: (accountId) => get<ImConversation[]>(`/runtime/im/conversations`, accountId),
     messages: (accountId, conversationId) => get<ImMessage[]>(`/runtime/im/conversations/${encodeURIComponent(conversationId)}/messages`, accountId),
+    async send(accountId, conversationId, text) {
+      const response = await fetch(`${base}/runtime/im/send`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Chihiro-Account': accountId }, body: JSON.stringify({ conversationId, text }) })
+      if (!response.ok) throw new Error(`IM API ${response.status}`)
+    },
   }
 }
