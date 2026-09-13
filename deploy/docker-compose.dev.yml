@@ -1,0 +1,12 @@
+services:
+  chihiro:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ../apps:/app/apps:ro
+      - ../branding:/app/branding:ro
+    command: ["node", "--watch", "apps/gateway/src/server.js"]
+

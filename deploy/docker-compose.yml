@@ -1,0 +1,69 @@
+name: chihiro
+
+services:
+  chihiro:
+    image: ${CHIHIRO_IMAGE:-chihiro:dev}
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${CHIHIRO_BIND_HOST:-127.0.0.1}:${CHIHIRO_PORT:-3100}:3100"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      CHIHIRO_ASTRBOT_URL: ${CHIHIRO_ASTRBOT_URL:-http://astrbot:6185}
+      CHIHIRO_NAPCAT_WEBUI_URL: ${CHIHIRO_NAPCAT_WEBUI_URL:-http://napcat:6099}
+      CHIHIRO_ONEBOT_HTTP_URL: ${CHIHIRO_ONEBOT_HTTP_URL:-http://napcat:5800}
+      CHIHIRO_ONEBOT_WS_URL: ${CHIHIRO_ONEBOT_WS_URL:-ws://napcat:5801}
+    volumes:
+      - chihiro-data:/app/data
+    depends_on:
+      astrbot:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "5", "-O", "/dev/null", "http://127.0.0.1:3100/api/status"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  astrbot:
+    image: ${ASTRBOT_IMAGE:-soulter/astrbot:latest}
+    restart: unless-stopped
+    expose:
+      - "6185"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - astrbot-data:/AstrBot/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python -c "import urllib.request;
+          urllib.request.urlopen('http://127.0.0.1:6185/', timeout=3)"
+      interval: 20s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  # NapCat/QQ on Linux is not declared supported until an image and login
+  # lifecycle have been verified. Start this profile only with a concrete
+  # NAPCAT_IMAGE value in deploy/.env.
+  napcat:
+    image: ${NAPCAT_IMAGE:-replace-with-validated-napcat-image}
+    profiles: ["linux-napcat"]
+    restart: unless-stopped
+    expose:
+      - "6099"
+      - "5800"
+      - "5801"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - napcat-data:/data
+
+volumes:
+  chihiro-data:
+  astrbot-data:
+  napcat-data:

@@ -1,0 +1,10 @@
+services:
+  chihiro:
+    environment:
+      # Use host.docker.internal for a NapCat process on the Docker host, or
+      # replace these values with the address of a remote NapCat instance.
+      CHIHIRO_NAPCAT_WEBUI_URL: ${CHIHIRO_NAPCAT_WEBUI_URL:-http://host.docker.internal:6099}
+      CHIHIRO_ONEBOT_HTTP_URL: ${CHIHIRO_ONEBOT_HTTP_URL:-http://host.docker.internal:5800}
+      CHIHIRO_ONEBOT_WS_URL: ${CHIHIRO_ONEBOT_WS_URL:-ws://host.docker.internal:5801}
+    extra_hosts:
+      - host.docker.internal:host-gateway

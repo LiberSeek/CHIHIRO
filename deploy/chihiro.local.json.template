@@ -1,0 +1,19 @@
+{
+  "gateway": {
+    "host": "0.0.0.0",
+    "port": 3100
+  },
+  "napcat": {
+    "webui": "${CHIHIRO_NAPCAT_WEBUI_URL}",
+    "onebotHttp": "${CHIHIRO_ONEBOT_HTTP_URL}",
+    "onebotWs": "${CHIHIRO_ONEBOT_WS_URL}"
+  },
+  "astrbot": {
+    "url": "${CHIHIRO_ASTRBOT_URL}",
+    "host": "0.0.0.0",
+    "port": 6185,
+    "reverseHost": "chihiro",
+    "reversePort": 6199,
+    "dataDir": "/app/data/astrbot"
+  }
+}
