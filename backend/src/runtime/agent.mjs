@@ -112,15 +112,6 @@ function looksSensitive(text, message) {
   return false
 }
 
-function fakeOk(echo) {
-  return JSON.stringify({
-    status: 'ok',
-    retcode: 0,
-    data: { message_id: Date.now() % 1e9 },
-    echo
-  })
-}
-
 function parseJson(raw) {
   try {
     return JSON.parse(String(raw))
@@ -207,6 +198,7 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
       accountModes: persist.load().accountModes || {},
       sessions,
       drafts: persist.listDrafts(accountId, 'pending'),
+      recentDrafts: persist.listDrafts(accountId, null).slice(0, 200),
       pendingByAccount: persist.pendingCounts()
     }
   }
@@ -294,8 +286,7 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
       title: type === 'group' ? (data.group_name || String(peerId)) : (nickname || String(peerId)),
       lastText: text,
       lastAt: Date.now(),
-      status: 'processing',
-      assistHold: false
+      status: 'processing'
     })
     persist.appendMessage(key, {
       id: String(data.message_id || `u-${Date.now()}`),
@@ -323,7 +314,7 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     const assist = Boolean(session.assistHold)
     let hold = false
     let reason = ''
-    if (assist || mode === 'ask') {
+    if (assist || mode === 'ask' || !sessionHosted(accountId, target.type, target.peerId)) {
       hold = true
       reason = assist ? 'assist' : 'ask'
     } else if (mode === 'auto' && looksSensitive(text, target.message)) {
@@ -340,53 +331,51 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
         kind: 'mode',
         title: reason === 'auto_sensitive' ? '自动模式拦截了链接/图片/@全体' : '按「请求批准」拦截，待你确认'
       })
-      finishThinking(key)
-      const draft = persist.addDraft({
-        accountId,
-        sessionKey: key,
-        type: target.type,
-        peerId: target.peerId,
-        text,
-        message: target.message,
-        reason,
-        echo: msg.echo
-      })
-      persist.upsertSession({
-        ...persist.getSession(key),
-        key,
-        lastText: text,
-        lastAt: Date.now(),
-        status: 'pending_review',
-        assistHold: false
-      })
-      persist.appendMessage(key, {
-        id: draft.id,
-        role: 'draft',
-        text,
-        at: Date.now(),
-        draftId: draft.id
-      })
-      emit()
-      return { hold: true, draft }
     }
-    addThinkStep(key, { kind: 'reply', title: '已发出回复', detail: clipText(text) })
     finishThinking(key)
+    const draft = persist.addDraft({
+      accountId,
+      sessionKey: key,
+      type: target.type,
+      peerId: target.peerId,
+      text,
+      message: target.message,
+      reason,
+      echo: msg.echo
+    })
     persist.upsertSession({
       ...persist.getSession(key),
       key,
       lastText: text,
       lastAt: Date.now(),
-      status: 'replied',
-      assistHold: false
+      status: hold ? 'pending_review' : 'processing'
     })
     persist.appendMessage(key, {
-      id: `b-${Date.now()}`,
-      role: 'bot',
+      id: draft.id,
+      role: 'draft',
       text,
-      at: Date.now()
+      at: Date.now(),
+      draftId: draft.id
     })
     emit()
-    return { hold: false }
+    return { hold, draft }
+  }
+
+  async function handleAgentOutbound(accountId, msg) {
+    const target = outboundTarget(msg)
+    resolvePeer({ accountId, type: target.type, peerId: target.peerId })
+    const decision = decideOutbound(accountId, msg)
+    if (!decision.draft) return { status: 'failed', retcode: 1400, message: 'missing_peer', echo: msg.echo }
+    if (decision.hold) return {
+      status: 'ok', retcode: 0, echo: msg.echo,
+      data: { message_id: 0, draft_id: decision.draft.id, delivery_status: 'pending_review' }
+    }
+    try {
+      const sent = await approveDraft(decision.draft.id, { accountId })
+      return { status: 'ok', retcode: 0, data: sent.receipt, echo: msg.echo }
+    } catch (error) {
+      return { status: 'failed', retcode: 1500, message: error.message, echo: msg.echo }
+    }
   }
 
   function instForAccount(accountId) {
@@ -440,7 +429,9 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     const params = type === 'group'
       ? { group_id: Number(peerId), message }
       : { user_id: Number(peerId), message }
-    return napcatAction(accountId, action, params)
+    const receipt = await napcatAction(accountId, action, params)
+    if (receipt?.message_id == null || String(receipt.message_id) === '0') throw new Error('missing_send_receipt')
+    return receipt
   }
 
   function slimFriend(row) {
@@ -664,6 +655,7 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     requireDraftContext(existing, context)
     const draft = persist.claimDraft(id)
     if (!draft) throw new Error('draft_not_found')
+    emit()
     let receipt
     try {
       receipt = await napcatSend(draft.accountId, {
@@ -810,8 +802,9 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
         }
       }
       if (msg && isSendAction(msg)) {
-        decideOutbound(accountId, msg)
-        if (astrWs.readyState === WebSocket.OPEN) astrWs.send(fakeOk(msg.echo))
+        void handleAgentOutbound(accountId, msg).then(result => {
+          if (astrWs.readyState === WebSocket.OPEN) astrWs.send(JSON.stringify(result))
+        }).catch(error => logError('agent', 'assist outbound', error))
       }
     })
     astrWs.on('close', () => {
@@ -905,15 +898,17 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
       }
       if (msg && isSendAction(msg)) {
         const target = outboundTarget(msg)
-        if (target.peerId && !sessionHosted(accountId, target.type, target.peerId)) {
-          if (astrWs.readyState === WebSocket.OPEN) astrWs.send(fakeOk(msg.echo))
+        const session = persist.getSession(sessionKey(accountId, target.type, target.peerId))
+        if (target.peerId && !sessionHosted(accountId, target.type, target.peerId) && !session?.assistHold) {
+          if (astrWs.readyState === WebSocket.OPEN) astrWs.send(JSON.stringify({
+            status: 'failed', retcode: 1403, message: 'session_not_hosted', echo: msg.echo
+          }))
           return
         }
-        const decision = decideOutbound(accountId, msg)
-        if (decision.hold) {
-          if (astrWs.readyState === WebSocket.OPEN) astrWs.send(fakeOk(msg.echo))
-          return
-        }
+        void handleAgentOutbound(accountId, msg).then(result => {
+          if (astrWs.readyState === WebSocket.OPEN) astrWs.send(JSON.stringify(result))
+        }).catch(error => logError('agent', 'outbound', error))
+        return
       }
       if (napcatWs.readyState === WebSocket.OPEN) napcatWs.send(raw)
     })
@@ -1037,8 +1032,10 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
         if (body.key || body.peerId != null || body.type != null) {
           if (!body.key && body.peerId == null) throw new Error('missing_peer')
           const target = resolvePeer(body)
-          if (!persist.getSession(target.key)) throw new Error('session_not_found')
+          if (!target.peerId) throw new Error('missing_peer')
+          if (!persist.getSession(target.key)) persist.upsertSession(target)
           persist.setSessionMode(target.key, body.mode)
+          persist.upsertSession({ ...persist.getSession(target.key), assistHold: false })
         } else {
           persist.setAccountMode(body.accountId, body.mode)
         }
@@ -1047,6 +1044,17 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
       }
       emit()
       return json(view(body.accountId))
+    }
+    if (p === '/api/runtime/agent/takeover' && method === 'POST') {
+      const body = await readBody()
+      try {
+        const target = resolvePeer(body)
+        if (!target.peerId) throw new Error('missing_peer')
+        persist.supersedePendingDrafts(target.key, 'operator_takeover')
+        persist.upsertSession({ ...target, assistHold: true, status: 'idle' })
+        emit()
+        return json(view(target.accountId))
+      } catch (error) { return json({ error: error.message }, 400) }
     }
     if (p === '/api/runtime/agent/draft/approve' && method === 'POST') {
       const body = await readBody()
@@ -1120,6 +1128,7 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     sendToConversation,
     approveDraft,
     discardDraft,
+    handleAgentOutbound,
     pendingCounts: () => persist.pendingCounts(),
     persist
   }

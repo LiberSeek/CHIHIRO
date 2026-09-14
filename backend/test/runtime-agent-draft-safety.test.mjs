@@ -7,9 +7,9 @@ import test from 'node:test'
 import { createAgentController } from '../src/runtime/agent.mjs'
 import { createAgentStore, sessionKey } from '../src/runtime/agent-store.mjs'
 
-function fixture() {
+function fixture(hosted = false) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'chihiro-agent-'))
-  const account = { id: 'qq:10001' }
+  const account = { id: 'qq:10001', botSessions: { 'private:20002': hosted } }
   const accounts = { list: () => ({ accounts: [account] }) }
   const qq = {
     getInstanceForAccount: () => ({ ports: { http: 3001 }, tokens: { http: 'test' } }),
@@ -104,4 +104,48 @@ test('conversation changes supersede only pending drafts in that session', (t) =
 
   assert.equal(store.getDraft(stale.id).status, 'superseded')
   assert.equal(store.getDraft(other.id).status, 'pending')
+})
+
+test('automatic replies wait for a real receipt and publish delivery state', async (t) => {
+  const { root, controller } = fixture(true)
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  let finish
+  globalThis.fetch = () => new Promise(resolve => { finish = resolve })
+  const reply = controller.handleAgentOutbound('qq:10001', {
+    action: 'send_private_msg', params: { user_id: 20002, message: 'automatic reply' }, echo: 'run-1'
+  })
+  assert.equal(controller.view('qq:10001').recentDrafts.filter(d => d.status === 'sending').length, 1)
+  assert.equal(controller.view('qq:10001').sessions[0].status, 'pending_review')
+  finish({ ok: true, json: async () => ({ status: 'ok', data: { message_id: 123 } }) })
+  assert.deepEqual(await reply, { status: 'ok', retcode: 0, data: { message_id: 123 }, echo: 'run-1' })
+  assert.equal(controller.view('qq:10001').recentDrafts.find(d => d.text === 'automatic reply').status, 'sent')
+})
+
+test('operator assistance holds every output chunk even under automatic mode', async (t) => {
+  const { root, controller, draft } = fixture(true)
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  controller.persist.upsertSession({ ...controller.persist.getSession(draft.sessionKey), assistHold: true })
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  globalThis.fetch = async () => { throw new Error('Assistant output must not reach QQ') }
+  for (let index = 0; index < 2; index++) {
+    const result = await controller.handleAgentOutbound('qq:10001', {
+      action: 'send_private_msg', params: { user_id: 20002, message: `chunk ${index}` }, echo: index
+    })
+    assert.equal(result.data.delivery_status, 'pending_review')
+    assert.equal(result.data.message_id, 0)
+  }
+  assert.equal(controller.persist.getSession(draft.sessionKey).assistHold, true)
+})
+
+test('a successful HTTP envelope without a send receipt remains unknown', async (t) => {
+  const { root, controller, draft } = fixture()
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ status: 'ok', data: {} }) })
+  await assert.rejects(controller.approveDraft(draft.id), /missing_send_receipt/)
+  assert.equal(controller.persist.getDraft(draft.id).status, 'unknown')
 })

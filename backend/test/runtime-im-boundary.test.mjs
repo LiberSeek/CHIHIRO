@@ -60,6 +60,27 @@ async function fixture(t) {
   }
 }
 
+test('assistant mode can be configured before the first message and rejects mismatched context', async (t) => {
+  const f = await fixture(t)
+  const body = { accountId: 'qq:100', type: 'private', peerId: '123', mode: 'ask' }
+  const send = (payload) => fetch(`${f.base}/api/runtime/agent/mode`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+  })
+  const response = await send(body)
+  assert.equal(response.status, 200)
+  assert.equal((await response.json()).sessions[0].mode, 'ask')
+  const draft = f.runtime.agent.persist.addDraft({ accountId: body.accountId, type: body.type, peerId: body.peerId, sessionKey: 'qq:100:private:123', text: 'stale' })
+  const takeover = await fetch(`${f.base}/api/runtime/agent/takeover`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  })
+  assert.equal(takeover.status, 200)
+  assert.equal(f.runtime.agent.persist.getDraft(draft.id).status, 'superseded')
+  assert.equal((await takeover.json()).sessions[0].assistHold, true)
+  const mismatch = await send({ ...body, key: 'qq:200:private:123' })
+  assert.equal(mismatch.status, 400)
+  assert.equal(f.napcatRequests.length, 0)
+})
+
 test('reads QQ history through the real controller and rejects cross-account keys', async (t) => {
   const f = await fixture(t)
   f.setNapcatReply({ status: 'ok', retcode: 0, data: { messages: [
