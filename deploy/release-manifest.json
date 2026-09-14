@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "product": "chihiro",
+  "version": "0.1.0-dev",
+  "baselineTag": "0.0.1",
+  "images": {
+    "chihiro": "chihiro:dev",
+    "astrbot": "soulter/astrbot:latest",
+    "napcat": null
+  },
+  "support": {
+    "externalNapcat": "development",
+    "linuxNapcat": "unverified",
+    "defaultFrontend": "legacy",
+    "unifiedFrontendPath": "/next/"
+  }
+}

@@ -52,6 +52,20 @@ docker compose --env-file deploy/.env --file deploy/docker-compose.yml logs -f c
 docker compose --env-file deploy/.env --file deploy/docker-compose.yml down
 ```
 
+`release-manifest.json` 记录可发布的镜像组合和已验证范围。当前 AstrBot 仍使用浮动开发镜像、Linux NapCat 尚未验证，因此该 manifest 只代表开发组合；正式版本必须先固定镜像 digest 并将对应能力验收完成。
+
+备份会以只读方式打包 `chihiro-data` 和 `astrbot-data`，不包含 `deploy/.env` 中的密钥：
+
+```sh
+make manifest-check
+make backup BACKUP="$PWD/chihiro-backup.tar.gz"
+docker compose --env-file deploy/.env --file deploy/docker-compose.yml down
+make restore BACKUP="$PWD/chihiro-backup.tar.gz"
+docker compose --env-file deploy/.env --file deploy/docker-compose.yml up -d
+```
+
+恢复会先清空目标数据卷，必须在 Compose 服务停止后运行。备份归档中包含生成时的 release manifest，便于选择同一镜像组合回滚；环境密钥需要从独立的安全备份恢复。
+
 部署前可以检查两个 Compose 文件的展开结果：
 
 ```sh
