@@ -159,7 +159,7 @@ vendor/                           上游来源和兼容参考
 
 `a6f55e1` 在打开原生 Agent 页面时先等待 Runtime ensure，失败可重试。原生会话 1 → 会话 2 路由与消息切换、创建项目弹层已经通过 mock 浏览器检查。真实写入、流式运行仍待验收。前端 20 项测试及原生构建通过。
 
-IM 原生闭包已合入并完成 116 文件来源校验。统一前端已补齐 native alias、运行时声明、动态资源插件和严格类型适配；`npm run typecheck:web`、`npm run build:web`、`npm run build:im-native --workspace frontend` 均通过。消息映射、账号边界和 Agent hosted API 回归测试共 33 项前端测试通过。原生 IM 仍未切换为默认工作区模块：其模块级 Connector/Pinia 状态和全局 UI 仍需账号隔离、主题注册和真实 NapCat 会话验收，因此旧壳继续保留。
+IM 原生闭包已合入并完成 127 文件来源校验，包含 JSON 卡片组件与系统通知页。统一前端已补齐 native alias、运行时声明、动态资源插件和严格类型适配；`npm run typecheck:web`、`npm run build:web`、`npm run build:im-native --workspace frontend` 均通过。消息映射、卡片渲染、账号边界和 Agent hosted API 回归测试共 39 项前端测试通过。原生 IM 仍未切换为默认工作区模块：其模块级 Connector/Pinia 状态和全局 UI 仍需账号隔离、主题注册和真实 NapCat 会话验收，因此旧壳继续保留。
 
 Docker 镜像已恢复统一前端构建阶段，同时继续将 `apps/web` 作为可回退根入口。本轮 Docker 内部 `npm ci`、类型检查和 Vite 构建通过，但复制前端产物时因磁盘不足引发 BuildKit `metadata_v2.db` I/O 错误；因此新镜像、容器健康和重启验收仍未通过。旧壳镜像的先前验证不代表统一前端镜像验收。已回收多个已提交且无工作区改动的临时 worktree，Git 分支/提交仍保留。`0.0.1` 基线标签保持不变。
 

@@ -61,7 +61,8 @@
     "vue3-bcui": "^0.3.0",
     "vue3-lottie": "^3.3.1",
     "vuetify": "3.7.11",
-    "xss": "^1.0.15"
+    "xss": "^1.0.15",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@modyfi/vite-plugin-yaml": "^1.1.0",

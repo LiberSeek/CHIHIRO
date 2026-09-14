@@ -274,7 +274,7 @@
     {
       "path": "src/components/user/UserJsonSegComp.vue",
       "upstreamPath": "components/user/UserJsonSegComp.vue",
-      "sha256": "a7cab9d3c8efda550bb3b26bd7caea3b738b7e599b0796a545d64c59b4629a31",
+      "sha256": "bda222d6c12bb9a4221b42d8a7e55fe1d438376bb840427df0a2a79aff68d5f4",
       "extractedSha256": "db0bae492040a3b3fab6af4864a6c6770b8ba739459d5cb9eb95aa2772d3d65f"
     },
     {
@@ -611,6 +611,83 @@
       "path": "src/state/ui.ts",
       "upstreamPath": "state/ui.ts",
       "sha256": "143c1d765494c7bada6ec583723e52a74a3c0c0377b1947c666c28e8cd79e2da"
+    },
+    {
+      "path": "src/components/user/jsonComp/AutoReply.vue",
+      "upstreamPath": "components/user/jsonComp/AutoReply.vue",
+      "sourceTreeCommit": "0686935276ac8c471068958893467f835e3905f4",
+      "extractedSha256": "ced498e632ea311620cdcf2e86a3aff82f6f7b2a317794f5ca2283eeab270f23",
+      "sha256": "ced498e632ea311620cdcf2e86a3aff82f6f7b2a317794f5ca2283eeab270f23"
+    },
+    {
+      "path": "src/components/user/jsonComp/Contact.lua.vue",
+      "upstreamPath": "components/user/jsonComp/Contact.lua.vue",
+      "sourceTreeCommit": "0686935276ac8c471068958893467f835e3905f4",
+      "extractedSha256": "15bc7944113b90bd60fb6dc84168454c7599fbd46e9063f5cc7c1ee456da0c90",
+      "sha256": "15bc7944113b90bd60fb6dc84168454c7599fbd46e9063f5cc7c1ee456da0c90"
+    },
+    {
+      "path": "src/components/user/jsonComp/Feed.lua.vue",
+      "upstreamPath": "components/user/jsonComp/Feed.lua.vue",
+      "sourceTreeCommit": "0686935276ac8c471068958893467f835e3905f4",
+      "extractedSha256": "912895eeafc79d0578dc5ba980ffeecd48da2c5d999cfb0889cb72a00aed3475",
+      "sha256": "912895eeafc79d0578dc5ba980ffeecd48da2c5d999cfb0889cb72a00aed3475"
+    },
+    {
+      "path": "src/components/user/jsonComp/Forum.vue",
+      "upstreamPath": "components/user/jsonComp/Forum.vue",
+      "sourceTreeCommit": "0686935276ac8c471068958893467f835e3905f4",
+      "extractedSha256": "97c7f876d3eb4c8bff195d50a283f0c6814fc637299c9d7392d3764e9ec4125b",
+      "sha256": "97c7f876d3eb4c8bff195d50a283f0c6814fc637299c9d7392d3764e9ec4125b"
+    },
+    {
+      "path": "src/components/user/jsonComp/Mannounce.vue",
+      "upstreamPath": "components/user/jsonComp/Mannounce.vue",
+      "sourceTreeCommit": "0686935276ac8c471068958893467f835e3905f4",
+      "extractedSha256": "4a22af309f97fae44e18a63defe2a419b204200a65bede57c8d86beb2d4dc13d",
+      "sha256": "4a22af309f97fae44e18a63defe2a419b204200a65bede57c8d86beb2d4dc13d"
+    },
+    {
+      "path": "src/components/user/jsonComp/Map.vue",
+      "upstreamPath": "components/user/jsonComp/Map.vue",
+      "sourceTreeCommit": "0686935276ac8c471068958893467f835e3905f4",
+      "extractedSha256": "daf131d7e195dacc119c838715e2e548f125af824c075e62fbb67968fb008d49",
+      "sha256": "daf131d7e195dacc119c838715e2e548f125af824c075e62fbb67968fb008d49"
+    },
+    {
+      "path": "src/components/user/jsonComp/Miniapp.lua.vue",
+      "upstreamPath": "components/user/jsonComp/Miniapp.lua.vue",
+      "sourceTreeCommit": "0686935276ac8c471068958893467f835e3905f4",
+      "extractedSha256": "429b9592afd067f7c761395e524309f15773219b2e9e0e7a0a8fc800d3faed07",
+      "sha256": "429b9592afd067f7c761395e524309f15773219b2e9e0e7a0a8fc800d3faed07"
+    },
+    {
+      "path": "src/components/user/jsonComp/Miniapp.vue",
+      "upstreamPath": "components/user/jsonComp/Miniapp.vue",
+      "sourceTreeCommit": "0686935276ac8c471068958893467f835e3905f4",
+      "extractedSha256": "0eabd743f0b9558744682a7d0f1b2b8c0a50832dd7232a5edd1b427dd2086547",
+      "sha256": "0eabd743f0b9558744682a7d0f1b2b8c0a50832dd7232a5edd1b427dd2086547"
+    },
+    {
+      "path": "src/components/user/jsonComp/Music.lua.vue",
+      "upstreamPath": "components/user/jsonComp/Music.lua.vue",
+      "sourceTreeCommit": "0686935276ac8c471068958893467f835e3905f4",
+      "extractedSha256": "51eb727ec6c3b2e577c8ac5a5fe7227678d247c34839725b6528fb8b2cc0615e",
+      "sha256": "e8ea220dcf649a7a4ca4dcc1384bfd6ef1c75afd1a6f7ddfd07a704f361cf552"
+    },
+    {
+      "path": "src/components/user/jsonComp/Tuwen.lua.vue",
+      "upstreamPath": "components/user/jsonComp/Tuwen.lua.vue",
+      "sourceTreeCommit": "0686935276ac8c471068958893467f835e3905f4",
+      "extractedSha256": "ee13785e328a1947d883df9544f7c047b72f148034445a71aa5d7fce0c737262",
+      "sha256": "ee13785e328a1947d883df9544f7c047b72f148034445a71aa5d7fce0c737262"
+    },
+    {
+      "path": "src/pages/user/UserSystemNotice.vue",
+      "upstreamPath": "pages/user/UserSystemNotice.vue",
+      "sourceTreeCommit": "0686935276ac8c471068958893467f835e3905f4",
+      "extractedSha256": "98e10640758055741eb3843a0d2debd942d1a9cdf14aeb554e5ceda5a408fe9a",
+      "sha256": "af63064d77484ebda1392800f695fcd787ef331c4e8299295665df2864cd53b0"
     }
   ]
 }

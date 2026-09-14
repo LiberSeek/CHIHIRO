@@ -9,7 +9,7 @@
 
 <template>
     <template v-if="comp">
-        <component :is="comp" :id="id" :data="data" />
+        <component :is="comp" :key="data" :id="id" :data="data" />
     </template>
     <span v-else class="msg-unknown">{{
         '( ' + $t('不支持的卡片类型') + ': ' + id + ' )'
@@ -17,40 +17,21 @@
 </template>
 
 <script setup lang="ts">
-const comps = import.meta.glob('./jsonComp/*.vue', {
-    eager: true,
-    import: 'default',
-})
-
-const cardComponentMap: Record<string, unknown> = {
-    'com.tencent.tuwen.lua': comps['./jsonComp/Tuwen.lua.vue'],
-    'com.tencent.mannounce': comps['./jsonComp/Mannounce.vue'],
-    'com.tencent.miniapp.lua': comps['./jsonComp/Miniapp.lua.vue'],
-    'com.tencent.miniapp_01': comps['./jsonComp/Miniapp.vue'],
-    'com.tencent.music.lua': comps['./jsonComp/Music.lua.vue'],
-    'com.tencent.contact.lua': comps['./jsonComp/Contact.lua.vue'],
-    'com.tencent.map': comps['./jsonComp/Map.vue'],
-    'com.tencent.forum': comps['./jsonComp/Forum.vue'],
-    'com.tencent.autoreply': comps['./jsonComp/AutoReply.vue'],
-    'com.tencent.feed.lua': comps['./jsonComp/Feed.lua.vue'],
-}
+import { computed } from 'vue'
+import { cardComponents } from '../../../card-components'
 
 const { data } = defineProps<{
     data: string,
 }>()
 
-let json: unknown
-let id = ''
-
-try {
-    json = JSON.parse(data)
-    if (json && typeof (json as any).app === 'string') {
-        id = (json as any).app
+const id = computed(() => {
+    try {
+        const json = JSON.parse(data)
+        return json && typeof json.app === 'string' ? json.app : ''
+    } catch {
+        return ''
     }
-} catch {
-    json = null
-    id = ''
-}
+})
 
-const comp = cardComponentMap[id]
+const comp = computed(() => Object.hasOwn(cardComponents, id.value) ? cardComponents[id.value] : undefined)
 </script>
