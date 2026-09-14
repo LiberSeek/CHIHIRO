@@ -170,4 +170,43 @@ describe('AccountSessionManager', () => {
     expect(fresh.sequence).toBe(1)
     await fresh.promise
   })
+
+  it('invalidates a remotely closed connection before notifying views and allows reconnect', async () => {
+    const first = fakeConnection()
+    const second = fakeConnection()
+    let attempts = 0
+    const manager = new AccountSessionManager(() => ++attempts === 1 ? first : second)
+    const session = await manager.connect(account('a'))
+    const events: AccountSessionEvent[] = []
+    session.subscribe(event => {
+      events.push(event)
+      expect(session.status).toBe('offline')
+      expect(() => session.request({ method: 'send_msg' })).toThrow('not connected')
+    })
+    const request = session.requestWithSequence({ method: 'send_msg' })
+    first.events({ type: 'session.closed', payload: { code: 1006 } })
+    await expect(request.promise).rejects.toBeDefined()
+    expect(first.requestSignals).toHaveLength(0)
+    expect(events).toHaveLength(1)
+    expect(events[0]?.type).toBe('session.closed')
+    await manager.connect(account('a'))
+    expect(attempts).toBe(2)
+    expect(session.status).toBe('online')
+    first.events({ type: 'onebot.event', payload: 'old socket' })
+    expect(events).toHaveLength(1)
+    await session.request({ method: 'get_login_info' })
+    expect(second.requestSignals).toHaveLength(1)
+  })
+
+  it('rejects a connection that already closed between open and subscription', async () => {
+    const connection = fakeConnection()
+    connection.subscribe = listener => {
+      listener({ type: 'session.closed', payload: { code: 1006 } })
+      return () => undefined
+    }
+    const manager = new AccountSessionManager(() => connection)
+    await expect(manager.connect(account('a'))).rejects.toBeInstanceOf(AccountSessionSupersededError)
+    expect(manager.status(accountId('a'))).toBe('offline')
+    expect(connection.closeCount).toBe(1)
+  })
 })

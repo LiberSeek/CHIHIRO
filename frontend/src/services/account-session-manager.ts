@@ -70,6 +70,8 @@ interface SessionRecord {
   connectPromise?: Promise<AccountSession>
   requests: Map<number, PendingRequest>
   subscriptions: Set<Unsubscribe>
+  listeners: Set<(event: AccountScopedEvent) => void>
+  unsubscribeConnection?: Unsubscribe
 }
 
 function abortWithReason(controller: AbortController | undefined, reason?: unknown): void {
@@ -158,6 +160,20 @@ export class AccountSessionManager {
         }
         record.connection = connection
         record.status = 'online'
+        const unsubscribe = connection.subscribe((event) => {
+          if (record.generation !== generation || record.connection !== connection) return
+          const listeners = [...record.listeners]
+          // Invalidate before notifying views so a closed socket cannot accept new work.
+          if (event.type === 'session.closed') this.invalidate(record)
+          for (const listener of listeners) listener({ ...event, accountId: context.id })
+        })
+        // A transport may replay a close that happened before we subscribed.
+        if (record.generation !== generation || record.connection !== connection) {
+          unsubscribe()
+          await connection.close()
+          throw new AccountSessionSupersededError(context.id)
+        }
+        record.unsubscribeConnection = unsubscribe
         return this.handleFor(context.id)
       })
       .catch((error: unknown) => {
@@ -270,14 +286,16 @@ export class AccountSessionManager {
       throw new Error(`Account is not connected: ${accountId}`)
     }
     let active = true
-    const unsubscribeTransport = record.connection.subscribe((event) => {
-      if (active && record.connection) listener({ ...event, accountId })
-    })
+    const generation = record.generation
+    const scopedListener = (event: AccountScopedEvent) => {
+      if (event.type === 'session.closed' || (active && record.generation === generation)) listener(event)
+    }
+    record.listeners.add(scopedListener)
     const unsubscribe = () => {
       if (!active) return
       active = false
       record.subscriptions.delete(unsubscribe)
-      unsubscribeTransport()
+      record.listeners.delete(scopedListener)
     }
     record.subscriptions.add(unsubscribe)
     return unsubscribe
@@ -287,17 +305,25 @@ export class AccountSessionManager {
   async disconnect(accountId: AccountId): Promise<void> {
     const record = this.records.get(accountId)
     if (!record) return
+    const connection = record.connection
+    this.invalidate(record)
+    if (connection) await connection.close()
+  }
+
+  private invalidate(record: SessionRecord): void {
     ++record.generation
     abortWithReason(record.connectAbort)
     record.connectAbort = undefined
     record.connectPromise = undefined
-    this.cancelAllRequests(accountId)
+    this.cancelAllRequests(record.context.id)
+    record.unsubscribeConnection?.()
+    record.unsubscribeConnection = undefined
+    // Closed-event listeners are captured by the caller before invalidation.
+    record.listeners.clear()
     for (const unsubscribe of [...record.subscriptions]) unsubscribe()
     record.subscriptions.clear()
-    const connection = record.connection
     record.connection = undefined
     record.status = 'offline'
-    if (connection) await connection.close()
   }
 
   /** Remove an account and all resources owned by it. */
@@ -320,6 +346,7 @@ export class AccountSessionManager {
       sequence: 0,
       requests: new Map(),
       subscriptions: new Set(),
+      listeners: new Set(),
     }
     this.records.set(context.id, created)
     return created
