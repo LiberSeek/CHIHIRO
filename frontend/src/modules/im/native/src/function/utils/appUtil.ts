@@ -46,6 +46,10 @@ import { sendMsgRaw } from './msgUtil'
 import { dbGetLatest } from './localHistoryUtil'
 import { parseMsg } from '../sender'
 import { Notify } from '../notify'
+import {
+    captureNativeAccountGeneration,
+    isNativeAccountGenerationCurrent,
+} from '../asyncAccountScope'
 
 const popInfo = new PopInfo()
 const logger = new Logger()
@@ -106,6 +110,7 @@ export function openLink(url: string) {
  * @param info 聊天基本信息
  */
 export async function loadHistory(info: BaseChatInfoElem) {
+    const generation = captureNativeAccountGeneration()
     const authStore = useAuthStore()
     const chatStore = useChatStore()
     const settingsStore = useSettingsStore()
@@ -120,10 +125,12 @@ export async function loadHistory(info: BaseChatInfoElem) {
             info.id,
             20,
         )
+        if (!isNativeAccountGenerationCurrent(generation)) return
         if (localMsgs.length > 0) {
             chatStore.messageList = localMsgs
         }
     }
+    if (!isNativeAccountGenerationCurrent(generation)) return
     if (!loadHistoryMessage(info.id, info.type)) {
         new PopInfo().add(
             PopType.ERR,

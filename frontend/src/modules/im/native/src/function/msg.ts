@@ -60,6 +60,12 @@ import { addDownloadTask, completeUploadTask } from '@renderer/components/user/U
 import { refreshFavicon } from './favicon'
 import { Img } from './model/img'
 import { ensurePinyinLoaded, getPinyin, isPinyinReady } from './utils/pinyin'
+import {
+    captureNativeAccountGeneration,
+    invalidateNativeAccountGeneration,
+    isNativeAccountGenerationCurrent,
+    runForNativeAccount,
+} from './asyncAccountScope'
 import { useAuthStore } from '@renderer/state/auth'
 import { useContactStore } from '@renderer/state/contact'
 import { useChatStore } from '@renderer/state/chat'
@@ -111,7 +117,7 @@ export function clearLoginWaveTimer() {
     }
 }
 
-export function resetNativeMessageRuntimeState() {
+function clearNativeMessageRuntimeState() {
     firstHeartbeatTime = -1
     heartbeatTime = -1
     listLoadTimes = 0
@@ -119,6 +125,11 @@ export function resetNativeMessageRuntimeState() {
     clearLoginWaveTimer()
     clearMetaEventWatchdog()
     groupPreviewHydrator.reset()
+}
+
+export function resetNativeMessageRuntimeState() {
+    invalidateNativeAccountGeneration()
+    clearNativeMessageRuntimeState()
 }
 
 const groupPreviewHydrator = (() => {
@@ -213,7 +224,9 @@ function buildPinyinForContacts(
     list: (UserFriendElem | UserGroupElem)[],
     startIndex = 0,
     onDone?: () => void,
+    generation = captureNativeAccountGeneration(),
 ) {
+    if (!isNativeAccountGenerationCurrent(generation)) return
     if (!isPinyinReady()) {
         onDone?.()
         return
@@ -234,15 +247,18 @@ function buildPinyinForContacts(
     }
 
     setTimeout(() => {
-        buildPinyinForContacts(list, endIndex, onDone)
+        buildPinyinForContacts(list, endIndex, onDone, generation)
     }, 0)
 }
 
 function hydrateContactPinyinLater(list: (UserFriendElem | UserGroupElem)[]) {
+    const generation = captureNativeAccountGeneration()
     const contactStore = useContactStore()
 
     const applyHydration = () => {
+        if (!isNativeAccountGenerationCurrent(generation)) return
         buildPinyinForContacts(list, 0, () => {
+            if (!isNativeAccountGenerationCurrent(generation)) return
             sortContactListByPinyin(list)
             contactStore.userList = [...contactStore.userList]
         })
@@ -254,7 +270,7 @@ function hydrateContactPinyinLater(list: (UserFriendElem | UserGroupElem)[]) {
     }
 
     void ensurePinyinLoaded().then((loaded) => {
-        if (!loaded) return
+        if (!loaded || !isNativeAccountGenerationCurrent(generation)) return
         applyHydration()
     })
 }
@@ -284,7 +300,9 @@ function refreshMetaEventWatchdog(intervalSeconds: number) {
     )
 
     connectionStore.metaEventTimeoutTriggered = false
+    const generation = captureNativeAccountGeneration()
     connectionStore.metaEventWatchTimer = setTimeout(() => {
+        if (!isNativeAccountGenerationCurrent(generation)) return
         if (connectionStore.metaEventTimeoutTriggered) return
         connectionStore.metaEventTimeoutTriggered = true
         connectionStore.metaEventWatchTimer = undefined
@@ -486,8 +504,10 @@ const noticeFunctions = {
         const chatStore = useChatStore()
         const groupId = msg.group_id
         if (groupId == chatStore.chatInfo.show.id) {
+            const generation = captureNativeAccountGeneration()
             // 稍微等一下再刷新成员列表
             delay(1000).then(() => {
+                if (!isNativeAccountGenerationCurrent(generation)) return
                 Connector.send(
                     'get_group_member_list',
                     { group_id: chatStore.chatInfo.show.id, no_cache: true },
@@ -495,6 +515,7 @@ const noticeFunctions = {
                 )
                 return delay(1000)
             }).then(() => {
+                if (!isNativeAccountGenerationCurrent(generation)) return
                 Connector.send(
                     'get_group_member_list',
                     { group_id: chatStore.chatInfo.show.id, no_cache: true },
@@ -603,9 +624,12 @@ const noticeFunctions = {
         if (chatStore.chatInfo.show.id == sender) {
             // 使用客户端返回的具体状态文本
             if (msg.status_text) {
+                const generation = captureNativeAccountGeneration()
                 chatStore.chatInfo.show.appendInfo = $t(msg.status_text)
                 setTimeout(() => {
-                    chatStore.chatInfo.show.appendInfo = undefined
+                    runForNativeAccount(generation, () => {
+                        chatStore.chatInfo.show.appendInfo = undefined
+                    })
                 }, 10000)
             } else {
                 // 对方停止输入时，会有一个空的 input_status 消息
@@ -628,8 +652,10 @@ const msgFunctions = {
             html: `<span>${$t('正在确认操作……')}</span>`
         }
         uiStore.popBoxList.push(popInfo)
+        const generation = captureNativeAccountGeneration()
         // 稍微等一下再刷新成员列表
         delay(1000).then(() => {
+            if (!isNativeAccountGenerationCurrent(generation)) return
             Connector.send(
                 'get_group_member_list',
                 { group_id: chatStore.chatInfo.show.id, no_cache: true },
@@ -637,6 +663,7 @@ const msgFunctions = {
             )
             return delay(1000)
         }).then(() => {
+            if (!isNativeAccountGenerationCurrent(generation)) return
             Connector.send(
                 'get_group_member_list',
                 { group_id: chatStore.chatInfo.show.id, no_cache: true },
@@ -844,8 +871,9 @@ const msgFunctions = {
         sortAndSaveMembers()
 
         if (!isPinyinReady()) {
+            const generation = captureNativeAccountGeneration()
             void ensurePinyinLoaded().then((loaded) => {
-                if (!loaded) return
+                if (!loaded || !isNativeAccountGenerationCurrent(generation)) return
                 data.forEach((item: any) => {
                     let name: string
                     if (item.card != undefined && item.card != '') {
@@ -883,6 +911,7 @@ const msgFunctions = {
         msg: { [key: string]: any },
         metaArgs?: string[],
     ) => {
+        const generation = captureNativeAccountGeneration()
         const authStore = useAuthStore()
         const chatStore = useChatStore()
         // echo 格式：getChatHistoryGapFill_<anchorMsgId>
@@ -892,7 +921,7 @@ const msgFunctions = {
         const rawList = getMsgData('message_list', msg, msgPath.message_list)
         getMessageList(rawList)
             .then((list) => {
-                if (!list || list.length === 0) return
+                if (!list || list.length === 0 || !isNativeAccountGenerationCurrent(generation)) return
                 const inserted = insertHistorySegmentAtAnchor(
                     chatStore.messageList,
                     anchorMsgId,
@@ -906,6 +935,7 @@ const msgFunctions = {
             .catch(() => {})
     },
     getChatHistory: (_: string, msg: { [key: string]: any }) => {
+        const generation = captureNativeAccountGeneration()
         const uiStore = useUIStore()
         if (msg.data === null) {
             new PopInfo().add(
@@ -921,8 +951,10 @@ const msgFunctions = {
         if (pan) {
             const oldScrollHeight = pan.scrollHeight
             saveMsg(msg, 'top').then(() => {
+                if (!isNativeAccountGenerationCurrent(generation)) return
                 nextTick(() => {
                     setTimeout(() => {
+                        if (!isNativeAccountGenerationCurrent(generation)) return
                         logger.debug(`滚动前高度：${oldScrollHeight}，当前高度：${pan.scrollHeight}，滚动位置：${pan.scrollHeight - oldScrollHeight}`)
                         pan.style.scrollBehavior = 'unset'
                         // 纠正滚动位置
@@ -1267,8 +1299,10 @@ const msgFunctions = {
         if (msgInfo) {
             const info = msgInfo[0]
             if (echoList[1] !== info.message_id.toString()) {
+                const generation = captureNativeAccountGeneration()
                 // 返回的不是这条消息，重新请求
                 setTimeout(() => {
+                    if (!isNativeAccountGenerationCurrent(generation)) return
                     Connector.send(
                         authStore.jsonMap.get_message.name ?? 'get_msg',
                         { message_id: echoList[1] },
@@ -1708,12 +1742,14 @@ function saveClassInfo(
 }
 
 async function saveMsg(msg: any, append = undefined as undefined | string) {
+    const generation = captureNativeAccountGeneration()
     const uiStore = useUIStore()
     const authStore = useAuthStore()
     const chatStore = useChatStore()
     const contactStore = useContactStore()
     const settingsStore = useSettingsStore()
     let list = await normalizeMessagesFromPayload(msg)
+    if (!isNativeAccountGenerationCurrent(generation)) return
     if (list != undefined) {
         const historyBeforeTime = Number(uiStore.historyBeforeTime)
         const hasHistoryBeforeTime = Number.isFinite(historyBeforeTime)
@@ -1827,6 +1863,7 @@ async function normalizeMessagesFromPayload(payload: any): Promise<any[] | undef
 }
 
 export async function normalizeMessagesForPreview(payload: any): Promise<any[]> {
+    const generation = captureNativeAccountGeneration()
     const authStore = useAuthStore()
     const map = authStore.jsonMap
 
@@ -1842,7 +1879,8 @@ export async function normalizeMessagesForPreview(payload: any): Promise<any[]> 
         )
 
         if (directList.length === 0) return []
-        return Promise.all(directList.map(msgPreprocess))
+        const result = await Promise.all(directList.map(msgPreprocess))
+        return isNativeAccountGenerationCurrent(generation) ? result : []
     }
 
     if (!map?.message_list) return []
@@ -1874,7 +1912,8 @@ export async function normalizeMessagesForPreview(payload: any): Promise<any[]> 
         }
     })
 
-    return Promise.all(list.map(msgPreprocess))
+    const result = await Promise.all(list.map(msgPreprocess))
+    return isNativeAccountGenerationCurrent(generation) ? result : []
 }
 
 function normalizeNewIncomingMessage(data: any): any[] {
@@ -2039,6 +2078,7 @@ function replaceMessageListInPlace(next: any[]) {
 }
 
 export async function getMessageList(list: any[] | undefined) {
+    const generation = captureNativeAccountGeneration()
     if (!list) return undefined
 
     list = parseMsgList(
@@ -2056,7 +2096,8 @@ export async function getMessageList(list: any[] | undefined) {
             item.post_type = 'message'
         }
     })
-    return Promise.all(list.map(msgPreprocess))
+    const result = await Promise.all(list.map(msgPreprocess))
+    return isNativeAccountGenerationCurrent(generation) ? result : undefined
 }
 
 /**
@@ -2442,10 +2483,7 @@ function formatMessageData(data: any, isGroup: boolean) {
 // 重置 Runtime，但是保留应用设置之类已经加载好的应用内容
 export function resetRimtime(resetAll = false) {
     // Handshake resets must retain the provider map selected by getVersionInfo.
-    firstHeartbeatTime = -1
-    heartbeatTime = -1
-    clearMetaEventWatchdog()
-    groupPreviewHydrator.reset()
+    clearNativeMessageRuntimeState()
     if (resetAll) {
         // Reset auth store
         const authStore = useAuthStore()
