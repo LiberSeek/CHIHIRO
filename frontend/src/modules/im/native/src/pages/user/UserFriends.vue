@@ -95,7 +95,7 @@
 </template>
 
 <script setup lang="ts">
-    import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+    import { ref, computed, watch } from 'vue'
 
     import FriendBody from '@renderer/components/user/UserFriendBody.vue'
     import UserListHead from '@renderer/components/user/UserListHead.vue'
@@ -214,28 +214,8 @@
         return contactTab.value === 'friend' ? friendSections.value : groupSections.value
     })
 
-    function publishChihiroEmptyChat() {
-        if (Number(chatStore.chatInfo.show.id) !== 0) return
-        try {
-            window.parent.postMessage({ source: 'chihiro-im', kind: 'chat', chat: null }, '*')
-        } catch (e) {}
-    }
-    function onChihiroShell(ev: MessageEvent) {
-        const data = ev.data
-        if (!data || data.source !== 'chihiro-shell' || data.kind !== 'chat-sync') return
-        publishChihiroEmptyChat()
-    }
-    watch(() => chatStore.chatInfo.show.id, publishChihiroEmptyChat, { immediate: true })
-
     watch(searchInfo, (value) => {
         applySearch(value)
-    })
-
-    onMounted(() => {
-        window.addEventListener('message', onChihiroShell)
-    })
-    onBeforeUnmount(() => {
-        window.removeEventListener('message', onChihiroShell)
     })
 
     function getShowName(data: UserFriendElem & UserGroupElem) {

@@ -149,7 +149,7 @@
 </template>
 
 <script setup lang="ts">
-    import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
+    import { ref, computed, nextTick, onMounted, watch } from 'vue'
     import app, { i18n } from '@chihiro/im-native/host'
     import FriendBody from '@renderer/components/user/UserFriendBody.vue'
     import UserListHead from '@renderer/components/user/UserListHead.vue'
@@ -319,28 +319,12 @@
         }, 0)
     })
 
-    function publishChihiroEmptyChat() {
-        if (Number(chatStore.chatInfo.show.id) !== 0) return
-        try {
-            window.parent.postMessage({ source: 'chihiro-im', kind: 'chat', chat: null }, '*')
-        } catch (e) {}
-    }
-    function onChihiroShell(ev: MessageEvent) {
-        const data = ev.data
-        if (!data || data.source !== 'chihiro-shell' || data.kind !== 'chat-sync') return
-        publishChihiroEmptyChat()
-    }
-    watch(() => chatStore.chatInfo.show.id, publishChihiroEmptyChat, { immediate: true })
     watch(searchInfo, (value) => {
         if (value.trim()) showGroupAssist.value = false
     })
 
     onMounted(() => {
         library.add(faBell, faBroom, faComment, faCopy, faThumbTack, faTrashCan, faUserGroup)
-        window.addEventListener('message', onChihiroShell)
-    })
-    onBeforeUnmount(() => {
-        window.removeEventListener('message', onChihiroShell)
     })
 
     /**
