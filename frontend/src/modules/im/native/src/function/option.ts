@@ -339,14 +339,11 @@ function setMsgType(value: any) {
  * @param value 数值（0.5 - 1.5）
  */
 function changeInitialScale(value: number) {
-    const viewport = document.getElementById('viewport')
-    if (viewport && value && value >= 0.5 && value <= 1.5) {
-        (viewport as any).content =
-            `width=device-width, initial-scale=${value}, maximum-scale=5, user-scalable=0`
-    } else {
-        (viewport as any).content =
-            'width=device-width, initial-scale=0.85, maximum-scale=5, user-scalable=0'
-    }
+    const viewport = document.getElementById('viewport') as HTMLMetaElement | null
+    if (!viewport) return
+    viewport.content = value && value >= 0.5 && value <= 1.5
+        ? `width=device-width, initial-scale=${value}, maximum-scale=5, user-scalable=0`
+        : 'width=device-width, initial-scale=0.85, maximum-scale=5, user-scalable=0'
 }
 
 /**

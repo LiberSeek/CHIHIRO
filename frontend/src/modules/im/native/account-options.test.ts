@@ -3,7 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 vi.mock('./src/runtime/backend', () => ({ backend: { type: 'web', isDesktop: () => false } }))
 vi.mock('./src/function/utils/appUtil', () => ({}))
 vi.mock('./src/function/msg', () => ({ dispatch: vi.fn() }))
-import { selectNativeAccountOptions, saveAll } from './src/function/option'
+import { load, selectNativeAccountOptions, saveAll } from './src/function/option'
 import { useSettingsStore } from './src/state/settings'
 
 const storage = new Map<string, string>()
@@ -36,4 +36,10 @@ it('does not overwrite the legacy frontend settings or copy account data to glob
   saveAll({ top_info: { '20001': true }, language: 'zh-CN' })
   expect(storage.get('options')).toBe('top_info:legacy&language:en')
   expect(storage.get('chihiro:im:options')).toBe('language:zh-CN')
+})
+
+it('loads a saved initial scale when the host viewport meta is unavailable', async () => {
+  storage.set('chihiro:im:options', 'initial_scale:1.1')
+  vi.stubGlobal('document', { getElementById: () => null })
+  await expect(load()).resolves.toMatchObject({ initial_scale: '1.1' })
 })
