@@ -153,3 +153,30 @@ test('history marks only the requested account own messages as outgoing', async 
   assert.equal(response.status, 200)
   assert.deepEqual((await response.json()).map(message => message.outgoing), [true, false])
 })
+
+test('recent conversations come from the account QQ snapshot without requiring Agent tracking', async (t) => {
+  const f = await fixture(t)
+  f.setNapcatReply({ status: 'ok', retcode: 0, data: [
+    { chatType: 1, peerUin: '123', remark: '客户备注', peerName: '昵称', msgTime: '1234', lastestMsg: { message: [{ type: 'text', data: { text: '你好' } }] } },
+    { chatType: 2, peerUin: '123', peerName: '业务群', msgTime: '1230' },
+    { chatType: 1, peerUin: '123', peerName: '重复' },
+    { chatType: 4, peerUin: '999', peerName: '未支持通道' },
+    { chatType: 1, peerUin: 'not-a-qq-id' }
+  ] })
+  const response = await fetch(`${f.base}/api/runtime/im/conversations`, { headers: { 'x-chihiro-account': 'qq:100' } })
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), [
+    { id: 'qq:100:private:123', title: '客户备注', kind: 'direct', lastText: '你好', lastAt: 1234 },
+    { id: 'qq:100:group:123', title: '业务群', kind: 'group', lastText: '', lastAt: 1230 }
+  ])
+  assert.deepEqual(f.napcatRequests, [{ path: '/get_recent_contact', body: { count: 100 } }])
+  assert.equal(f.runtime.agent.persist.getSession('qq:100:private:123'), null)
+})
+
+test('invalid QQ recent snapshots report failure instead of an empty successful inbox', async (t) => {
+  const f = await fixture(t)
+  f.setNapcatReply({ status: 'ok', retcode: 0, data: {} })
+  const response = await fetch(`${f.base}/api/runtime/im/conversations`, { headers: { 'x-chihiro-account': 'qq:100' } })
+  assert.equal(response.status, 400)
+  assert.equal((await response.json()).error, 'invalid_recent_contacts_response')
+})

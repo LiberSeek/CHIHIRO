@@ -572,6 +572,29 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
       throw new Error('missing_account')
     }
     if (k !== 'accounts') requireAccount(accountId)
+    if (k === 'recent-conversations') {
+      const rows = await napcatAction(accountId, 'get_recent_contact', { count: clampCount(count, 100, 500) })
+      if (!Array.isArray(rows)) throw new Error('invalid_recent_contacts_response')
+      const seen = new Set()
+      const sessions = []
+      for (const row of rows) {
+        // NapCat chatType 1 is private, 2 is group. Other channel types need
+        // their own addressing contract and must not become private targets.
+        const type = row?.chatType === 1 ? 'private' : row?.chatType === 2 ? 'group' : null
+        const peerId = String(row?.peerUin ?? '')
+        if (!type || !/^\d+$/.test(peerId) || /^0+$/.test(peerId)) continue
+        const key = sessionKey(accountId, type, peerId)
+        if (seen.has(key)) continue
+        seen.add(key)
+        sessions.push({
+          key, type, peerId,
+          title: String(row.remark || row.peerName || peerId),
+          lastText: messageText(row.lastestMsg?.message),
+          lastAt: Number(row.msgTime) || 0
+        })
+      }
+      return { kind: k, accountId, source: 'qq', sessions }
+    }
     if (k === 'sessions') {
       return {
         kind: k,

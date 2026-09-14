@@ -88,13 +88,13 @@ export function createRuntime({ root, cfg, services = {} }) {
       const accountId = req.headers['x-chihiro-account'] || url.searchParams.get('accountId')
       if (!accountId) return json(res, { error: 'missing_account' }, 400)
       try {
-        // This is the Agent-tracked session index, not a complete QQ inbox.
-        const observed = await agent.observe({ kind: 'sessions', accountId })
+        const observed = await agent.observe({ kind: 'recent-conversations', accountId })
         return json(res, (observed.sessions || []).map((session) => ({
         id: session.key,
         title: session.title || session.peerId,
         kind: session.type === 'group' ? 'group' : 'direct',
-        unread: 0,
+        lastText: session.lastText,
+        lastAt: session.lastAt,
         })))
       } catch (e) {
         return imError(res, e)
