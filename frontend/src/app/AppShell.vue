@@ -9,6 +9,7 @@ import { useShellStore } from '@/stores/shell'
 import type { AccountContext, AccountId } from '@/contracts'
 import { applyTheme as applyShellTheme, cycleTheme as cycleShellTheme, onThemeChange, readThemeMode, watchSystemTheme, type ThemeMode } from '@/theme'
 import { resolveShellViewState } from '@/app/shell-view-state'
+import { startRuntimeStateStream, type RuntimeStateStream } from '@/app/runtime-state-stream'
 import {
   accountTitle,
   accountUnreadLabel,
@@ -157,11 +158,15 @@ async function bootstrapRuntime() {
   } finally {
     if (!mounted) return
     runtimeBootstrapped.value = true
-    refreshTimer ??= window.setInterval(() => { void shell.refreshAccounts() }, 1500)
+    runtimeStream?.close()
+    runtimeStream = startRuntimeStateStream(
+      (state) => shell.applyRuntimeState(state),
+      () => shell.refreshAccounts(),
+    )
   }
 }
 
-let refreshTimer: number | undefined
+let runtimeStream: RuntimeStateStream | undefined
 let stopTheme: (() => void) | undefined
 let mounted = false
 onMounted(() => {
@@ -183,7 +188,8 @@ onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown)
   window.removeEventListener('chihiro-open-external-settings', openExternalSettingsEvent)
   stopTheme?.()
-  if (refreshTimer !== undefined) window.clearInterval(refreshTimer)
+  runtimeStream?.close()
+  runtimeStream = undefined
 })
 </script>
 

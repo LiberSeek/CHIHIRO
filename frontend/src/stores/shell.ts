@@ -312,6 +312,6 @@ export const useShellStore = defineStore('shell', () => {
   return {
     activeAccountId, activeAccount, accounts, loading, adding, accountAction, cancelingLogin, removingAccountId, error,
     runtimePhase, runtimeMessage, pendingAdd, qrReady, qrVersion, clients,
-    selectAccount, setAccountUnread, refreshAccounts, refreshClients, addAccount, reloginAccount, refreshLoginQr, removeAccount, cancelLogin, cancelRefresh,
+    selectAccount, setAccountUnread, applyRuntimeState, refreshAccounts, refreshClients, addAccount, reloginAccount, refreshLoginQr, removeAccount, cancelLogin, cancelRefresh,
   }
 })
