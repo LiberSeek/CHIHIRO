@@ -4,6 +4,7 @@
 
 <template>
     <section class="chihiro-composer">
+        <div v-if="$slots.assistant" class="assistant-slot"><slot name="assistant" /></div>
         <div v-if="selecting" class="chihiro-select-bar">
             <div class="chihiro-select-actions">
                 <button type="button" @click="emit('forward-individual')">
@@ -32,19 +33,12 @@
             :class="{ 'has-attach': imgCache.size > 0, 'is-reply': isReply }">
             <div class="chihiro-float-actions">
                 <div class="chihiro-bot-dock">
-                    <div v-if="botThinkText || botDraft" class="chihiro-bot-think">
-                        <div v-if="botThinkText">{{ botThinkText }}</div>
-                        <div v-if="botDraft">{{ botDraft.text }}</div>
-                        <div v-if="botDraft" class="row">
-                            <button type="button" class="btn" @click="emit('bot-approve')">{{ $t('发送') }}</button>
-                            <button type="button" class="btn ghost" @click="emit('bot-discard')">{{ $t('取消') }}</button>
-                        </div>
-                    </div>
                     <button
                         type="button"
                         class="chihiro-bot-btn"
                         :class="{ 'is-on': botOn }"
-                        :title="botOn ? $t('关闭本会话 Bot') : $t('托管本会话')"
+                        :title="$t('会话助手')"
+                        :aria-label="$t('会话助手')"
                         @click.stop="emit('toggle-bot')">
                         <font-awesome-icon :icon="['fas', 'robot']" />
                     </button>
@@ -168,8 +162,6 @@
         plusOpen: boolean
         faceOpen: boolean
         botOn: boolean
-        botThinkText: string
-        botDraft: { id: string, text: string } | null
         disabled: boolean
         placeholder: string
     }>()
@@ -191,8 +183,6 @@
         'pick-file': []
         'toggle-face': []
         'toggle-bot': []
-        'bot-approve': []
-        'bot-discard': []
         'jump-bottom': []
         'attach-edit': [key: number]
         'attach-delete': [key: number]
@@ -666,6 +656,9 @@ html.bp-light .chihiro-composer .chihiro-send {
     bottom: calc(100% + 8px);
     z-index: 8;
     pointer-events: none;
+}
+.chihiro-composer .assistant-slot:has(.assistant-panel) {
+    padding-bottom: 48px;
 }
 .chihiro-composer .chihiro-bot-dock {
     position: relative;

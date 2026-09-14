@@ -3,6 +3,7 @@ import { computed, inject, onBeforeUnmount, provide, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import DOMPurify from 'dompurify'
 import { useShellStore } from '@/stores/shell'
+import { useAssistantStore } from '@/modules/assistant/session'
 import { accountSessionManagerKey } from '@/services/account-session-host'
 import { Connector, login } from './native/src/function/connect'
 import { resetNativeAccountState } from './native/reset'
@@ -24,6 +25,7 @@ import UserFileManager, { panelVisible } from './native/src/components/user/User
 
 const sessions = inject(accountSessionManagerKey)!
 const shell = useShellStore()
+const assistant = useAssistantStore()
 const route = useRoute()
 const chat = useChatStore()
 const contacts = useContactStore()
@@ -84,6 +86,13 @@ function closeModal() {
 }
 
 watch(() => [shell.activeAccountId, shell.activeAccount?.status], () => { void connect() }, { immediate: true, flush: 'sync' })
+watch(() => [shell.activeAccountId, chat.chatInfo.show.id, chat.chatInfo.show.type], () => {
+  const current = chat.chatInfo.show
+  if (shell.activeAccountId && current.id > 0) assistant.select({
+    accountId: shell.activeAccountId, type: current.type === 'group' ? 'group' : 'private',
+    peerId: String(current.id), title: current.name || String(current.id),
+  })
+}, { flush: 'sync' })
 onBeforeUnmount(() => {
   ++generation
   detach?.()

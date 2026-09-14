@@ -190,3 +190,15 @@ Docker 镜像已恢复统一前端构建阶段，同时继续将 `apps/web` 作�
 66 项前端测试、类型检查、统一前端构建与布局检查通过；135 文件来源校验通过。新增 `npm run qa:native-im --workspace frontend` 使用独立本地 HTTP/WS fixture 加载真实构建，验证联系人展开、历史显示、输入框发出归属于 A 账号的 send_msg、切换 B 清除 A 内容、390px 页面无横向溢出，以及 IM → Agent → IM，无浏览器错误。桌面/手机截图已人工检查。此处的发送仅发生于测试 WebSocket，未启动真实 QQ；不宣称已完成真实发送回执、文件/媒体和 Agent 流式验收。
 
 剩余核心工作：移除原生 UserChat 内遗留的 parent.postMessage 宿主交互，接通统一会话助手；补全媒体/群资料等功能验收；继续业务能力与 Docker 发布验证。`/next/` 是开发预览，正式 `/` 的默认入口尚未切换。
+
+### 会话助手接入与发送回执（2026-09-14）
+
+已移除迁移版 UserChat 的 parent.postMessage、Bot localStorage 开关和虚假的本地审批清空。机器人图标现在打开输入框上方的原生助手面板；支持会话托管、逐条审核/敏感内容审核/全部自动、引用客户消息询问助手、查看后端处理步骤与草稿、确认发送和丢弃。独立会话助手路由复用同一状态。账号与私聊/群聊完整标识随请求发送；切换时取消请求、关闭 SSE，迟到结果不会进入新会话。
+
+后端草稿在发送前同步从 pending 占用为 sending；重复审批不再重复触达 QQ，成功保存实际 message_id 回执，发送中断或缺少回执变为 unknown，启动恢复时同样把遗留 sending 标为 unknown。新增 recentDrafts 保留近期发送状态，同时保留旧壳 drafts 仅返回 pending 的兼容语义。新会话可以先设置审核模式；关闭托管先通过 `/api/runtime/agent/takeover` 使待审草稿失效并保持后续回复待审。提问产生的多个回复片段持续待审，重新设置模式才解除辅助审核。自动回复也经草稿发送通道取得真实回执，不再提前报告成功。待审回复给 AstrBot 的结果包含 draft_id 和 pending_review，message_id 为 0，未伪造 QQ 消息 ID。
+
+本批通过 72 项前端测试、36 项后端测试、类型检查、统一前端构建、布局检查及 135 文件来源校验。隔离 HTTP/WS/SSE 浏览器测试覆盖机器人入口、内部提问、审核发送、开启托管、桌面与 390px 输入框布局、多账号切换、IM/工作台往返，无控制台错误、仅一个 frame。截图为 `/tmp/chihiro-im-assistant-desktop.png` 与 `/tmp/chihiro-im-assistant-mobile.png`。所有发送只到模拟接口，未启动真实 QQ/Gateway。
+
+磁盘不足一度使构建写入失败；回收已结束的 im-native-closure 任务的可重装 node_modules 后恢复构建，该 worktree 的源码和未提交变更保留。本批后端子任务提交 `978fe68` 已验收合入为 `47a966b`，干净任务 worktree 已回收。
+
+P5 仍未全部完成：当前 JSON 存储的同步占用只适用于单进程 Runtime，仍需 SQLite/outbox、按会话发送顺序、在途任务取消与人工直接 IM 发送联动。托管启动失败恢复、真实 AstrBot 多媒体/工具协议与完整 Agent 会话流仍需验收。P3/P4 媒体与真实服务验收、P6 业务能力、Docker 发布与数据迁移回退保持未完成；不切换正式默认入口、不推送远端、不移动 0.0.1。

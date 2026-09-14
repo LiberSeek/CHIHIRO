@@ -3,11 +3,14 @@ import { onMounted, onUnmounted } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 
 import { useShellStore } from '@/stores/shell'
+import { useAssistantStore } from '@/modules/assistant/session'
 
 const route = useRoute()
 const shell = useShellStore()
+const assistant = useAssistantStore()
 onMounted(() => { void shell.refreshAccounts() })
 onUnmounted(shell.cancelRefresh)
+onUnmounted(assistant.clear)
 function selectAccount(event: Event) {
   const id = (event.target as HTMLSelectElement).value
   shell.selectAccount(shell.accounts.find(account => account.id === id)?.id ?? null)

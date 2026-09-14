@@ -5,8 +5,53 @@ const root = path.resolve(__dirname, "../..");
 const { WebSocketServer } = require(root + "/node_modules/ws");
 const { chromium } = require("playwright-core");
 const actions = [];
+const assistantRequests = [];
+let assistantHosted = false;
+let assistantDraftStatus = 'pending';
+const assistantStreams = new Map();
+function assistantSnapshot(accountId) {
+  const context = { accountId, type: 'private', peerId: '20001' };
+  const key = `${accountId}:private:20001`;
+  const draft = { ...context, sessionKey: key, id: `draft-${accountId}`, text: '可以为您介绍购买方案。', status: assistantDraftStatus };
+  return {
+    sessions: [{ ...context, key, title: '客户小林', mode: 'ask', messages: [{ id: 'thinking-1', role: 'thinking', text: '正在整理回复', steps: [{ title: '已读取客户问题' }] }] }],
+    drafts: assistantDraftStatus === 'pending' ? [draft] : [], recentDrafts: [draft],
+  };
+}
+function runtimeState() {
+  return { accounts: { activeId: 'qq:10001', accounts: [
+    { id: 'qq:10001', label: '测试账号 A', online: true, botSessions: { 'private:20001': assistantHosted } },
+    { id: 'qq:10002', label: '测试账号 B', online: true },
+  ] } };
+}
 let qaBrowser;
 const server = http.createServer((req, res) => {
+  if (req.url.startsWith('/api/runtime/agent/stream')) {
+    const accountId = new URL(req.url, 'http://localhost').searchParams.get('accountId');
+    res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+    res.write(`data: ${JSON.stringify(assistantSnapshot(accountId))}\n\n`);
+    assistantStreams.set(res, accountId);
+    res.on('close', () => assistantStreams.delete(res));
+    return;
+  }
+  if (req.method === 'POST' && (req.url.startsWith('/api/runtime/agent/') || req.url === '/api/runtime/bot/session')) {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => {
+      const body = JSON.parse(Buffer.concat(chunks).toString());
+      assistantRequests.push({ url: req.url, body });
+      res.setHeader('Content-Type', 'application/json');
+      if (req.url === '/api/runtime/bot/session') {
+        assistantHosted = body.enabled;
+        res.end(JSON.stringify(runtimeState()));
+      } else if (req.url.includes('/draft/')) {
+        assistantDraftStatus = req.url.endsWith('approve') ? 'sent' : 'discarded';
+        res.end(JSON.stringify({ draft: assistantSnapshot(body.accountId).recentDrafts[0] }));
+      } else res.end(JSON.stringify(assistantSnapshot(body.accountId)));
+      for (const [stream, accountId] of assistantStreams) stream.write(`data: ${JSON.stringify(assistantSnapshot(accountId))}\n\n`);
+    });
+    return;
+  }
   if (req.url.startsWith("/api/runtime/bot/ensure")) {
     res.setHeader("Content-Type", "application/json");
     res.end("{}");
@@ -19,17 +64,7 @@ const server = http.createServer((req, res) => {
   }
   if (req.url.startsWith("/api/runtime/state")) {
     res.setHeader("Content-Type", "application/json");
-    res.end(
-      JSON.stringify({
-        accounts: {
-          activeId: "qq:10001",
-          accounts: [
-            { id: "qq:10001", label: "测试账号 A", online: true },
-            { id: "qq:10002", label: "测试账号 B", online: true },
-          ],
-        },
-      }),
-    );
+    res.end(JSON.stringify(runtimeState()));
     return;
   }
   const name = req.url.split("?")[0].replace(/^\/next\//, "");
@@ -202,6 +237,26 @@ wss.on("connection", (socket, req) => {
     )
   )
     throw new Error("Native history did not render");
+  await page.getByRole('button', { name: '会话助手', exact: true }).click();
+  const assistant = page.locator('.assistant-panel');
+  await assistant.getByText('可以为您介绍购买方案。', { exact: true }).waitFor();
+  await assistant.getByRole('textbox', { name: '询问助手', exact: true }).fill('请提供两个购买建议');
+  await assistant.getByRole('button', { name: '询问助手', exact: true }).click();
+  await page.waitForTimeout(100);
+  if (!assistantRequests.some(r => r.url === '/api/runtime/agent/ask' && r.body.accountId === 'qq:10001' && r.body.peerId === '20001' && r.body.text === '请提供两个购买建议')) throw new Error('Assistant ask target mismatch');
+  await assistant.getByRole('button', { name: '确认发送', exact: true }).click();
+  await assistant.getByText('已发送', { exact: true }).waitFor();
+  if (assistantRequests.filter(r => r.url.endsWith('/draft/approve')).length !== 1) throw new Error('Assistant duplicate approval');
+  await assistant.getByLabel('会话托管', { exact: true }).check();
+  await assistant.getByText('托管中', { exact: true }).waitFor();
+  await page.screenshot({ path: '/tmp/chihiro-im-assistant-desktop.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: '/tmp/chihiro-im-assistant-mobile.png' });
+  const assistantBox = await assistant.boundingBox();
+  const inputBox = await page.locator('#main-input-ex').boundingBox();
+  if (!assistantBox || !inputBox || assistantBox.x < 0 || assistantBox.x + assistantBox.width > 391 || assistantBox.y + assistantBox.height > inputBox.y + 1 || inputBox.y + inputBox.height > 844) throw new Error('Assistant overlaps composer or viewport');
+  await assistant.getByRole('button', { name: '收起助手', exact: true }).click();
+  await page.setViewportSize({ width: 1440, height: 960 });
   await page.locator("#main-input-ex").fill("本地模拟消息");
   await page.getByTitle("发送", { exact: true }).click();
   await page.waitForTimeout(250);

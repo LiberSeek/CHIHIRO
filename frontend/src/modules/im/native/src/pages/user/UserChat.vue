@@ -342,9 +342,7 @@
                 :new-msg-num="NewMsgNum"
                 :plus-open="chihiroPlusOpen"
                 :face-open="details[1].open"
-                :bot-on="botOn"
-                :bot-think-text="botThinkText"
-                :bot-draft="botDraft"
+                :bot-on="assistant.enabled"
                 :disabled="uiStore.openSideBar || chat.info.me_info.shut_up_timestamp > 0"
                 :placeholder="
                     chat.info.me_info.shut_up_timestamp > 0
@@ -369,9 +367,7 @@
                 @pick-image="pickChihiroImage"
                 @pick-file="pickChihiroFile"
                 @toggle-face="toggleChihiroFace"
-                @toggle-bot="toggleSessionBot"
-                @bot-approve="approveBotDraft"
-                @bot-discard="discardBotDraft"
+                @toggle-bot="toggleChihiroFeature"
                 @jump-bottom="scrollBottom(true)"
                 @attach-edit="editImg"
                 @attach-delete="deleteImg"
@@ -383,6 +379,7 @@
                 @cancel-select="exitMultipleSelect"
                 @select-pic="selectImg"
                 @select-file="selectFile">
+                <template #assistant><AssistantPanel v-if="assistant.open" /></template>
                 <template #extra>
                     <slot name="main-input-button" />
                 </template>
@@ -531,6 +528,8 @@
 <script setup lang="ts">
 import app from '@chihiro/im-native/host'
 import { i18n } from '@chihiro/im-native/host'
+import { useAssistantStore } from '@/modules/assistant/session'
+import AssistantPanel from '@/modules/assistant/AssistantPanel.vue'
 import SendUtil from '@renderer/function/sender'
 import Option, { get } from '@renderer/function/option'
 import Info from '@renderer/pages/user/UserInfo.vue'
@@ -543,6 +542,7 @@ import UserComposer from '@renderer/components/user/UserComposer.vue'
 import imageCompression from 'browser-image-compression'
 
 import {
+    computed,
     ref,
     watch,
     onMounted,
@@ -615,22 +615,10 @@ const { chat, list } = defineProps<{
     list: any[]
     imgView?: any
 }>()
-const chihiroFeatureOpen = ref(false)
-function onChihiroFeatureStatus(ev: MessageEvent) {
-    const data = ev.data
-    if (!data || data.source !== 'chihiro-shell') return
-    if (data.kind === 'feature-status') {
-        chihiroFeatureOpen.value = data.status === 'open' || data.status === 'expanded'
-        return
-    }
-    if (data.kind === 'chat-sync') publishChihiroChat()
-    if (data.kind === 'bot-think' && String(data.peerId) === String(chat.show?.id)) {
-        botThinkText.value = data.text || ''
-        botDraft.value = data.draft || null
-    }
-}
+const assistant = useAssistantStore()
+const chihiroFeatureOpen = computed(() => assistant.open)
 function toggleChihiroFeature() {
-    try { window.parent.postMessage({ source: 'chihiro-im', kind: 'toggle-feature' }, '*') } catch (e) {}
+    assistant.open = !assistant.open
 }
 function toggleChihiroPlus() {
     chihiroPlusOpen.value = !chihiroPlusOpen.value
@@ -791,43 +779,6 @@ function jumpChihiroHistory(item: any) {
         }
     })
 }
-function publishChihiroChat() {
-    try {
-        if (window.parent === window) return
-        const show = chat.show || {}
-        const info = chat.info || {}
-        const members = (info.group_members || []).slice(0, 300).map((m: GroupMemberInfoElem) => ({
-            user_id: m.user_id,
-            nickname: m.nickname,
-            card: m.card,
-            role: m.role
-        }))
-        const notices = (info.group_notices || []).slice(0, 8).map((n: {
-            cn?: string
-            message?: string
-            content?: string
-            text?: string
-            publish_time?: number
-            time?: number
-        }) => ({
-            cn: n.cn || n.message || n.content || n.text || '',
-            time: n.publish_time || n.time
-        }))
-        window.parent.postMessage({
-            source: 'chihiro-im',
-            kind: 'chat',
-            chat: {
-                type: show.type,
-                id: show.id,
-                name: show.name || '',
-                memberCount: (info.group_members || []).length,
-                members,
-                notices
-            }
-        }, '*')
-    } catch (e) {}
-}
-watch(() => [chat.show?.id, chat.show?.type, (chat.info?.group_members || []).length, (chat.info?.group_notices || []).length], publishChihiroChat)
 
 
 const connectionStore = useConnectionStore()
@@ -928,74 +879,6 @@ const chihiroHistory = reactive({
     list: [] as any[],
 })
 const chihiroPlusOpen = ref(false)
-const BOT_DEFAULT_KEY = 'chihiro-bot-new-default'
-const BOT_SESSIONS_KEY = 'chihiro-bot-sessions'
-const botOn = ref(false)
-const botThinkText = ref('')
-const botDraft = ref<{ id: string, text: string } | null>(null)
-
-function sessionBotKey() {
-    const type = chat.show?.type === 'group' ? 'group' : 'private'
-    return `qq:${authStore.loginInfo.uin}:${type}:${chat.show?.id}`
-}
-function readBotMap(): Record<string, boolean> {
-    try { return JSON.parse(localStorage.getItem(BOT_SESSIONS_KEY) || '{}') } catch { return {} }
-}
-function newBotDefault() {
-    return localStorage.getItem(`${BOT_DEFAULT_KEY}:qq:${authStore.loginInfo.uin}`) === '1'
-}
-function syncBotFromStore() {
-    const map = readBotMap()
-    const key = sessionBotKey()
-    botOn.value = Object.prototype.hasOwnProperty.call(map, key) ? Boolean(map[key]) : newBotDefault()
-    botThinkText.value = ''
-    botDraft.value = null
-    if (botOn.value && chat.show?.id) {
-        try {
-            window.parent.postMessage({
-                source: 'chihiro-im',
-                kind: 'session-bot',
-                type: chat.show?.type === 'group' ? 'group' : 'private',
-                peerId: String(chat.show.id),
-                enabled: true
-            }, '*')
-        } catch (e) {}
-    }
-}
-function toggleSessionBot() {
-    botOn.value = !botOn.value
-    const map = readBotMap()
-    map[sessionBotKey()] = botOn.value
-    localStorage.setItem(BOT_SESSIONS_KEY, JSON.stringify(map))
-    try {
-        window.parent.postMessage({
-            source: 'chihiro-im',
-            kind: 'session-bot',
-            type: chat.show?.type === 'group' ? 'group' : 'private',
-            peerId: String(chat.show?.id || ''),
-            enabled: botOn.value
-        }, '*')
-    } catch (e) {}
-}
-function approveBotDraft() {
-    const id = botDraft.value?.id
-    if (!id) return
-    try {
-        window.parent.postMessage({ source: 'chihiro-im', kind: 'draft-approve', id }, '*')
-    } catch (e) {}
-    botDraft.value = null
-    botThinkText.value = ''
-}
-function discardBotDraft() {
-    const id = botDraft.value?.id
-    if (!id) return
-    try {
-        window.parent.postMessage({ source: 'chihiro-im', kind: 'draft-discard', id }, '*')
-    } catch (e) {}
-    botDraft.value = null
-    botThinkText.value = ''
-}
-watch(() => chat.show?.id, syncBotFromStore, { immediate: true })
 function onChihiroDocClick(e: Event) {
     const t = e.target as HTMLElement | null
     if (t && typeof t.closest === 'function' && (
@@ -1207,15 +1090,11 @@ onMounted(() => {
     window.addEventListener('chihiro-viewer-forward', onViewerForward as EventListener)
     window.addEventListener('chihiro-viewer-delete', onViewerDelete as EventListener)
     window.addEventListener('chihiro-viewer-edit-send', onViewerEditSend as EventListener)
-    window.addEventListener('message', onChihiroFeatureStatus)
-    try { window.parent.postMessage({ source: 'chihiro-im', kind: 'feature-sync' }, '*') } catch (e) {}
 })
 
 onBeforeUnmount(() => {
-    try { window.parent.postMessage({ source: 'chihiro-im', kind: 'chat', chat: null }, '*') } catch (e) {}
     document.removeEventListener('click', onChihiroDocClick)
     document.removeEventListener('keydown', onChihiroDocKey)
-    window.removeEventListener('message', onChihiroFeatureStatus)
     window.removeEventListener('chihiro-viewer-forward', onViewerForward as EventListener)
     window.removeEventListener('chihiro-viewer-delete', onViewerDelete as EventListener)
     window.removeEventListener('chihiro-viewer-edit-send', onViewerEditSend as EventListener)
@@ -1963,17 +1842,8 @@ function quoteToBot() {
     } else {
         text = String(msgData.raw_message || getMsgRawTxt(msgData) || '')
     }
-    const show = chatStore.chatInfo.show || {}
-    try {
-        window.parent.postMessage({
-            source: 'chihiro-im',
-            kind: 'quote-bot',
-            text: text.trim(),
-            peerId: show.id,
-            type: show.type,
-            title: show.name || String(show.id || '')
-        }, '*')
-    } catch (e) {}
+    assistant.quote = text.trim()
+    assistant.open = true
     closeMsgMenu()
 }
 

@@ -240,7 +240,8 @@
     {
       "path": "src/components/user/UserComposer.vue",
       "upstreamPath": "components/user/UserComposer.vue",
-      "sha256": "bcba655d8676d6a06022b4a33a131a9f63297a8fd54b7ecff5f6d19056016650"
+      "sha256": "05b7cbc44a6bad1200282ea4fc1524a939467ac0e99274f03152f3575da172cb",
+      "extractedSha256": "bcba655d8676d6a06022b4a33a131a9f63297a8fd54b7ecff5f6d19056016650"
     },
     {
       "path": "src/components/user/UserDepPan.vue",
@@ -510,7 +511,7 @@
     {
       "path": "src/pages/user/UserChat.vue",
       "upstreamPath": "pages/user/UserChat.vue",
-      "sha256": "f821d10b31af67e430709f5393b83b5f5b59f324b215a7a161a539872930ba24",
+      "sha256": "53b147c76eb40468b882ddad3f5ec61bfb99bcf5e1086bae94ae06a90e26dcfc",
       "extractedSha256": "45204dcd1251b456692c72023973b9e5ac755bb3df5a3b057512e055ebbe388a"
     },
     {
