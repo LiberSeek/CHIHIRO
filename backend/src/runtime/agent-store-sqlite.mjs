@@ -42,7 +42,8 @@ export function createSqliteAgentStore(filePath) {
     CREATE INDEX IF NOT EXISTS idx_agent_drafts_account_status ON agent_drafts(account_id, status, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_agent_drafts_session_status ON agent_drafts(session_key, status);
     CREATE INDEX IF NOT EXISTS idx_agent_outbox_session_status_sequence ON agent_outbox(session_key, status, sequence);
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_outbox_draft ON agent_outbox(draft_id);
+    DROP INDEX IF EXISTS idx_agent_outbox_draft;
+    CREATE INDEX IF NOT EXISTS idx_agent_outbox_draft ON agent_outbox(draft_id);
     CREATE INDEX IF NOT EXISTS idx_agent_attempts_outbox_number ON agent_delivery_attempts(outbox_id, number);
     CREATE INDEX IF NOT EXISTS idx_agent_attempts_session_status ON agent_delivery_attempts(session_key, status);
   `)
@@ -214,7 +215,10 @@ export function createSqliteAgentStore(filePath) {
   }
 
   function getOutboxForDraft(draftId) {
-    const row = db.prepare('SELECT value FROM agent_outbox WHERE draft_id = ?').get(draftId)
+    const draft = getDraft(draftId)
+    const row = draft?.outboxId
+      ? db.prepare('SELECT value FROM agent_outbox WHERE id = ?').get(draft.outboxId)
+      : db.prepare('SELECT value FROM agent_outbox WHERE draft_id = ? ORDER BY queued_at DESC LIMIT 1').get(draftId)
     return row ? JSON.parse(row.value) : null
   }
 
@@ -238,10 +242,12 @@ export function createSqliteAgentStore(filePath) {
     let claimed = null
     mutate((data) => {
       const items = Object.values(data.outbox).filter((item) => item.sessionKey === sessionKeyValue)
-      if (items.some((item) => item.status === 'sending' || item.status === 'unknown')) return data
+      if (items.some((item) => item.status === 'sending')) return data
       const outbox = items.filter((item) => item.status === 'queued').sort((a, b) => (
         (a.sequence || 0) - (b.sequence || 0) || (a.queuedAt || 0) - (b.queuedAt || 0)
       ))[0]
+      const blocked = items.some((item) => item.status === 'unknown' && !item.supersededBy)
+      if (blocked && !outbox?.retryOf) return data
       if (!outbox) return data
       const startedAt = Date.now()
       const number = Object.values(data.deliveryAttempts).filter((attempt) => attempt.outboxId === outbox.id).length + 1
@@ -282,6 +288,93 @@ export function createSqliteAgentStore(filePath) {
       const nextDraft = draft ? { ...draft, ...fields, ...timestamp, status, attemptId } : null
       if (nextDraft) data.drafts[outbox.draftId] = nextDraft
       result = { outbox: nextOutbox, attempt: nextAttempt, draft: nextDraft }
+    })
+    return result
+  }
+
+  function retryDraft(id) {
+    let result = null
+    mutate((data) => {
+      const draft = data.drafts[id]
+      if (!draft) return data
+      if ((draft.status === 'queued' || draft.status === 'sending') && draft.retryCount) {
+        result = { draft, outbox: data.outbox[draft.outboxId] || null, existing: true }
+        return data
+      }
+      if (!['unknown', 'failed'].includes(draft.status)) return data
+      const previous = draft.outboxId ? data.outbox[draft.outboxId] : Object.values(data.outbox)
+        .filter((item) => item.draftId === id)
+        .sort((a, b) => (b.updatedAt || b.queuedAt || 0) - (a.updatedAt || a.queuedAt || 0))[0]
+      const queuedAt = Date.now()
+      const nextSequence = Object.values(data.outbox).reduce((max, item) => (
+        item.sessionKey === draft.sessionKey ? Math.max(max, item.sequence || 0) : max
+      ), 0) + 1
+      const outboxId = `outbox-${id}-retry-${randomBytes(6).toString('hex')}`
+      const outbox = {
+        id: outboxId,
+        draftId: id,
+        accountId: draft.accountId,
+        sessionKey: draft.sessionKey,
+        type: draft.type,
+        peerId: draft.peerId,
+        message: draft.message || draft.text,
+        status: 'queued',
+        sequence: previous?.sequence || nextSequence,
+        queuedAt,
+        updatedAt: queuedAt,
+        retryOf: previous?.id || null,
+      }
+      if (previous && ['unknown', 'failed'].includes(previous.status)) {
+        data.outbox[previous.id] = { ...previous, supersededBy: outboxId, updatedAt: queuedAt }
+      }
+      const nextDraft = {
+        ...draft,
+        status: 'queued',
+        outboxId,
+        queuedAt,
+        retryRequestedAt: queuedAt,
+        retryCount: (draft.retryCount || 0) + 1,
+        retryOf: previous?.id || null,
+      }
+      data.outbox[outboxId] = outbox
+      data.drafts[id] = nextDraft
+      result = { draft: nextDraft, outbox }
+    })
+    return result
+  }
+
+  function reconcileDraft(id, resolution = 'sent') {
+    if (resolution !== 'sent') throw new Error('invalid_reconciliation')
+    let result = null
+    mutate((data) => {
+      const draft = data.drafts[id]
+      if (!draft) return data
+      if (draft.status === 'sent' && draft.reconciliation?.resolution === 'sent') {
+        result = { draft, outbox: draft.outboxId ? data.outbox[draft.outboxId] || null : null, existing: true }
+        return data
+      }
+      if (draft.status !== 'unknown') return data
+      const reconciledAt = Date.now()
+      const reconciliation = { resolution: 'sent', reconciledAt, source: 'operator' }
+      const outbox = draft.outboxId ? data.outbox[draft.outboxId] : null
+      if (outbox?.status === 'unknown') {
+        data.outbox[outbox.id] = {
+          ...outbox,
+          status: 'sent',
+          sentAt: reconciledAt,
+          reconciledAt,
+          reconciliation,
+          updatedAt: reconciledAt,
+        }
+        for (const [attemptId, attempt] of Object.entries(data.deliveryAttempts)) {
+          if (attempt.outboxId === outbox.id) {
+            data.deliveryAttempts[attemptId] = { ...attempt, reconciliation, reconciledAt }
+          }
+        }
+      }
+      const nextDraft = { ...draft, status: 'sent', sentAt: reconciledAt, reconciledAt, reconciliation }
+      data.drafts[id] = nextDraft
+      result = { draft: nextDraft, outbox: outbox ? data.outbox[outbox.id] : null }
     })
     return result
   }
@@ -345,7 +438,7 @@ export function createSqliteAgentStore(filePath) {
     for (const draft of listDrafts(null, null)) if (draft.status === 'pending') counts[draft.accountId] = (counts[draft.accountId] || 0) + 1
     return counts
   }
-  return { load: readAll, accountMode, setAccountMode, sessionMode, upsertSession, getSession, listSessions, appendMessage, updateMessages, setSessionMode, addDraft, getDraft, listDrafts, patchDraft, claimDraft, enqueueDraft, getOutbox, getOutboxForDraft, listOutbox, listDeliveryAttempts, claimNextOutbox, finishDelivery, recoverSendingDrafts, supersedePendingDrafts, pendingCounts, sessionKey: (accountId, type, peerId) => `${accountId}:${type || 'private'}:${peerId}` }
+  return { load: readAll, accountMode, setAccountMode, sessionMode, upsertSession, getSession, listSessions, appendMessage, updateMessages, setSessionMode, addDraft, getDraft, listDrafts, patchDraft, claimDraft, enqueueDraft, getOutbox, getOutboxForDraft, listOutbox, listDeliveryAttempts, claimNextOutbox, finishDelivery, retryDraft, reconcileDraft, recoverSendingDrafts, supersedePendingDrafts, pendingCounts, sessionKey: (accountId, type, peerId) => `${accountId}:${type || 'private'}:${peerId}` }
 }
 
 function transaction(db, fn) {

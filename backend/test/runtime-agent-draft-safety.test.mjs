@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { Readable } from 'node:stream'
 import test from 'node:test'
 
 import { createAgentController } from '../src/runtime/agent.mjs'
@@ -22,6 +23,22 @@ function fixture(hosted = false) {
     accountId: account.id, sessionKey: key, type: 'private', peerId: '20002', text: 'hello',
   })
   return { root, controller, draft }
+}
+
+async function postAgent(controller, pathname, body) {
+  const req = Readable.from([Buffer.from(JSON.stringify(body))])
+  req.method = 'POST'
+  let status = 0
+  let responseBody = ''
+  let finish
+  const finished = new Promise((resolve) => { finish = resolve })
+  const res = {
+    writeHead(code) { status = code },
+    end(chunk = '') { responseBody += String(chunk); finish() },
+  }
+  const handled = await controller.handleHttp(req, res, new URL(pathname, 'http://runtime.test'))
+  await finished
+  return { handled, status, body: JSON.parse(responseBody) }
 }
 
 test('concurrent approvals claim once and persist the NapCat receipt', async (t) => {
@@ -285,6 +302,175 @@ test('an unknown receipt blocks later drafts without sending them', async (t) =>
   assert.equal(controller.persist.getDraft(second.id).status, 'queued')
   assert.equal(controller.persist.getOutboxForDraft(second.id).status, 'queued')
   assert.equal(controller.persist.listDeliveryAttempts(controller.persist.getOutboxForDraft(second.id).id).length, 0)
+})
+
+test('reconcile marks unknown delivery sent with operator metadata and is idempotent', async (t) => {
+  const { root, controller, draft } = fixture()
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  let sends = 0
+  globalThis.fetch = async () => { sends++; throw new Error('connection_lost') }
+  await assert.rejects(controller.approveDraft(draft.id), /connection_lost/)
+
+  const target = {
+    id: draft.id,
+    accountId: draft.accountId,
+    sessionKey: draft.sessionKey,
+    type: draft.type,
+    peerId: draft.peerId,
+    resolution: 'sent',
+  }
+  const reconciled = controller.reconcileDraft(draft.id, target)
+  assert.equal(reconciled.status, 'sent')
+  assert.equal(sends, 1)
+  assert.equal(reconciled.reconciliation.resolution, 'sent')
+  assert.equal(reconciled.reconciliation.source, 'operator')
+  assert.equal(typeof reconciled.reconciledAt, 'number')
+  const outbox = controller.persist.getOutboxForDraft(draft.id)
+  assert.equal(outbox.status, 'sent')
+  assert.equal(outbox.reconciliation.resolution, 'sent')
+  assert.equal(controller.persist.listDeliveryAttempts(outbox.id)[0].status, 'unknown')
+  assert.equal(controller.persist.listDeliveryAttempts(outbox.id)[0].reconciliation.source, 'operator')
+
+  const repeated = controller.reconcileDraft(draft.id, target)
+  assert.deepEqual(repeated, reconciled)
+  assert.equal(sends, 1)
+})
+
+test('reconcile releases later queued drafts without resending the reconciled draft', async (t) => {
+  const { root, controller, draft: first } = fixture()
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  const second = controller.persist.addDraft({
+    accountId: first.accountId,
+    sessionKey: first.sessionKey,
+    type: first.type,
+    peerId: first.peerId,
+    text: 'after reconcile',
+  })
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  let sends = 0
+  globalThis.fetch = async () => { sends++; throw new Error('connection_lost') }
+  await assert.rejects(controller.approveDraft(first.id), /connection_lost/)
+  await assert.rejects(controller.approveDraft(second.id), /delivery_blocked_unknown/)
+  assert.equal(sends, 1)
+
+  globalThis.fetch = async () => {
+    sends++
+    return { ok: true, json: async () => ({ status: 'ok', retcode: 0, data: { message_id: 602 } }) }
+  }
+  const target = { id: first.id, accountId: first.accountId, sessionKey: first.sessionKey, type: first.type, peerId: first.peerId, resolution: 'sent' }
+  const reconciled = controller.reconcileDraft(first.id, target)
+  assert.equal(reconciled.status, 'sent')
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(sends, 2)
+  assert.equal(controller.persist.getDraft(second.id).status, 'sent')
+  assert.equal(controller.persist.getOutboxForDraft(second.id).receipt.message_id, 602)
+})
+
+test('reconcile and retry require every immutable target field', async (t) => {
+  const { root, controller, draft } = fixture()
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  globalThis.fetch = async () => { throw new Error('connection_lost') }
+  await assert.rejects(controller.approveDraft(draft.id), /connection_lost/)
+  const target = { id: draft.id, accountId: draft.accountId, sessionKey: draft.sessionKey, type: draft.type, peerId: draft.peerId, resolution: 'sent' }
+
+  await assert.rejects(
+    Promise.resolve().then(() => controller.reconcileDraft(draft.id, { ...target, accountId: 'qq:other' })),
+    /draft_account_mismatch/,
+  )
+  await assert.rejects(
+    Promise.resolve().then(() => controller.reconcileDraft(draft.id, { ...target, peerId: '99999' })),
+    /draft_peer_mismatch/,
+  )
+  await assert.rejects(
+    controller.retryDraft(draft.id, { ...target, resolution: undefined, sessionKey: 'qq:10001:group:20002' }),
+    /draft_session_mismatch/,
+  )
+  assert.equal(controller.persist.getDraft(draft.id).status, 'unknown')
+})
+
+test('explicit retry creates a new ordered outbox delivery for unknown draft', async (t) => {
+  const { root, controller, draft } = fixture()
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  globalThis.fetch = async () => { throw new Error('connection_lost') }
+  await assert.rejects(controller.approveDraft(draft.id), /connection_lost/)
+  const previous = controller.persist.getOutboxForDraft(draft.id)
+  let release
+  let sends = 0
+  globalThis.fetch = async () => {
+    sends++
+    await new Promise((resolve) => { release = resolve })
+    return { ok: true, json: async () => ({ status: 'ok', retcode: 0, data: { message_id: 601 } }) }
+  }
+  const target = { id: draft.id, accountId: draft.accountId, sessionKey: draft.sessionKey, type: draft.type, peerId: draft.peerId }
+  const retrying = controller.retryDraft(draft.id, target)
+  await new Promise((resolve) => setImmediate(resolve))
+  const duplicateRetry = controller.retryDraft(draft.id, target)
+  const queued = controller.persist.getDraft(draft.id)
+  const retried = controller.persist.getOutboxForDraft(draft.id)
+  assert.equal(sends, 1)
+  assert.equal(queued.status, 'sending')
+  assert.notEqual(retried.id, previous.id)
+  assert.equal(retried.retryOf, previous.id)
+  assert.equal(retried.sequence, previous.sequence)
+  assert.equal(retried.status, 'sending')
+  assert.equal(retried.accountId, previous.accountId)
+  assert.equal(retried.sessionKey, previous.sessionKey)
+  assert.equal(retried.type, previous.type)
+  assert.equal(retried.peerId, previous.peerId)
+  assert.equal(controller.persist.getOutbox(previous.id).supersededBy, retried.id)
+  release()
+  const sent = await retrying
+  const duplicateSent = await duplicateRetry
+  assert.equal(sent.status, 'sent')
+  assert.equal(duplicateSent.status, 'sent')
+  assert.equal(controller.persist.listDeliveryAttempts(previous.id)[0].status, 'unknown')
+  assert.equal(controller.persist.listDeliveryAttempts(retried.id)[0].status, 'sent')
+})
+
+test('frontend reconcile and retry HTTP routes return persisted draft transitions', async (t) => {
+  const { root, controller, draft } = fixture()
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  globalThis.fetch = async () => { throw new Error('connection_lost') }
+  await assert.rejects(controller.approveDraft(draft.id), /connection_lost/)
+  const target = { id: draft.id, accountId: draft.accountId, sessionKey: draft.sessionKey, type: draft.type, peerId: draft.peerId }
+
+  const mismatch = await postAgent(controller, '/api/runtime/agent/draft/reconcile', {
+    ...target, peerId: '99999', resolution: 'sent',
+  })
+  assert.equal(mismatch.handled, true)
+  assert.equal(mismatch.status, 400)
+  assert.equal(mismatch.body.error, 'draft_peer_mismatch')
+
+  const reconciled = await postAgent(controller, '/api/runtime/agent/draft/reconcile', {
+    ...target, resolution: 'sent',
+  })
+  assert.equal(reconciled.status, 200)
+  assert.equal(reconciled.body.draft.status, 'sent')
+  assert.equal(reconciled.body.draft.reconciliation.source, 'operator')
+
+  const failed = controller.persist.addDraft({
+    accountId: draft.accountId,
+    sessionKey: draft.sessionKey,
+    type: draft.type,
+    peerId: draft.peerId,
+    text: 'retry route',
+  })
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ status: 'failed', retcode: 1200, message: 'rejected' }) })
+  await assert.rejects(controller.approveDraft(failed.id), /rejected/)
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ status: 'ok', retcode: 0, data: { message_id: 701 } }) })
+  const retried = await postAgent(controller, '/api/runtime/agent/draft/retry', { ...target, id: failed.id })
+  assert.equal(retried.status, 200)
+  assert.equal(retried.body.draft.status, 'sent')
+  assert.equal(retried.body.draft.receipt.message_id, 701)
 })
 
 test('a known NapCat rejection records failed and releases the next draft', async (t) => {

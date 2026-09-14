@@ -663,6 +663,19 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     if (context.peerId != null && String(context.peerId) !== String(draft.peerId)) throw new Error('draft_peer_mismatch')
   }
 
+  function requireImmutableDraftTarget(draft, context = {}) {
+    if (context.id == null) throw new Error('draft_id_required')
+    if (String(context.id) !== String(draft.id)) throw new Error('draft_id_mismatch')
+    if (context.accountId == null) throw new Error('draft_account_required')
+    if (context.accountId !== draft.accountId) throw new Error('draft_account_mismatch')
+    if (context.sessionKey == null) throw new Error('draft_session_required')
+    if (context.sessionKey !== draft.sessionKey) throw new Error('draft_session_mismatch')
+    if (context.type == null) throw new Error('draft_type_required')
+    if (context.type !== draft.type) throw new Error('draft_type_mismatch')
+    if (context.peerId == null) throw new Error('draft_peer_required')
+    if (String(context.peerId) !== String(draft.peerId)) throw new Error('draft_peer_mismatch')
+  }
+
   function updateDeliveredMessage(draft) {
     persist.updateMessages(draft.sessionKey, (messages) => {
       let found = false
@@ -739,6 +752,53 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     if (!outbox) throw new Error('draft_not_found')
     emit()
     await dispatchOutbox(outbox.sessionKey)
+    const draft = persist.getDraft(id)
+    if (draft?.status === 'sent') return draft
+    if (draft?.status === 'queued') throw new Error('delivery_blocked_unknown')
+    throw new Error(draft?.error || `delivery_${draft?.status || 'failed'}`)
+  }
+
+  function reconcileDraft(id, context = {}) {
+    const existing = persist.getDraft(id)
+    if (!existing) throw new Error('draft_not_found')
+    requireImmutableDraftTarget(existing, context)
+    if (context.resolution !== 'sent') throw new Error('invalid_reconciliation')
+    const result = persist.reconcileDraft(id, context.resolution)
+    if (!result) {
+      if (existing.status === 'sent' && existing.reconciliation?.resolution === 'sent') return existing
+      throw new Error('draft_not_reconcilable')
+    }
+    if (!result.existing) {
+      const draft = result.draft
+      persist.upsertSession({
+        ...persist.getSession(draft.sessionKey),
+        key: draft.sessionKey,
+        status: 'replied',
+        lastAt: Date.now(),
+        lastText: draft.text,
+      })
+      updateDeliveredMessage(draft)
+      emit()
+      void dispatchOutbox(draft.sessionKey).catch((error) => logError('agent', 'reconciled outbox', error))
+    }
+    return persist.getDraft(id)
+  }
+
+  async function retryDraft(id, context = {}) {
+    const existing = persist.getDraft(id)
+    if (!existing) throw new Error('draft_not_found')
+    requireImmutableDraftTarget(existing, context)
+    if (!['unknown', 'failed'].includes(existing.status)) {
+      if ((existing.status === 'queued' || existing.status === 'sending') && existing.retryCount) {
+        await dispatchOutbox(existing.sessionKey)
+        return persist.getDraft(id)
+      }
+      throw new Error('draft_not_retryable')
+    }
+    const result = persist.retryDraft(id)
+    if (!result) throw new Error('draft_not_retryable')
+    emit()
+    await dispatchOutbox(result.outbox.sessionKey)
     const draft = persist.getDraft(id)
     if (draft?.status === 'sent') return draft
     if (draft?.status === 'queued') throw new Error('delivery_blocked_unknown')
@@ -1107,6 +1167,22 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
         return json({ error: e.message }, 400)
       }
     }
+    if (p === '/api/runtime/agent/draft/reconcile' && method === 'POST') {
+      const body = await readBody()
+      try {
+        return json({ draft: reconcileDraft(body.id, body) })
+      } catch (e) {
+        return json({ error: e.message }, 400)
+      }
+    }
+    if (p === '/api/runtime/agent/draft/retry' && method === 'POST') {
+      const body = await readBody()
+      try {
+        return json({ draft: await retryDraft(body.id, body) })
+      } catch (e) {
+        return json({ error: e.message }, 400)
+      }
+    }
     if (p === '/api/runtime/agent/draft/discard' && method === 'POST') {
       const body = await readBody()
       try {
@@ -1177,6 +1253,8 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     sendToPeer,
     sendToConversation,
     approveDraft,
+    reconcileDraft,
+    retryDraft,
     discardDraft,
     handleAgentOutbound,
     pendingCounts: () => persist.pendingCounts(),

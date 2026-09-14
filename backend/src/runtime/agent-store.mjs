@@ -216,7 +216,12 @@ export function createAgentStore(filePath) {
   }
 
   function getOutboxForDraft(draftId) {
-    return Object.values(load().outbox || {}).find((item) => item.draftId === draftId) || null
+    const data = load()
+    const draft = data.drafts?.[draftId]
+    if (draft?.outboxId && data.outbox?.[draft.outboxId]) return data.outbox[draft.outboxId]
+    return Object.values(data.outbox || {})
+      .filter((item) => item.draftId === draftId)
+      .sort((a, b) => (b.updatedAt || b.queuedAt || 0) - (a.updatedAt || a.queuedAt || 0))[0] || null
   }
 
   function listOutbox(sessionKeyValue = null, status = null) {
@@ -239,10 +244,12 @@ export function createAgentStore(filePath) {
       data.outbox = data.outbox || {}
       data.deliveryAttempts = data.deliveryAttempts || {}
       const items = Object.values(data.outbox).filter((item) => item.sessionKey === sessionKeyValue)
-      if (items.some((item) => item.status === 'sending' || item.status === 'unknown')) return data
+      if (items.some((item) => item.status === 'sending')) return data
       const outbox = items.filter((item) => item.status === 'queued').sort((a, b) => (
         (a.sequence || 0) - (b.sequence || 0) || (a.queuedAt || 0) - (b.queuedAt || 0)
       ))[0]
+      const blocked = items.some((item) => item.status === 'unknown' && !item.supersededBy)
+      if (blocked && !outbox?.retryOf) return data
       if (!outbox) return data
       const startedAt = Date.now()
       const number = Object.values(data.deliveryAttempts).filter((attempt) => attempt.outboxId === outbox.id).length + 1
@@ -283,6 +290,94 @@ export function createAgentStore(filePath) {
       const nextDraft = draft ? { ...draft, ...fields, ...timestamp, status, attemptId } : null
       if (nextDraft) data.drafts[outbox.draftId] = nextDraft
       result = { outbox: nextOutbox, attempt: nextAttempt, draft: nextDraft }
+    })
+    return result
+  }
+
+  function retryDraft(id) {
+    let result = null
+    mutate((data) => {
+      data.outbox = data.outbox || {}
+      const draft = data.drafts?.[id]
+      if (!draft) return data
+      if ((draft.status === 'queued' || draft.status === 'sending') && draft.retryCount) {
+        result = { draft, outbox: data.outbox[draft.outboxId] || null, existing: true }
+        return data
+      }
+      if (!['unknown', 'failed'].includes(draft.status)) return data
+      const previous = draft.outboxId ? data.outbox[draft.outboxId] : Object.values(data.outbox)
+        .filter((item) => item.draftId === id)
+        .sort((a, b) => (b.updatedAt || b.queuedAt || 0) - (a.updatedAt || a.queuedAt || 0))[0]
+      const queuedAt = Date.now()
+      const nextSequence = Object.values(data.outbox).reduce((max, item) => (
+        item.sessionKey === draft.sessionKey ? Math.max(max, item.sequence || 0) : max
+      ), 0) + 1
+      const outboxId = `outbox-${id}-retry-${randomBytes(6).toString('hex')}`
+      const outbox = {
+        id: outboxId,
+        draftId: id,
+        accountId: draft.accountId,
+        sessionKey: draft.sessionKey,
+        type: draft.type,
+        peerId: draft.peerId,
+        message: draft.message || draft.text,
+        status: 'queued',
+        sequence: previous?.sequence || nextSequence,
+        queuedAt,
+        updatedAt: queuedAt,
+        retryOf: previous?.id || null,
+      }
+      if (previous && ['unknown', 'failed'].includes(previous.status)) {
+        data.outbox[previous.id] = { ...previous, supersededBy: outboxId, updatedAt: queuedAt }
+      }
+      const nextDraft = {
+        ...draft,
+        status: 'queued',
+        outboxId,
+        queuedAt,
+        retryRequestedAt: queuedAt,
+        retryCount: (draft.retryCount || 0) + 1,
+        retryOf: previous?.id || null,
+      }
+      data.outbox[outboxId] = outbox
+      data.drafts[id] = nextDraft
+      result = { draft: nextDraft, outbox }
+    })
+    return result
+  }
+
+  function reconcileDraft(id, resolution = 'sent') {
+    if (resolution !== 'sent') throw new Error('invalid_reconciliation')
+    let result = null
+    mutate((data) => {
+      const draft = data.drafts?.[id]
+      if (!draft) return data
+      if (draft.status === 'sent' && draft.reconciliation?.resolution === 'sent') {
+        result = { draft, outbox: draft.outboxId ? data.outbox?.[draft.outboxId] || null : null, existing: true }
+        return data
+      }
+      if (draft.status !== 'unknown') return data
+      const reconciledAt = Date.now()
+      const reconciliation = { resolution: 'sent', reconciledAt, source: 'operator' }
+      const outbox = draft.outboxId ? data.outbox?.[draft.outboxId] : null
+      if (outbox?.status === 'unknown') {
+        data.outbox[outbox.id] = {
+          ...outbox,
+          status: 'sent',
+          sentAt: reconciledAt,
+          reconciledAt,
+          reconciliation,
+          updatedAt: reconciledAt,
+        }
+        for (const [attemptId, attempt] of Object.entries(data.deliveryAttempts || {})) {
+          if (attempt.outboxId === outbox.id) {
+            data.deliveryAttempts[attemptId] = { ...attempt, reconciliation, reconciledAt }
+          }
+        }
+      }
+      const nextDraft = { ...draft, status: 'sent', sentAt: reconciledAt, reconciledAt, reconciliation }
+      data.drafts[id] = nextDraft
+      result = { draft: nextDraft, outbox: outbox ? data.outbox[outbox.id] : null }
     })
     return result
   }
@@ -376,6 +471,8 @@ export function createAgentStore(filePath) {
     listDeliveryAttempts,
     claimNextOutbox,
     finishDelivery,
+    retryDraft,
+    reconcileDraft,
     recoverSendingDrafts,
     supersedePendingDrafts,
     pendingCounts,
