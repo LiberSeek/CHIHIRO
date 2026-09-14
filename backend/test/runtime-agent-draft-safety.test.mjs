@@ -149,3 +149,27 @@ test('a successful HTTP envelope without a send receipt remains unknown', async 
   await assert.rejects(controller.approveDraft(draft.id), /missing_send_receipt/)
   assert.equal(controller.persist.getDraft(draft.id).status, 'unknown')
 })
+
+test('sqlite store imports legacy JSON once and preserves atomic draft claims', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'chihiro-agent-sqlite-'))
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  const file = path.join(root, 'state.json')
+  fs.writeFileSync(file, JSON.stringify({
+    accountModes: { 'qq:1': 'ask' },
+    sessions: {},
+    drafts: { legacy: { id: 'legacy', accountId: 'qq:1', status: 'pending', createdAt: 1 } },
+  }))
+  const previous = process.env.CHIHIRO_AGENT_STORE
+  delete process.env.CHIHIRO_AGENT_STORE
+  t.after(() => {
+    if (previous === undefined) delete process.env.CHIHIRO_AGENT_STORE
+    else process.env.CHIHIRO_AGENT_STORE = previous
+  })
+  const first = createAgentStore(file)
+  assert.equal(first.accountMode('qq:1'), 'ask')
+  assert.equal(first.getDraft('legacy').text, undefined)
+  const second = createAgentStore(file)
+  assert.equal(second.listDrafts('qq:1').length, 1)
+  assert.equal(second.claimDraft('legacy').status, 'sending')
+  assert.equal(second.claimDraft('legacy'), null)
+})

@@ -202,3 +202,9 @@ Docker 镜像已恢复统一前端构建阶段，同时继续将 `apps/web` 作�
 磁盘不足一度使构建写入失败；回收已结束的 im-native-closure 任务的可重装 node_modules 后恢复构建，该 worktree 的源码和未提交变更保留。本批后端子任务提交 `978fe68` 已验收合入为 `47a966b`，干净任务 worktree 已回收。
 
 P5 仍未全部完成：当前 JSON 存储的同步占用只适用于单进程 Runtime，仍需 SQLite/outbox、按会话发送顺序、在途任务取消与人工直接 IM 发送联动。托管启动失败恢复、真实 AstrBot 多媒体/工具协议与完整 Agent 会话流仍需验收。P3/P4 媒体与真实服务验收、P6 业务能力、Docker 发布与数据迁移回退保持未完成；不切换正式默认入口、不推送远端、不移动 0.0.1。
+
+### SQLite 持久化第一步（2026-09-14）
+
+会话助手 store 已增加 Node 22 `node:sqlite` 实现：默认使用 WAL 数据库和 `BEGIN IMMEDIATE` 事务，旧 `data/agent/state.json` 在首次启动时导入一次；`CHIHIRO_AGENT_STORE=json` 可用于旧环境回退。草稿 claim 使用条件更新，进程并发审批最多只有一个发送者。Node 20 等不带 `node:sqlite` 的环境继续使用原子临时文件替换的 JSON store。
+
+这一步只解决持久化和审批占用，尚未替代完整 outbox、发送顺序、重试/人工确认队列。SQLite 迁移测试已加入后端套件；容器发布仍需在磁盘恢复后完成真实镜像验收。

@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { randomBytes } from 'node:crypto'
+import { createSqliteAgentStore, sqliteAvailable } from './agent-store-sqlite.mjs'
 
 export const MODES = ['ask', 'auto', 'always']
 const MAX_MESSAGES = 120
@@ -10,6 +11,9 @@ export function sessionKey(accountId, type, peerId) {
 }
 
 export function createAgentStore(filePath) {
+  if (sqliteAvailable && process.env.CHIHIRO_AGENT_STORE !== 'json') {
+    return createSqliteAgentStore(filePath)
+  }
   function load() {
     try {
       return JSON.parse(fs.readFileSync(filePath, 'utf8'))
