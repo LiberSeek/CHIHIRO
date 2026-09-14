@@ -226,4 +226,4 @@ P5 仍未全部完成：当前 JSON 存储的同步占用只适用于单进程 R
 
 Docker `chihiro:dev` 单镜像已经完成构建、健康检查、`/`、`/next/`、Agent 深链接和重启验收。新增开发 release manifest、数据卷备份/恢复命令和无 Docker 数据的往返测试；当前 AstrBot 镜像仍未固定 digest、Linux NapCat 镜像仍标记未验证，因此不构成正式 release manifest。
 
-当前剩余六个大项：P3 fixture 收口；真实 NapCat/隔离 QQ；真实 AstrBot；P6 线索/跟进/营销闭环；P7 正式镜像组合与 Compose/迁移回滚演练；默认入口切换、旧壳退役和最终全链路回归。`0.0.1` 标签保持不变。
+当前剩余五个大项：P3 fixture 收口；真实 NapCat/隔离 QQ；真实 AstrBot；P7 正式镜像组合与 Compose/迁移回滚演练；默认入口切换、旧壳退役和最终全链路回归。营销获客、运营客服不再作为独立千寻业务引擎开发，后续通过 AstrBot Agent 的工具与工作流承载；现有客户资料和跨群证据接口作为 Agent 可调用的业务上下文保留。`0.0.1` 标签保持不变。
