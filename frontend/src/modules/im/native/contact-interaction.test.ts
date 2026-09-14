@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { createSSRApp, defineComponent, h, nextTick } from 'vue'
 import { renderToString } from '@vue/server-renderer'
@@ -21,7 +21,8 @@ vi.mock('./src/components/user/UserFriendBody.vue', () => ({
 import UserFriends from './src/pages/user/UserFriends.vue'
 import { useContactStore } from './src/state/contact'
 
-beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks() })
+beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks(); vi.useFakeTimers() })
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('contact selection', () => {
   it.each([
@@ -41,6 +42,8 @@ describe('contact selection', () => {
     const event = { currentTarget: { dataset: {} }, stopPropagation: vi.fn() }
     item.props.onClick(event)
     await nextTick()
+    expect(calls.profile).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(180)
     expect(calls.profile).toHaveBeenCalledWith(expect.objectContaining({ type: data.type }))
     expect(calls.chat).not.toHaveBeenCalled()
     expect(calls.history).not.toHaveBeenCalled()
@@ -48,10 +51,9 @@ describe('contact selection', () => {
     // Browser double clicks issue a second click before dblclick.
     item.props.onClick(event)
     vi.stubGlobal('document', { getElementById: () => null })
-    try {
-      item.props.onDblclick(event)
-      expect(calls.chat).toHaveBeenCalledTimes(1)
-      expect(calls.history).toHaveBeenCalledTimes(1)
-    } finally { vi.unstubAllGlobals() }
+    item.props.onDblclick(event)
+    await vi.advanceTimersByTimeAsync(180)
+    expect(calls.chat).toHaveBeenCalledTimes(1)
+    expect(calls.history).toHaveBeenCalledTimes(1)
   })
 })

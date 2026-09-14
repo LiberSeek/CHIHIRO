@@ -230,18 +230,18 @@
     })
 
 
-    let contactInspectTimer: number | undefined
+    let contactInspectTimer: ReturnType<typeof setTimeout> | undefined
 
     function cancelScheduledContactInspect() {
         if (contactInspectTimer !== undefined) {
-            window.clearTimeout(contactInspectTimer)
+            globalThis.clearTimeout(contactInspectTimer)
             contactInspectTimer = undefined
         }
     }
 
     function scheduleInspectContact(data: UserFriendElem & UserGroupElem) {
         cancelScheduledContactInspect()
-        contactInspectTimer = window.setTimeout(() => {
+        contactInspectTimer = globalThis.setTimeout(() => {
             contactInspectTimer = undefined
             inspectContact(data)
         }, 180)
