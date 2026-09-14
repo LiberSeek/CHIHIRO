@@ -48,7 +48,7 @@
                                         always_top: true,
                                         nickname: $t('系统通知'),
                                         remark: $t('系统通知'),
-                                        raw_msg: contactStore.systemNoticesList[0].comment
+                                        raw_msg: systemNoticeComment
                                     }"
                                     @click="systemNoticeClick"
                                     @contextmenu.prevent="systemNoticeMenuShow($event)"
@@ -309,6 +309,8 @@
         return $t('系统通知').toLocaleLowerCase().includes(q)
     })
 
+    const systemNoticeComment = computed(() => contactStore.systemNoticesList?.[0]?.comment ?? '')
+
     const assistUnread = computed(() => {
         return (contactStore.groupAssistList || []).reduce((sum, item) => {
             const n = Number(item.unread)
@@ -401,7 +403,17 @@
      * @param event 鼠标事件
      */
     function systemNoticeMenuShow(event: Event) {
-        listMenuShowRun(event as MouseEvent, { user_id: -10000 } as any)
+        const mouseEvent = event as MouseEvent
+        listMenuShowRun({
+            show: true,
+            point: { x: mouseEvent.clientX, y: mouseEvent.clientY },
+        }, {
+            user_id: -10000,
+            nickname: $t('系统通知'),
+            remark: $t('系统通知'),
+            group_id: 0,
+            group_name: '',
+        })
     }
 
     /**

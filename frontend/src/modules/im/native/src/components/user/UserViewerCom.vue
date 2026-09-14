@@ -246,8 +246,9 @@ const { vw, vh } = useViewportUnits()
 const canvas = useTemplateRef('canvas')
 const prev = computed(() => currentImg.value?.prev)
 const next = computed(() => currentImg.value?.next)
-const currentColor = computed(() => toolConfig[currentTool.value].color)
-const currentLineWidth = computed(() => toolConfig[currentTool.value].width)
+const activeToolConfig = computed(() => currentTool.value === 'hand' ? toolConfig.pen : toolConfig[currentTool.value])
+const currentColor = computed(() => activeToolConfig.value.color)
+const currentLineWidth = computed(() => activeToolConfig.value.width)
 const viewerTransformStyle = computed(() => ({
     '--x': modify.x + 'px',
     '--y': modify.y + 'px',
@@ -1407,6 +1408,7 @@ async function getBlob(): Promise<Blob|undefined> {
 
         if (canCors)
             tmpImg.crossOrigin = 'anonymous'
+        if (!tmpUrl) return resolve(undefined)
         tmpImg.src = tmpUrl
         tmpImg.onerror = () => resolve(undefined)
         tmpImg.onload = () => {

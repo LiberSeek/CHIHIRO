@@ -22,7 +22,7 @@ const comps = import.meta.glob('./jsonComp/*.vue', {
     import: 'default',
 })
 
-const cardComponentMap = {
+const cardComponentMap: Record<string, unknown> = {
     'com.tencent.tuwen.lua': comps['./jsonComp/Tuwen.lua.vue'],
     'com.tencent.mannounce': comps['./jsonComp/Mannounce.vue'],
     'com.tencent.miniapp.lua': comps['./jsonComp/Miniapp.lua.vue'],

@@ -102,12 +102,12 @@
                         <input id="info-member-search" :placeholder="$t('搜索 ……')" @input="(e: Event) => searchList(e)">
                     </div>
                     <RecycleScroller
-                        v-slot="{ item }"
+                        v-slot="{ item: rawItem }"
                         class="member-scroller"
                         :items="number_cache.length > 0 ? number_cache : chat.info.group_members"
                         :item-size="56"
                         key-field="user_id">
-                        <div class="member-item edit">
+                        <div v-for="item in [asGroupMember(rawItem)]" :key="item.user_id" class="member-item edit">
                             <img alt="nk" loading="lazy"
                                 :src="`https://q1.qlogo.cn/g?b=qq&s=0&nk=${item.user_id}`">
                             <div>
@@ -247,6 +247,7 @@ import { useContactStore } from '@renderer/state/contact'
 import { useChatStore } from '@renderer/state/chat'
 import { useUIStore } from '@renderer/state/ui'
 import {
+    GroupMemberInfoElem,
     UserFriendElem,
     UserGroupElem,
 } from '@renderer/function/elements/information'
@@ -280,6 +281,10 @@ const showUserConfigRaw = ref<any>({})
 const mumberInfo = ref({
     banMin: 0,
 })
+
+function asGroupMember(item: unknown): GroupMemberInfoElem {
+    return item as GroupMemberInfoElem
+}
 
 /**
  * 移出群聊

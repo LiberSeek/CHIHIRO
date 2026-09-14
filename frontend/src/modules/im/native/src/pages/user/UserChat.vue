@@ -796,13 +796,20 @@ function publishChihiroChat() {
         if (window.parent === window) return
         const show = chat.show || {}
         const info = chat.info || {}
-        const members = (info.group_members || []).slice(0, 300).map((m) => ({
+        const members = (info.group_members || []).slice(0, 300).map((m: GroupMemberInfoElem) => ({
             user_id: m.user_id,
             nickname: m.nickname,
             card: m.card,
             role: m.role
         }))
-        const notices = (info.group_notices || []).slice(0, 8).map((n) => ({
+        const notices = (info.group_notices || []).slice(0, 8).map((n: {
+            cn?: string
+            message?: string
+            content?: string
+            text?: string
+            publish_time?: number
+            time?: number
+        }) => ({
             cn: n.cn || n.message || n.content || n.text || '',
             time: n.publish_time || n.time
         }))
@@ -1678,8 +1685,8 @@ function mainKeyUp(event: KeyboardEvent) {
     }
 }
 
-function mainSubmit(event: Event) {
-    event.preventDefault()
+function mainSubmit(event?: Event) {
+    event?.preventDefault()
     if (imeComposing) return
     if (hasOutgoingContent()) {
         sendMsg()

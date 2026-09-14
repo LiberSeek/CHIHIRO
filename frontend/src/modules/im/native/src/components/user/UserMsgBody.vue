@@ -410,7 +410,7 @@ import {
     getTrueLang,
     getViewTime } from '@renderer/function/utils/systemUtil'
 import { linkView } from '@renderer/function/utils/linkViewUtil'
-import { MenuEventData, MergeStackData } from '@renderer/function/elements/information'
+import { MenuEventData, MergeStackData, MsgItemElem } from '@renderer/function/elements/information'
 import { backend } from '@renderer/runtime/backend'
 import { i18n } from '@chihiro/im-native/host'
 import { useUIStore } from '@renderer/state/ui'
@@ -798,12 +798,12 @@ async function parseText(index: number) {
                     finaLink = fistLink
                 }
             } catch(_) { /**/ }
-            const showLinkList = {
+            const showLinkList: Partial<Record<keyof typeof linkView, string[]>> = {
                 bilibili: ['bilibili.com', 'b23.tv', 'bili2233.cn', 'acg.tv'],
                 music163: ['music.163.com', '163cn.tv'],
             }
-            for (const key in showLinkList) {
-                if (showLinkList[key].some((item: string) => finaLink.includes(item))) {
+            for (const key of Object.keys(showLinkList) as (keyof typeof linkView)[]) {
+                if (showLinkList[key]?.some((item) => finaLink.includes(item))) {
                     linkData = await linkView[key](finaLink)
                 }
             }
@@ -1192,7 +1192,7 @@ function openMerge(){
     }[]
     let index = 0
     mergeData.messageList.forEach((item) => {
-        item.message.forEach((msg) => {
+        item.message.forEach((msg: MsgItemElem) => {
             if (msg.type == 'image') {
                 imgList.push({
                     index: index,

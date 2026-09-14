@@ -84,6 +84,7 @@ import { copyToClipboard } from '@renderer/function/utils/systemUtil'
 import { useAuthStore } from '@renderer/state/auth'
 import { useChatStore } from '@renderer/state/chat'
 import { useContactStore } from '@renderer/state/contact'
+import type { Session } from '@renderer/function/elements/information'
 import { i18n } from '@chihiro/im-native/host'
 
 defineOptions({ name: 'UserProfilePop' })
@@ -242,13 +243,13 @@ function startChat() {
         emit('close')
         return
     }
-    let chat = contactStore.userList.find((item: any) => item.user_id == props.userId)
+    let chat: Session | undefined = contactStore.userList.find((item) => item.user_id == props.userId)
     if (!chat) {
         chat = {
             user_id: props.userId,
             nickname: displayName.value || $t('临时会话'),
-            remark: props.userId,
-            group_id: inGroup.value ? chatStore.chatInfo.show.id : undefined,
+            remark: String(props.userId),
+            group_id: inGroup.value ? chatStore.chatInfo.show.id : 0,
             group_name: '',
         }
     }
