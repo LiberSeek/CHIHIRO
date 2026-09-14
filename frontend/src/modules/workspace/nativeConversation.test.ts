@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { contactToChatInfo, findNativeConversationForRoute } from './nativeConversation'
+import { canRestoreNativeConversation, contactToChatInfo, findNativeConversationForRoute } from './nativeConversation'
 
 describe('native IM conversation route restoration', () => {
   it('converts friend and group contacts to stable chat info', () => {
@@ -32,5 +32,30 @@ describe('native IM conversation route restoration', () => {
     expect(findNativeConversationForRoute('user:123', sources)).toMatchObject({ type: 'user', id: 123, name: '同 ID 好友' })
     expect(findNativeConversationForRoute('user:-10000', sources)).toEqual({ type: 'user', id: -10000, name: '系统消息', avatar: '' })
     expect(findNativeConversationForRoute('bad:123', sources)).toBeNull()
+  })
+})
+
+
+describe('native IM conversation restoration guard', () => {
+  const readyState = {
+    routeName: 'im',
+    routeChat: 'user:10001',
+    activeAccountId: 'account-a',
+    readyAccountId: 'account-a',
+  }
+
+  it('allows restoration only after the active account is the ready native account', () => {
+    expect(canRestoreNativeConversation(readyState)).toBe(true)
+    expect(canRestoreNativeConversation({ ...readyState, readyAccountId: 'account-b' })).toBe(false)
+    expect(canRestoreNativeConversation({ ...readyState, readyAccountId: null })).toBe(false)
+    expect(canRestoreNativeConversation({ ...readyState, activeAccountId: null })).toBe(false)
+  })
+
+  it('does not restore while the route points at settings, a list tab, or an active connection', () => {
+    expect(canRestoreNativeConversation({ ...readyState, routeSettings: '1' })).toBe(false)
+    expect(canRestoreNativeConversation({ ...readyState, routeTab: 'friends' })).toBe(false)
+    expect(canRestoreNativeConversation({ ...readyState, connecting: true })).toBe(false)
+    expect(canRestoreNativeConversation({ ...readyState, routeName: 'agent' })).toBe(false)
+    expect(canRestoreNativeConversation({ ...readyState, routeChat: undefined })).toBe(false)
   })
 })

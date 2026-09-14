@@ -29,7 +29,7 @@ import UserFileManager, { panelVisible } from '../im/native/src/components/user/
 import AgentEntry from '../agent/AgentEntry.vue'
 import { routeForHostedAgent } from '../agent/native/src/navigation'
 import { routeForImConversation, routeForWorkspaceList, useWorkspace, type ListTab, type WorkspaceRoute } from './workspace'
-import { contactToChatInfo, findNativeConversationForRoute } from './nativeConversation'
+import { canRestoreNativeConversation, contactToChatInfo, findNativeConversationForRoute } from './nativeConversation'
 
 const workspace = useWorkspace()
 const imListTab = ref<'messages' | 'friends'>('messages')
@@ -190,7 +190,15 @@ function findRoutedConversation(): BaseChatInfoElem | null {
 }
 
 function restoreRoutedConversation() {
-  if (route.name !== 'im' || route.query.settings === '1' || route.query.tab || !route.query.chat || nativeAccountConnecting.value) return
+  if (!canRestoreNativeConversation({
+    routeName: route.name,
+    routeSettings: route.query.settings,
+    routeTab: route.query.tab,
+    routeChat: route.query.chat,
+    connecting: nativeAccountConnecting.value,
+    activeAccountId: shell.activeAccountId,
+    readyAccountId: readyNativeAccountId.value,
+  })) return
   const target = findRoutedConversation()
   if (!target) return
   profileOnly.value = false

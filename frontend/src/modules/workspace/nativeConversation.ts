@@ -3,6 +3,23 @@ import { parseImConversationRouteKey } from './workspace'
 
 type NativeContactItem = Partial<UserFriendElem & UserGroupElem> | undefined | null
 
+export interface NativeConversationSources {
+  baseOnMsgList?: Map<number, UserFriendElem & UserGroupElem>
+  onMsgList?: Array<UserFriendElem & UserGroupElem>
+  groupAssistList?: Array<UserFriendElem & UserGroupElem>
+  userList?: Array<UserFriendElem & UserGroupElem>
+}
+
+export interface NativeConversationRestoreState {
+  routeName?: string | symbol | null
+  routeSettings?: unknown
+  routeTab?: unknown
+  routeChat?: unknown
+  connecting?: boolean
+  activeAccountId?: string | null
+  readyAccountId?: string | null
+}
+
 export function contactToChatInfo(item: NativeContactItem): BaseChatInfoElem | null {
   if (!item) return null
   const id = item.user_id ? item.user_id : item.group_id
@@ -21,14 +38,19 @@ export function contactToChatInfo(item: NativeContactItem): BaseChatInfoElem | n
   }
 }
 
+export function canRestoreNativeConversation(state: NativeConversationRestoreState): boolean {
+  if (state.routeName !== 'im') return false
+  if (state.routeSettings === '1') return false
+  if (state.routeTab != null) return false
+  if (!state.routeChat) return false
+  if (state.connecting) return false
+  if (!state.activeAccountId) return false
+  return state.readyAccountId === state.activeAccountId
+}
+
 export function findNativeConversationForRoute(
   routeChat: unknown,
-  sources: {
-    baseOnMsgList?: Map<number, UserFriendElem & UserGroupElem>
-    onMsgList?: Array<UserFriendElem & UserGroupElem>
-    groupAssistList?: Array<UserFriendElem & UserGroupElem>
-    userList?: Array<UserFriendElem & UserGroupElem>
-  },
+  sources: NativeConversationSources,
 ): BaseChatInfoElem | null {
   const parsed = parseImConversationRouteKey(routeChat)
   if (!parsed) return null
