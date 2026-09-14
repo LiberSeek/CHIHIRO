@@ -24,6 +24,7 @@ image:
 
 manifest-check:
 	node deploy/scripts/verify-manifest.mjs
+	node deploy/test-release-operations.mjs
 
 compose-config:
 	$(COMPOSE) --env-file deploy/.env.example --file $(COMPOSE_FILE) config --quiet
