@@ -172,7 +172,7 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
 | apps/gateway | backend/src/gateway |
 | apps/runtime | backend/src/runtime，业务逻辑逐步归 core/连接器 |
 | apps/mcp | backend 内标准 SDK 接口/集成层 |
-| 根 docker-compose.yml（目前只起 AstrBot） | deploy 内完整、经验证的服务组合 |
+| 早期根 docker-compose.yml（只起 AstrBot，已移除） | deploy 内完整、经验证的服务组合 |
 | 构建后安装 NapCat 前端插件 | 产品镜像直接提供统一前端 |
 
 顺序：

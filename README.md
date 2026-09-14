@@ -12,8 +12,7 @@ CHIHIRO/
 ├── backend/src/gateway   统一入口 :3100
 ├── backend/src/runtime   账号、QQ/NapCat 进程、二维码
 ├── backend/src/mcp       Codex / Claude stdio MCP
-├── apps/web              工作台壳
-├── apps/desktop          Pake 桌面壳
+├── apps/web              旧工作台壳，统一前端迁移完成前保留
 ├── vendor/
 │   ├── stapxs/           IM 主源码（直接改这里，已不是 overlay）
 │   ├── napcat/           NapCat 对照（submodule，不要当产品代码改）
@@ -46,6 +45,7 @@ npm install
 npm run check:layout
 npm run dev              # http://127.0.0.1:3100/
 npm run rebuild:im       # 构建 vendor/stapxs 并安装到本机 NapCat 插件目录
+npm run compose:up       # 使用 deploy/ 中的标准 Docker Compose 组合
 ```
 
 改 IM（输入框、历史窗口、表情等）直接编辑 `vendor/stapxs`，然后 `npm run rebuild:im`，工作台硬刷新。不要再增加 overlay。

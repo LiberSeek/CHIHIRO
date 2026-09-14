@@ -39,7 +39,7 @@
             </div>
         </template>
         <div :class="msgBodyClass">
-            <header v-if="type != 'body'">
+            <header v-if="type != 'body' && (chatStore.chatInfo.show.type == 'group' || (isDev && data._from_local_db))">
                 <template v-if="chatStore.chatInfo.show.type == 'group'">
                     <span v-if="senderInfo && isRobot(senderInfo.user_id)" class="robot">{{ $t('机器人') }}</span>
                     <span v-if="senderInfo?.role == 'owner'" class="owner">{{ $t('群主') }}</span>
@@ -1443,6 +1443,7 @@ onMounted(() => {
     margin: 2px 0;
     box-sizing: border-box;
     flex-wrap: nowrap;
+    align-items: flex-start;
     transition: width 0.22s ease;
 }
 .user-skin .message.selected {
@@ -1480,10 +1481,14 @@ onMounted(() => {
     width: 28px !important;
     height: 28px !important;
     border-radius: 50% !important;
-    margin: 8px 8px 0 0 !important;
+    margin: 0 8px 0 0 !important;
+    align-self: flex-start;
 }
 .message.me > img {
-    margin: 8px 0 0 8px !important;
+    margin: 0 0 0 8px !important;
+}
+.message:has(.message-body > header:has(*)) > img {
+    margin-top: 8px !important;
 }
 #base-app .message.me {
     flex-direction: row-reverse;
@@ -1501,6 +1506,15 @@ onMounted(() => {
     border-radius: 18px !important;
     padding: 8px 12px !important;
     background: var(--color-card-1);
+    margin-top: 0 !important;
+}
+.message-body > header:not(:has(*)),
+#base-app .message-body > header:not(:has(*)) {
+    display: none;
+    min-height: 0;
+}
+.message-body > header:has(*) + div {
+    margin-top: 5px !important;
 }
 .message-body.me > div,
 .message-mine {
@@ -1518,14 +1532,13 @@ onMounted(() => {
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 4px;
-    min-height: 18px;
+    min-height: 0;
 }
 .message-body > header > span,
 #base-app .message-body > header > span {
     display: inline-flex;
     align-items: center;
-    margin: 0;
+    margin: 0 3px 0 0;
     padding: 1px 5px;
     border-radius: 10px;
     font-size: 0.7rem;
@@ -1552,7 +1565,7 @@ onMounted(() => {
 .message-body > header > a,
 #base-app .message-body > header > a {
     display: inline-block;
-    margin: 0;
+    margin: 0 5px;
     font-size: 0.8rem;
     line-height: 1.2;
     color: var(--color-font-1);

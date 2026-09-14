@@ -6,7 +6,7 @@
 
 | 层 | 位置 | 负责什么 | 怎么改 |
 |---|---|---|---|
-| 产品壳 | `apps/web`、`backend/src/runtime`、`backend/src/gateway`、`apps/desktop` | 工作台、账号、进程、入口 | 直接改 |
+| 产品壳 | `apps/web`、`backend/src/runtime`、`backend/src/gateway` | 工作台、账号、进程、入口 | 直接改 |
 | IM | `vendor/stapxs` | 会话、消息、输入框、历史窗口、表情 | **直接改这些文件** |
 | QQ 协议运行时 | 本机 NapCat Shell；`vendor/napcat` 只读对照 | NTQQ、OneBot、WebUI、插件协议 | 不把运行态提交进仓 |
 | 自动化 | 本机 AstrBot；`vendor/astrbot` `develop` + `User*` | 事件管线、Agent、ChatUI | `User*` UI；Runtime 用源码起 Dashboard |
