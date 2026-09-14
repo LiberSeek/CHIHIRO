@@ -1,5 +1,5 @@
 <template>
-    <Teleport to="body">
+    <Teleport to="#chihiro-im-overlays">
         <TransitionGroup name="tooltip">
             <Tooltip v-for="data in tooltipList" :key="data.id"
                 v-bind="data"

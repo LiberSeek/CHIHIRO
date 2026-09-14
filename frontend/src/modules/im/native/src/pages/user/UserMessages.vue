@@ -100,7 +100,7 @@
                 </div>
             </div>
         </div>
-        <Teleport to="body">
+        <Teleport to="#chihiro-im-overlays">
             <div v-if="listMenu.show" class="chihiro-list-menu-bg" @mousedown="closeListMenu">
                 <div
                     class="chihiro-list-menu"

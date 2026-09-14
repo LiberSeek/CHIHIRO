@@ -1,5 +1,5 @@
 <template>
-    <Teleport to="body">
+    <Teleport to="#chihiro-im-overlays">
         <Transition name="global-session-search-bar">
             <div v-if="currentImg" v-esc="escClose"
                 v-move="moveOptions"

@@ -24,6 +24,7 @@
       location="left"
       floating
     >
+      <slot v-if="isChihiroHosted" name="workspace-tabs" />
       <div class="sidebar-top">
         <div
           class="chat-sidebar-brand"

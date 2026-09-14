@@ -33,6 +33,26 @@ import { backend } from '@renderer/runtime/backend'
 import { refreshFavicon } from './favicon'
 
 let cacheConfigs: { [key: string]: any }
+const nativeOptionsKey = 'chihiro:im:options'
+let accountOptionId: string | undefined
+const accountOptionNames = new Set(['top_info', 'notice_group', 'session_notice'])
+
+export function selectNativeAccountOptions(accountId?: string) {
+    accountOptionId = accountId
+    let saved: Record<string, unknown> = {}
+    if (accountId) {
+        try {
+            saved = JSON.parse(localStorage.getItem(`chihiro:im:${accountId}:options`) ?? '{}')
+        } catch { /* Invalid stored data falls back to empty account settings. */ }
+    }
+    const settings = useSettingsStore()
+    for (const name of accountOptionNames) {
+        const value = saved?.[name]
+        const fresh = value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+        if (cacheConfigs) cacheConfigs[name] = fresh
+        settings.sysConfig[name] = fresh
+    }
+}
 
 // =============== 附加设置结构 ===============
 
@@ -579,7 +599,7 @@ export async function load(): Promise<{ [key: string]: any }> {
             }
         })
     } else {
-        const str = localStorage.getItem('options')
+        const str = localStorage.getItem(nativeOptionsKey) ?? localStorage.getItem('options')
         if (str != null) {
             const list = str.split('&')
             for (let i = 0; i <= list.length; i++) {
@@ -699,13 +719,14 @@ export function get(name: string): any {
  * 在 Web 端和 Capacitor 端使用时由于存储在 WebStorage 中，需要特别注意预防上述未转换导致的错误。
  */
 export function getRaw(name: string) {
+    if (accountOptionNames.has(name)) return Promise.resolve(cacheConfigs?.[name] ?? {})
     if ('electron' == backend.type) {
         return backend.call('opt:get', name, true)
     } else if('tauri' == backend.type) {
         return backend.call(undefined, 'opt:get', true, name)
     } else {
         // 解析拆分并执行各个设置项的初始化方法
-        const str = localStorage.getItem('options')
+        const str = localStorage.getItem(nativeOptionsKey) ?? localStorage.getItem('options')
         if (str != null) {
             const list = str.split('&')
             for (let i = 0; i <= list.length; i++) {
@@ -737,7 +758,12 @@ export function saveAll(config = {} as { [key: string]: any }) {
         Object.assign(config, cacheConfigs)
     }
     let str = ''
+    if (accountOptionId) {
+        const accountConfig = Object.fromEntries([...accountOptionNames].map(name => [name, config[name] ?? {}]))
+        localStorage.setItem(`chihiro:im:${accountOptionId}:options`, JSON.stringify(accountConfig))
+    }
     Object.keys(config).forEach((key) => {
+        if (accountOptionNames.has(key)) return
         const isObject = typeof config[key] == 'object'
         str +=
             key +
@@ -748,7 +774,7 @@ export function saveAll(config = {} as { [key: string]: any }) {
             '&'
     })
     str = str.substring(0, str.length - 1)
-    localStorage.setItem('options', str)
+    localStorage.setItem(nativeOptionsKey, str)
 
     // electron：将配置保存
     if (backend.isDesktop()) {

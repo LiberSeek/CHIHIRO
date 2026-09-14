@@ -48,7 +48,7 @@ function selectAccount(event: Event) {
         </RouterLink>
       </nav>
 
-      <main class="app-content" :class="{ 'workspace-content': route.name === 'agent' }">
+      <main class="app-content" :class="{ 'workspace-content': route.name === 'agent' || route.name === 'im' }">
         <RouterView />
       </main>
     </div>

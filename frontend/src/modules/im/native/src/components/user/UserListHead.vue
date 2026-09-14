@@ -51,7 +51,7 @@
 
 <script setup lang="ts">
     import { onBeforeUnmount, onMounted, ref } from 'vue'
-    import { i18n } from '@chihiro/im-native/host'
+    import { i18n, navigateNativeIm } from '@chihiro/im-native/host'
     import { PopInfo, PopType } from '@renderer/function/base'
 
     defineOptions({ name: 'UserListHead' })
@@ -92,19 +92,19 @@
     function goMessages() {
         closePlus()
         if (props.tab === 'messages') return
-        document.getElementById('bar-msg')?.click()
+        navigateNativeIm('messages')
     }
 
     function goFriends() {
         closePlus()
         if (props.tab === 'friends') return
-        document.getElementById('bar-friends')?.click()
+        navigateNativeIm('friends')
     }
 
     function goWorkbench() {
         closePlus()
         if (props.tab === 'workbench') return
-        document.getElementById('bar-workbench')?.click()
+        navigateNativeIm('workbench')
     }
 
     function onDocClick() {

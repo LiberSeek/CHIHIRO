@@ -1,0 +1,158 @@
+/* Chihiro User UI — shared tokens and shell. Component styles live next to their Vue files. */
+
+/* Beeper current-v4 visual language */
+:root {
+    --color-main: #007aff;
+    --color-main-0: #007aff;
+    --color-font-r: #ffffff;
+    --color-font-1-r: rgba(255, 255, 255, 0.78);
+    --chihiro-list-width: 280px;
+}
+html, body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif !important;
+    background: var(--color-bg) !important;
+}
+html.bp-dark {
+    --color-bg: #1c1c1e;
+    --color-card: #2c2c2e;
+    --color-card-1: #3a3a3c;
+    --color-card-2: #48484a;
+    --color-bg-rgb: 28, 28, 30;
+    --color-card-rgb: 44, 44, 46;
+    --color-card-1-rgb: 58, 58, 60;
+    --color-card-2-rgb: 72, 72, 74;
+    --color-font: #f5f5f7;
+    --color-font-1: #c7c7cc;
+    --color-font-2: #8e8e93;
+    --color-shader: #00000066;
+}
+html.bp-light {
+    --color-bg: #ffffff;
+    --color-card: #ffffff;
+    --color-card-1: #f3f3f3;
+    --color-card-2: #e8e8e8;
+    --color-bg-rgb: 255, 255, 255;
+    --color-card-rgb: 255, 255, 255;
+    --color-card-1-rgb: 243, 243, 243;
+    --color-card-2-rgb: 232, 232, 232;
+    --color-font: #171717;
+    --color-font-1: #595959;
+    --color-font-2: #858585;
+    --color-shader: #00000026;
+}
+
+#base-app {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+}
+#base-app #workbenchTab,
+#base-app #workbenchTab > .friend-view,
+#base-app #workbenchTab .friend-list-container,
+#base-app #workbenchTab .friend-list,
+#base-app #workbenchTab .friend-list-space {
+    min-height: 0;
+}
+#base-app #workbenchTab {
+    height: 100%;
+}
+#base-app #chihiro-agent-main-slot {
+    width: auto;
+    height: 100%;
+}
+#base-app #side-bar {
+    display: none !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+#base-app .chat-pan,
+#base-app .chat-pan.withBar {
+    left: var(--chihiro-list-width) !important;
+    top: 0 !important;
+    height: 100% !important;
+    background-color: var(--color-bg) !important;
+}
+#base-app .friend-list-container {
+    width: var(--chihiro-list-width);
+    flex: 0 0 var(--chihiro-list-width);
+    max-width: var(--chihiro-list-width);
+    overflow: hidden;
+}
+#base-app .friend-list {
+    width: var(--chihiro-list-width) !important;
+    flex: 0 0 var(--chihiro-list-width);
+    min-width: var(--chihiro-list-width);
+    max-width: var(--chihiro-list-width);
+    background: var(--color-card-1) !important;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+#base-app .friend-list-space {
+    background: var(--color-card-1) !important;
+}
+#base-app .friend-list > div:last-child {
+    width: 100% !important;
+    padding: 0 6px 8px !important;
+    box-sizing: border-box;
+}
+.opt-main {
+    background: var(--color-bg) !important;
+    padding: 12px !important;
+}
+.ss-card {
+    border-radius: 12px !important;
+    border: 1px solid rgba(127, 127, 127, 0.12);
+}
+
+#base-app .chihiro-hidden-bar {
+    display: none !important;
+}
+
+@media (max-width: 700px) {
+    /* Stapxs 小屏会把列表收成 80px 图标栏、顶出 50px 蓝块，并给隐藏的底栏留 75px。千寻没有那条底栏，改成列表铺满、聊天全屏盖住。 */
+    #base-app .main-body {
+        flex-direction: row !important;
+    }
+    #base-app .main-body > div {
+        height: 100% !important;
+        width: 100% !important;
+    }
+    #base-app .friend-view {
+        width: 100% !important;
+    }
+    #base-app .friend-list-container,
+    #base-app .friend-list,
+    #base-app .friend-list.open {
+        width: 100% !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+    }
+    #base-app .friend-list-space {
+        display: none !important;
+    }
+    #base-app .friend-list > div:first-child > div.base {
+        display: flex !important;
+    }
+    #base-app .friend-list > div:first-child > div.small,
+    #base-app .friend-list.open > div:first-child > div.small,
+    #base-app .friend-list .small {
+        display: none !important;
+    }
+    #base-app .chat-pan,
+    #base-app .chat-pan.withBar,
+    #base-app .chat-pan.open {
+        left: 0 !important;
+        right: 0 !important;
+        top: 0 !important;
+        width: auto !important;
+        height: 100% !important;
+        transform: none !important;
+    }
+    #base-app .friend-list > div.chihiro-msg-stack {
+        width: 100% !important;
+    }
+}

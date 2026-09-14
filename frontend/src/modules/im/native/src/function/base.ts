@@ -6,7 +6,8 @@
  * @Description: 此模块主要为程序相关的基础功能
  */
 
-import Option from './option'
+import { getActivePinia } from 'pinia'
+import { useSettingsStore } from '@renderer/state/settings'
 import { reactive } from 'vue'
 import { PopInfoElem } from './elements/system'
 
@@ -42,7 +43,7 @@ export class Logger {
      * @param args 日志内容
      */
     add(type: LogType, args: string, data = '' as any, hidden = false) {
-        const logLevel = Option.get('log_level')
+        const logLevel = getActivePinia() ? useSettingsStore().sysConfig.log_level : undefined
         // PS：WS, UI, ERR, INFO, DEBUG
         // all 将会输出以上全部类型，debug 将会输出 DEBUG、UI，info 将会输出 INFO，err 将会输出 ERR
         if(import.meta.env.DEV && type === LogType.SYSTEM) {

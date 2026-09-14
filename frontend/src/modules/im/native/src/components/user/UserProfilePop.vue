@@ -1,5 +1,5 @@
 <template>
-    <Teleport to="body">
+    <Teleport to="#chihiro-im-overlays">
         <div class="chihiro-profile-mask" @click="emit('close')" />
         <div
             ref="cardRef"

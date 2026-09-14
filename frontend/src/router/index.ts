@@ -1,13 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import AssistantModule from '@/modules/assistant/AssistantModule.vue'
-import ImModule from '@/modules/im/ImModule.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', redirect: '/im' },
-    { path: '/im', name: 'im', component: ImModule, meta: { title: '消息' } },
+    { path: '/im', name: 'im', component: () => import('@/modules/im/ImEntry.vue'), meta: { title: '消息' } },
     { path: '/agent/:conversationId?', name: 'agent', component: () => import('@/modules/agent/AgentEntry.vue'), meta: { title: '工作台' } },
     {
       path: '/assistant',

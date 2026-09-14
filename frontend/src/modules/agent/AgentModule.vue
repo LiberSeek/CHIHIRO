@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { UserChat } from './native'
 import { useCustomizerStore } from './native/source/stores/customizer'
 import { useToastStore } from './native/source/stores/toast.js'
@@ -47,7 +47,15 @@ onBeforeUnmount(() => { while (toast.current) toast.shift() })
       <button type="button" :aria-pressed="mobilePane === 'chat'" @click="mobilePane = 'chat'">聊天</button>
     </div>
     <v-app class="agent-v-app" :theme="customizer.uiTheme">
-      <UserChat v-if="ready" :chihiro-hosted="true" />
+      <UserChat v-if="ready" :chihiro-hosted="true">
+        <template #workspace-tabs>
+          <nav class="workspace-list-tabs" aria-label="列表工作区">
+            <RouterLink to="/im">消息</RouterLink>
+            <RouterLink to="/im?tab=contacts">联系人</RouterLink>
+            <RouterLink to="/agent" aria-current="page">工作台</RouterLink>
+          </nav>
+        </template>
+      </UserChat>
       <div v-else class="agent-startup" role="status">
         <p>{{ starting ? '正在连接 Agent…' : startupError }}</p>
         <button v-if="!starting" type="button" @click="startAgent">重试连接</button>
@@ -65,6 +73,9 @@ onBeforeUnmount(() => { while (toast.current) toast.shift() })
 
 <style scoped>
 .agent-module { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
+.workspace-list-tabs { display:flex; gap:18px; padding:12px 16px; border-bottom:1px solid #ddd; font-size:13px; }
+.workspace-list-tabs a { color:inherit; text-decoration:none; padding-bottom:5px; }
+.workspace-list-tabs a:last-child { margin-left:auto; border-bottom:2px solid #007aff; }
 .agent-v-app { width: 100%; height: 100%; min-height: 0; flex: 1; }
 .agent-mobile-tabs { display: none; }
 .agent-startup { display: grid; align-content: center; justify-items: center; gap: 16px; height: 100%; }

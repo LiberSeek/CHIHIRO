@@ -12,7 +12,7 @@
  *      被VSC的快捷键 Ctrl + E 激励创作的
 -->
 <template>
-    <Teleport to="body">
+    <Teleport to="#chihiro-im-overlays">
         <Transition name="global-session-search-bar">
             <div v-if="show"
                 class="mask-background"

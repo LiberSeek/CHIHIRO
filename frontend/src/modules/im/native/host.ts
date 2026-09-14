@@ -14,6 +14,7 @@ export interface NativeImI18n {
 export interface NativeImHost {
   copyText(value: string): Promise<void>
   i18n: NativeImI18n
+  navigate?(view: 'messages' | 'friends' | 'workbench'): void
 }
 
 let configuredHost: NativeImHost | undefined
@@ -25,6 +26,10 @@ export function configureNativeImHost(host: NativeImHost): void {
 function host(): NativeImHost {
   if (!configuredHost) throw new Error('Native IM host has not been configured')
   return configuredHost
+}
+
+export function navigateNativeIm(view: 'messages' | 'friends' | 'workbench'): void {
+  host().navigate?.(view)
 }
 
 export const i18n: NativeImI18n = new Proxy({} as NativeImI18n, {

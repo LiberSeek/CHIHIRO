@@ -2483,7 +2483,9 @@ function formatMessageData(data: any, isGroup: boolean) {
 // 重置 Runtime，但是保留应用设置之类已经加载好的应用内容
 export function resetRimtime(resetAll = false) {
     // Handshake resets must retain the provider map selected by getVersionInfo.
+    const providerMap = msgPath
     clearNativeMessageRuntimeState()
+    msgPath = providerMap
     if (resetAll) {
         // Reset auth store
         const authStore = useAuthStore()

@@ -392,7 +392,7 @@
         <!-- 合并转发消息预览器 -->
         <MergePan ref="mergePan" />
         <!-- 消息右击菜单 -->
-        <Teleport to="body">
+        <Teleport to="#chihiro-im-overlays">
             <div :class="'msg-menu' + (['linux', 'win32'].includes(backend.platform ?? '') ? ' withBar' : '')">
                 <div v-show="tags.showMsgMenu" class="msg-menu-bg" @click="closeMsgMenu" />
                 <div id="msgMenu" :class="tags.showMsgMenu ?
@@ -936,13 +936,13 @@ const botDraft = ref<{ id: string, text: string } | null>(null)
 
 function sessionBotKey() {
     const type = chat.show?.type === 'group' ? 'group' : 'private'
-    return `${type}:${chat.show?.id}`
+    return `qq:${authStore.loginInfo.uin}:${type}:${chat.show?.id}`
 }
 function readBotMap(): Record<string, boolean> {
     try { return JSON.parse(localStorage.getItem(BOT_SESSIONS_KEY) || '{}') } catch { return {} }
 }
 function newBotDefault() {
-    return localStorage.getItem(BOT_DEFAULT_KEY) === '1'
+    return localStorage.getItem(`${BOT_DEFAULT_KEY}:qq:${authStore.loginInfo.uin}`) === '1'
 }
 function syncBotFromStore() {
     const map = readBotMap()
