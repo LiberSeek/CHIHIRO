@@ -164,6 +164,45 @@ export function createAgentStore(filePath) {
     return draft
   }
 
+  function claimDraft(id) {
+    let draft = null
+    mutate((data) => {
+      const current = data.drafts?.[id]
+      if (!current || current.status !== 'pending') return data
+      draft = { ...current, status: 'sending', claimedAt: Date.now() }
+      data.drafts[id] = draft
+    })
+    return draft
+  }
+
+  function recoverSendingDrafts() {
+    mutate((data) => {
+      for (const [id, draft] of Object.entries(data.drafts || {})) {
+        if (draft.status === 'sending') {
+          data.drafts[id] = {
+            ...draft,
+            status: 'unknown',
+            unknownAt: Date.now(),
+            error: draft.error || 'delivery_interrupted',
+          }
+          if (draft.sessionKey && data.sessions?.[draft.sessionKey]) {
+            data.sessions[draft.sessionKey] = { ...data.sessions[draft.sessionKey], status: 'delivery_unknown' }
+          }
+        }
+      }
+    })
+  }
+
+  function supersedePendingDrafts(key, reason = 'conversation_changed') {
+    mutate((data) => {
+      for (const [id, draft] of Object.entries(data.drafts || {})) {
+        if (draft.sessionKey === key && draft.status === 'pending') {
+          data.drafts[id] = { ...draft, status: 'superseded', supersededAt: Date.now(), reason }
+        }
+      }
+    })
+  }
+
   function pendingCounts() {
     const counts = {}
     for (const d of Object.values(load().drafts || {})) {
@@ -188,6 +227,9 @@ export function createAgentStore(filePath) {
     getDraft,
     listDrafts,
     patchDraft,
+    claimDraft,
+    recoverSendingDrafts,
+    supersedePendingDrafts,
     pendingCounts,
     sessionKey
   }

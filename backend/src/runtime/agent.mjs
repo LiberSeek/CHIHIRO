@@ -174,6 +174,7 @@ const MODE_STEP = {
 
 export function createAgentController({ root, store: accounts, qq, astrbot, cfg }) {
   const persist = createAgentStore(path.join(root, 'data/agent/state.json'))
+  persist.recoverSendingDrafts()
   const listeners = new Set()
   const bridges = new Map()
   const wss = new WebSocketServer({ noServer: true })
@@ -284,6 +285,7 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     const key = sessionKey(accountId, type, peerId)
     const text = messageText(data.message) || data.raw_message || ''
     const nickname = data.sender?.nickname || data.sender?.card || ''
+    persist.supersedePendingDrafts(key, 'new_inbound_message')
     persist.upsertSession({
       key,
       accountId,
@@ -468,6 +470,7 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
 
   function resolvePeer({ accountId, peerId, type, key, groupId }) {
     requireAccount(accountId)
+    if (type != null && type !== '' && type !== 'private' && type !== 'group') throw new Error('invalid_type')
     let aid = accountId || ''
     let typ = type === 'group' ? 'group' : (type === 'private' ? 'private' : '')
     let peer = String(peerId || groupId || '')
@@ -482,6 +485,7 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     }
     if (!typ) typ = groupId && !peerId ? 'group' : 'private'
     if (!peer && groupId) peer = String(groupId)
+    if (peer && (!/^\d+$/.test(peer) || /^0+$/.test(peer))) throw new Error('invalid_peer')
     return { accountId: aid, type: typ, peerId: peer, key: aid && peer ? sessionKey(aid, typ, peer) : '' }
   }
 
@@ -648,15 +652,41 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     throw new Error('unknown_kind')
   }
 
-  async function approveDraft(id) {
-    const draft = persist.getDraft(id)
-    if (!draft || draft.status !== 'pending') throw new Error('draft_not_found')
-    await napcatSend(draft.accountId, {
-      type: draft.type,
-      peerId: draft.peerId,
-      message: draft.message || draft.text
-    })
-    persist.patchDraft(id, { status: 'sent', sentAt: Date.now() })
+  function requireDraftContext(draft, context = {}) {
+    if (context.accountId != null && context.accountId !== draft.accountId) throw new Error('draft_account_mismatch')
+    if (context.type != null && context.type !== draft.type) throw new Error('draft_type_mismatch')
+    if (context.peerId != null && String(context.peerId) !== String(draft.peerId)) throw new Error('draft_peer_mismatch')
+  }
+
+  async function approveDraft(id, context = {}) {
+    const existing = persist.getDraft(id)
+    if (!existing || existing.status !== 'pending') throw new Error('draft_not_found')
+    requireDraftContext(existing, context)
+    const draft = persist.claimDraft(id)
+    if (!draft) throw new Error('draft_not_found')
+    let receipt
+    try {
+      receipt = await napcatSend(draft.accountId, {
+        type: draft.type,
+        peerId: draft.peerId,
+        message: draft.message || draft.text
+      })
+    } catch (error) {
+      persist.patchDraft(id, {
+        status: 'unknown',
+        unknownAt: Date.now(),
+        error: error?.message || String(error),
+      })
+      persist.upsertSession({
+        ...persist.getSession(draft.sessionKey),
+        key: draft.sessionKey,
+        status: 'delivery_unknown',
+        lastAt: Date.now(),
+      })
+      emit()
+      throw error
+    }
+    persist.patchDraft(id, { status: 'sent', sentAt: Date.now(), receipt })
     persist.upsertSession({
       ...persist.getSession(draft.sessionKey),
       key: draft.sessionKey,
@@ -680,9 +710,10 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     return persist.getDraft(id)
   }
 
-  function discardDraft(id) {
+  function discardDraft(id, context = {}) {
     const draft = persist.getDraft(id)
     if (!draft || draft.status !== 'pending') throw new Error('draft_not_found')
+    requireDraftContext(draft, context)
     persist.patchDraft(id, { status: 'discarded', discardedAt: Date.now() })
     persist.upsertSession({
       ...persist.getSession(draft.sessionKey),
@@ -710,6 +741,7 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     }
     const preview = text || '[图片]'
     const key = sessionKey(accountId, type, peerId)
+    persist.supersedePendingDrafts(key, 'operator_takeover')
     const receipt = await napcatSend(accountId, { type, peerId, message })
     const sentAt = Date.now()
     persist.upsertSession({
@@ -999,14 +1031,19 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     }
     if (p === '/api/runtime/agent/mode' && method === 'POST') {
       const body = await readBody()
-      if (!MODES.includes(body.mode)) return json({ error: 'invalid_mode' }, 400)
-      if (body.peerId) {
-        const key = body.key || sessionKey(body.accountId, body.type || 'private', body.peerId)
-        persist.setSessionMode(key, body.mode)
-      } else if (body.accountId) {
-        persist.setAccountMode(body.accountId, body.mode)
-      } else {
-        return json({ error: 'missing_account' }, 400)
+      try {
+        if (!MODES.includes(body.mode)) throw new Error('invalid_mode')
+        requireAccount(body.accountId)
+        if (body.key || body.peerId != null || body.type != null) {
+          if (!body.key && body.peerId == null) throw new Error('missing_peer')
+          const target = resolvePeer(body)
+          if (!persist.getSession(target.key)) throw new Error('session_not_found')
+          persist.setSessionMode(target.key, body.mode)
+        } else {
+          persist.setAccountMode(body.accountId, body.mode)
+        }
+      } catch (e) {
+        return json({ error: e.message }, 400)
       }
       emit()
       return json(view(body.accountId))
@@ -1014,7 +1051,7 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     if (p === '/api/runtime/agent/draft/approve' && method === 'POST') {
       const body = await readBody()
       try {
-        return json({ draft: await approveDraft(body.id) })
+        return json({ draft: await approveDraft(body.id, body) })
       } catch (e) {
         return json({ error: e.message }, 400)
       }
@@ -1022,7 +1059,7 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     if (p === '/api/runtime/agent/draft/discard' && method === 'POST') {
       const body = await readBody()
       try {
-        return json({ draft: discardDraft(body.id) })
+        return json({ draft: discardDraft(body.id, body) })
       } catch (e) {
         return json({ error: e.message }, 400)
       }
@@ -1030,7 +1067,10 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     if (p === '/api/runtime/agent/ask' && method === 'POST') {
       const body = await readBody()
       try {
-        return json(await askBot(body.accountId, body))
+        const target = resolvePeer(body)
+        if (!target.peerId) throw new Error('missing_peer')
+        if (!body.text && !body.quote) throw new Error('empty_text')
+        return json(await askBot(target.accountId, { ...body, type: target.type, peerId: target.peerId }))
       } catch (e) {
         return json({ error: e.message, message: e.message }, 400)
       }
@@ -1078,6 +1118,8 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     observe,
     sendToPeer,
     sendToConversation,
+    approveDraft,
+    discardDraft,
     pendingCounts: () => persist.pendingCounts(),
     persist
   }
