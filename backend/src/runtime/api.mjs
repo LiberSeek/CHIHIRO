@@ -7,6 +7,7 @@ import { createAstrbotRuntime } from './astrbot.mjs'
 import { createBotController } from './bot.mjs'
 import { createAgentController } from './agent.mjs'
 import { createChatuiProxy } from './chatui.mjs'
+import { createCustomerInsights } from '../core/customer-insights.mjs'
 import { log, logError } from './log.mjs'
 
 export function createRuntime({ root, cfg, services = {} }) {
@@ -19,6 +20,7 @@ export function createRuntime({ root, cfg, services = {} }) {
   })
   const astrbot = services.astrbot || createAstrbotRuntime({ root, cfg })
   const agent = createAgentController({ root, store, qq, astrbot, cfg })
+  const customers = services.customers || createCustomerInsights({ root })
   const bot = services.bot || createBotController({ store, qq, astrbot, cfg })
   const chatui = services.chatui || createChatuiProxy({ astrbot })
 
@@ -79,6 +81,52 @@ export function createRuntime({ root, cfg, services = {} }) {
     if (p.startsWith('/api/runtime/agent')) {
       const handled = await agent.handleHttp(req, res, url)
       if (handled) return true
+    }
+
+    if (p === '/api/runtime/customers' && method === 'GET') {
+      try {
+        const accountId = req.headers['x-chihiro-account'] || url.searchParams.get('accountId')
+        return json(res, customers.list({
+          accountId,
+          channel: url.searchParams.get('channel') || '',
+          q: url.searchParams.get('q') || '',
+          limit: url.searchParams.get('limit') || '',
+          offset: url.searchParams.get('offset') || ''
+        }))
+      } catch (e) {
+        return customerError(res, e)
+      }
+    }
+    const customerMatch = p.match(/^\/api\/runtime\/customers\/([^/]+)$/)
+    if (customerMatch && method === 'GET') {
+      try {
+        const accountId = req.headers['x-chihiro-account'] || url.searchParams.get('accountId')
+        if (!accountId) throw new Error('missing_account')
+        return json(res, customers.get(decodePathPart(customerMatch[1]), { accountId }))
+      } catch (e) {
+        return customerError(res, e)
+      }
+    }
+    if (customerMatch && method === 'PATCH') {
+      try {
+        const accountId = req.headers['x-chihiro-account'] || url.searchParams.get('accountId')
+        if (!accountId) throw new Error('missing_account')
+        const body = await readJson(req)
+        return json(res, customers.update(decodePathPart(customerMatch[1]), body, { accountId }))
+      } catch (e) {
+        return customerError(res, e)
+      }
+    }
+    if (p === '/api/runtime/customers/ingest' && method === 'POST') {
+      try {
+        const body = await readJson(req)
+        const headerAccount = req.headers['x-chihiro-account']
+        if (headerAccount && body.accountId && String(headerAccount) !== String(body.accountId)) throw new Error('account_mismatch')
+        if (headerAccount && !body.accountId) body.accountId = String(headerAccount)
+        return json(res, customers.ingest(body))
+      } catch (e) {
+        return customerError(res, e)
+      }
     }
 
     // Unified frontend IM read boundary. Responses are normalized from the
@@ -249,7 +297,7 @@ export function createRuntime({ root, cfg, services = {} }) {
     await astrbot.stopIfOwned().catch((e) => logError('api', 'astrbot stop', e))
   }
 
-  return { handle, qq, store, astrbot, bot, agent, snapshot, shutdown }
+  return { handle, qq, store, astrbot, bot, agent, customers, snapshot, shutdown }
 }
 
 function json(res, obj, status = 200) {
@@ -262,6 +310,20 @@ function imError(res, error) {
   const code = error?.message || 'im_failed'
   const status = code === 'account_not_found' ? 404 : 400
   return json(res, { error: code, message: code }, status)
+}
+
+function customerError(res, error) {
+  const code = error?.message || 'customer_insights_failed'
+  const status = code === 'customer_not_found' ? 404 : 400
+  return json(res, { error: code, message: code }, status)
+}
+
+function decodePathPart(part) {
+  try {
+    return decodeURIComponent(part)
+  } catch {
+    throw new Error('invalid_path')
+  }
 }
 
 function isQqMediaHost(host) {
