@@ -240,7 +240,7 @@
     {
       "path": "src/components/user/UserComposer.vue",
       "upstreamPath": "components/user/UserComposer.vue",
-      "sha256": "c11c1d0caeaa7e73e0c18964853f886c9bf2ba0f1aeede00133117accb200a59",
+      "sha256": "fb58d39d59ca359dc0bec55dcfd25d73f16d067b5ef779091ee38742f50b35ce",
       "extractedSha256": "5a72399947ada83841f94339b6d2f03fcf576921e53f47ae3f8baa70bfd05268"
     },
     {
@@ -305,7 +305,7 @@
     {
       "path": "src/components/user/UserMsgBody.vue",
       "upstreamPath": "components/user/UserMsgBody.vue",
-      "sha256": "cce9f80ced07d63c0d561a5659e016a22b0d140e15eb11a6b43f987b01822522",
+      "sha256": "56c7d1afebec8a21332964695f493ef25c2593924b43f37b03aa9e176ddc9f8c",
       "extractedSha256": "52387ba4ff41a58814518999375b8b318c05cb43b3a965fb21edac86ff7b0338"
     },
     {
@@ -357,7 +357,7 @@
     {
       "path": "src/components/user/UserViewerCom.vue",
       "upstreamPath": "components/user/UserViewerCom.vue",
-      "sha256": "901ded7ac2157466493933014e5210ca991f05b3b99aef8107a6c49803a4d04e",
+      "sha256": "6c62d33b56bc84efa6dab78b8600c35d42ba446d1ab2ea53ee36baee3377b7eb",
       "extractedSha256": "901ded7ac2157466493933014e5210ca991f05b3b99aef8107a6c49803a4d04e"
     },
     {
@@ -518,7 +518,7 @@
     {
       "path": "src/pages/user/UserFriends.vue",
       "upstreamPath": "pages/user/UserFriends.vue",
-      "sha256": "ec549efdc6c883d910a08ee50a7756c331e45fc5c8831a2711286ebd64fdf5dc",
+      "sha256": "412ccee26e6f18baf5841a8a9840f2448a420a4aebe72aeb4c2769fd8bf11b72",
       "extractedSha256": "ec549efdc6c883d910a08ee50a7756c331e45fc5c8831a2711286ebd64fdf5dc"
     },
     {
@@ -737,7 +737,7 @@
     {
       "path": "src/assets/css/user.css",
       "upstreamPath": "assets/css/user.css",
-      "sha256": "e45eb50b0d21c0ac8647dd8ea013347fdceb2726c660271c9ed40b1af9e78e04",
+      "sha256": "bad46e6602180044075ab618a015816609f6bea009dced3123dcf30f967df138",
       "extractedSha256": "e45eb50b0d21c0ac8647dd8ea013347fdceb2726c660271c9ed40b1af9e78e04",
       "sourceTreeCommit": "0686935276ac8c471068958893467f835e3905f4"
     },
