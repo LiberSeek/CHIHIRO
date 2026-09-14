@@ -215,3 +215,15 @@ P5 仍未全部完成：当前 JSON 存储的同步占用只适用于单进程 R
 在不启动 Gateway、AstrBot、NapCat 或 QQ 的前提下，新增 `protocol-acceptance.test.ts`，通过 loopback HTTP fixture 驱动真实生成 API client 与 `useProjects`、`useMediaHandling`：验证 hosted 路径下项目创建/刷新、项目选择、会话归属写入与读取，以及真实 multipart 文件上传返回 attachment ID。随后用同一 fixture 的 SSE 响应驱动 `useMessages`，确认发送体携带该 attachment ID、增量文本进入 bot 记录，并处理服务端以未终止空行关闭的最终 SSE 事件。停止测试确认 AstrBot stop endpoint 与本地 `AbortSignal` 同时生效，且被停止连接不会触发正常刷新回调。新增协议 fixture 3 项，加上 hosted API 与消息流回归共 10 项通过；类型检查、Agent native 构建和 `git diff --check` 通过。
 
 该验收证明的是生成 client、原生 composable 与 Gateway hosted URL/事件形状之间的兼容性，不证明真实 AstrBot 的运行时行为、鉴权令牌、持久化写入、WebSocket、多媒体内容下载或真实客户消息发送；这些仍需使用明确授权的隔离服务目标继续验收。
+
+### 持久发送、客户洞察与发布运维第一版（2026-09-14）
+
+会话助手已使用 SQLite/JSON 持久 outbox、发送尝试和按会话顺序队列；结果未知会阻塞后续发送，运营人员可在不重复触达 QQ 的情况下确认结果，或通过显式重试创建新的发送血缘。前端提供对应的 unknown 对账与重试状态。后端完整测试当前为 58 项通过。
+
+统一前端新增 `/customers` 客户资料工作台，所有请求携带明确账号，切换账号会取消并丢弃迟到的列表、详情和保存响应；支持搜索、画像编辑、事实、购买意图及消息证据引用。专项 4 项测试、类型检查及统一前端构建通过。
+
+后端新增按账号隔离的跨群消息证据和汇总报告第一版；报告保存请求范围、实际覆盖群、消息数量和逐条来源，不把无数据范围伪装为完整报告。核心与 Runtime API 4 项专项测试及完整后端测试通过。它目前只提供采集/报告契约，自动订阅群消息、摘要模型任务和前端报告页仍待开发。
+
+Docker `chihiro:dev` 单镜像已经完成构建、健康检查、`/`、`/next/`、Agent 深链接和重启验收。新增开发 release manifest、数据卷备份/恢复命令和无 Docker 数据的往返测试；当前 AstrBot 镜像仍未固定 digest、Linux NapCat 镜像仍标记未验证，因此不构成正式 release manifest。
+
+当前剩余六个大项：P3 fixture 收口；真实 NapCat/隔离 QQ；真实 AstrBot；P6 线索/跟进/营销闭环；P7 正式镜像组合与 Compose/迁移回滚演练；默认入口切换、旧壳退役和最终全链路回归。`0.0.1` 标签保持不变。
