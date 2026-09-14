@@ -21,6 +21,11 @@
   ],
   "files": [
     {
+      "path": "src/env.d.ts",
+      "upstreamPath": null,
+      "sha256": "c51ff10e329624f6693da315343927febf0f5ad7f415afe8a2c034d4e33ae14f"
+    },
+    {
       "path": "src/assets/css/append/append_full_vibrancy.css",
       "upstreamPath": "assets/css/append/append_full_vibrancy.css",
       "sha256": "e682c9c7b3416be1be80cca1f6399650871063098704c1a57537369bd5667298"
