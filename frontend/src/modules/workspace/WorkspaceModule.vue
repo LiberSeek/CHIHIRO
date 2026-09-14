@@ -26,6 +26,7 @@ import UserOptions from '../im/native/src/pages/user/UserOptions.vue'
 import UserViewer from '../im/native/src/components/user/UserViewerCom.vue'
 import UserTooltips from '../im/native/src/components/user/tooltip/UserTooltips.vue'
 import UserFileManager, { panelVisible } from '../im/native/src/components/user/UserFileManager.vue'
+import { setNativeViewerHost } from '../im/native/viewer'
 import AgentEntry from '../agent/AgentEntry.vue'
 import { routeForHostedAgent } from '../agent/native/src/navigation'
 import { routeForImConversation, routeForWorkspaceList, useWorkspace, type ListTab, type WorkspaceRoute } from './workspace'
@@ -52,6 +53,7 @@ provide('viewer', { viewer })
 const error = ref('')
 let generation = 0
 let detach: (() => void) | undefined
+let detachViewer: (() => void) | undefined
 const hasChat = computed(() => chat.chatInfo.show.id !== 0)
 const showSettings = computed(() => route.query.settings === '1')
 const connectingNativeAccountId = ref<string | null>(null)
@@ -236,6 +238,10 @@ function closeModal() {
   ui.popBoxList.shift()
 }
 
+watch(viewer, host => {
+  detachViewer?.()
+  detachViewer = host ? setNativeViewerHost(host) : undefined
+}, { flush: 'post' })
 watch(() => `${shell.activeAccountId ?? ''}:${shell.activeAccount?.status ?? ''}`, () => { void connect() }, { immediate: true, flush: 'sync' })
 watch(() => login.status, (status) => {
   if (status && connectingNativeAccountId.value === shell.activeAccountId) readyNativeAccountId.value = connectingNativeAccountId.value
@@ -261,6 +267,7 @@ watch(() => `${shell.activeAccountId ?? ''}:${chat.chatInfo.show.id}:${chat.chat
 }, { flush: 'sync' })
 onBeforeUnmount(() => {
   ++generation
+  detachViewer?.()
   detach?.()
   clearNativePopups()
   resetNativeAccountState()

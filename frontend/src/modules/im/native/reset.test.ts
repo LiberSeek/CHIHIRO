@@ -14,6 +14,7 @@ vi.mock('./src/function/utils/systemUtil', () => ({
 }))
 
 import { resetNativeAccountState } from './reset'
+import { setNativeViewerHost } from './viewer'
 import { useAuthStore } from './src/state/auth'
 import { useChatStore } from './src/state/chat'
 import { useConnectionStore } from './src/state/connection'
@@ -84,9 +85,13 @@ describe('resetNativeAccountState', () => {
 
     addUploadTask({ fileName: 'old.txt', fileSize: 10, execute: () => undefined })
     openPanel()
+    const closeViewer = vi.fn()
+    const unregisterViewer = setNativeViewerHost({ close: closeViewer })
 
     resetNativeAccountState()
 
+    expect(closeViewer).toHaveBeenCalledOnce()
+    unregisterViewer()
     expect(resetMessageRuntime).toHaveBeenCalledOnce()
     expect(Object.keys(auth.loginInfo)).toHaveLength(0)
     expect(Object.keys(auth.botInfo)).toHaveLength(0)

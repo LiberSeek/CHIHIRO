@@ -1567,6 +1567,7 @@ defineExpose({
     open,
     openBySrc,
     edit: editMode,
+    close,
 })
 </script>
 

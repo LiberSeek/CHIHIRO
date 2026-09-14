@@ -9,8 +9,10 @@ import { useUIStore } from './src/state/ui'
 import { resetNativeMessageRuntimeState } from './src/function/msg'
 import { resetNativeFileTasks } from './src/components/user/UserFileManager.vue'
 import { clearNativePopups } from './popups'
+import { closeNativeViewer } from './viewer'
 
 export function resetNativeAccountState(): void {
+  closeNativeViewer()
   resetNativeMessageRuntimeState()
   resetNativeFileTasks()
 
