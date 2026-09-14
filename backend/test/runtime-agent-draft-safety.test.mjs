@@ -45,6 +45,53 @@ test('concurrent approvals claim once and persist the NapCat receipt', async (t)
   assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1)
   assert.equal(controller.persist.getDraft(draft.id).status, 'sent')
   assert.deepEqual(controller.persist.getDraft(draft.id).receipt, { message_id: 99 })
+  const outbox = controller.persist.getOutboxForDraft(draft.id)
+  assert.equal(outbox.status, 'sent')
+  assert.deepEqual(outbox.receipt, { message_id: 99 })
+  const attempts = controller.persist.listDeliveryAttempts(outbox.id)
+  assert.equal(attempts.length, 1)
+  assert.equal(attempts[0].number, 1)
+  assert.equal(attempts[0].status, 'sent')
+  assert.deepEqual(attempts[0].receipt, { message_id: 99 })
+  assert.ok(attempts[0].completedAt >= attempts[0].startedAt)
+})
+
+test('approved drafts send in durable per-conversation order', async (t) => {
+  const { root, controller, draft: first } = fixture()
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  const second = controller.persist.addDraft({
+    accountId: first.accountId,
+    sessionKey: first.sessionKey,
+    type: first.type,
+    peerId: first.peerId,
+    text: 'second',
+  })
+  const calls = []
+  let releaseFirst
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  globalThis.fetch = async (_url, options) => {
+    const message = JSON.parse(options.body).message
+    calls.push(message)
+    if (message === 'hello') await new Promise((resolve) => { releaseFirst = resolve })
+    return { ok: true, json: async () => ({ status: 'ok', retcode: 0, data: { message_id: calls.length } }) }
+  }
+
+  const firstApproval = controller.approveDraft(first.id)
+  const secondApproval = controller.approveDraft(second.id)
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(calls, ['hello'])
+  assert.equal(controller.persist.getDraft(second.id).status, 'queued')
+  releaseFirst()
+  await Promise.all([firstApproval, secondApproval])
+
+  assert.deepEqual(calls, ['hello', 'second'])
+  assert.equal(controller.persist.getDraft(first.id).status, 'sent')
+  assert.equal(controller.persist.getDraft(second.id).status, 'sent')
+  assert.deepEqual(
+    controller.persist.listOutbox(first.sessionKey).map((item) => [item.sequence, item.message, item.status]),
+    [[1, 'hello', 'sent'], [2, 'second', 'sent']],
+  )
 })
 
 test('approval rejects supplied conversation mismatch before sending', async (t) => {
@@ -74,35 +121,91 @@ test('ambiguous send failure becomes unknown and cannot be retried', async (t) =
   await assert.rejects(controller.approveDraft(draft.id), /connection_lost/)
   assert.equal(controller.persist.getDraft(draft.id).status, 'unknown')
   assert.equal(controller.persist.getSession(draft.sessionKey).status, 'delivery_unknown')
+  const outbox = controller.persist.getOutboxForDraft(draft.id)
+  assert.equal(outbox.status, 'unknown')
+  assert.equal(outbox.error, 'connection_lost')
+  assert.deepEqual(
+    controller.persist.listDeliveryAttempts(outbox.id).map((attempt) => attempt.status),
+    ['unknown'],
+  )
   await assert.rejects(controller.approveDraft(draft.id), /draft_not_found/)
   assert.equal(sends, 1)
 })
 
-test('restart recovery marks an interrupted sending draft unknown', (t) => {
+test('restart recovery persists an interrupted attempt as unknown', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'chihiro-agent-'))
   t.after(() => fs.rmSync(root, { recursive: true, force: true }))
   const file = path.join(root, 'state.json')
   const first = createAgentStore(file)
-  const draft = first.addDraft({ accountId: 'qq:1', type: 'private', peerId: '2' })
-  assert.equal(first.claimDraft(draft.id).status, 'sending')
+  const key = sessionKey('qq:1', 'private', '2')
+  first.upsertSession({ key, accountId: 'qq:1', type: 'private', peerId: '2' })
+  const draft = first.addDraft({ accountId: 'qq:1', sessionKey: key, type: 'private', peerId: '2' })
+  const queued = first.enqueueDraft(draft.id)
+  const claimed = first.claimNextOutbox(key)
+  assert.equal(claimed.outbox.status, 'sending')
+  assert.equal(claimed.attempt.status, 'sending')
 
   const restarted = createAgentStore(file)
   restarted.recoverSendingDrafts()
   assert.equal(restarted.getDraft(draft.id).status, 'unknown')
-  assert.equal(restarted.claimDraft(draft.id), null)
+  assert.equal(restarted.getOutbox(queued.id).status, 'unknown')
+  assert.equal(restarted.listDeliveryAttempts(queued.id)[0].status, 'unknown')
+  assert.equal(restarted.listDeliveryAttempts(queued.id)[0].error, 'delivery_interrupted')
+  assert.equal(restarted.claimNextOutbox(key), null)
 })
 
-test('conversation changes supersede only pending drafts in that session', (t) => {
+test('controller startup resumes queued outbox deliveries', async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'chihiro-agent-restart-'))
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  const account = { id: 'qq:10001', botSessions: {} }
+  const key = sessionKey(account.id, 'private', '20002')
+  const store = createAgentStore(path.join(root, 'data/agent/state.json'))
+  store.upsertSession({ key, accountId: account.id, type: 'private', peerId: '20002' })
+  const draft = store.addDraft({
+    accountId: account.id,
+    sessionKey: key,
+    type: 'private',
+    peerId: '20002',
+    text: 'resume me',
+  })
+  store.enqueueDraft(draft.id)
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  let sends = 0
+  globalThis.fetch = async () => {
+    sends++
+    return { ok: true, json: async () => ({ status: 'ok', retcode: 0, data: { message_id: 501 } }) }
+  }
+
+  const controller = createAgentController({
+    root,
+    store: { list: () => ({ accounts: [account] }) },
+    qq: { getInstanceForAccount: () => ({ ports: { http: 3001 }, tokens: { http: 'test' } }) },
+    astrbot: {},
+    cfg: {},
+  })
+  await new Promise((resolve) => setImmediate(resolve))
+
+  assert.equal(sends, 1)
+  assert.equal(controller.persist.getDraft(draft.id).status, 'sent')
+  assert.equal(controller.persist.listDeliveryAttempts(controller.persist.getOutboxForDraft(draft.id).id)[0].status, 'sent')
+})
+
+test('conversation changes supersede pending and cancel queued drafts', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'chihiro-agent-'))
   t.after(() => fs.rmSync(root, { recursive: true, force: true }))
   const store = createAgentStore(path.join(root, 'state.json'))
   const key = sessionKey('qq:1', 'private', '2')
   const stale = store.addDraft({ accountId: 'qq:1', sessionKey: key, type: 'private', peerId: '2' })
+  const queued = store.addDraft({ accountId: 'qq:1', sessionKey: key, type: 'private', peerId: '2' })
+  const queuedOutbox = store.enqueueDraft(queued.id)
   const other = store.addDraft({ accountId: 'qq:1', sessionKey: sessionKey('qq:1', 'private', '3'), type: 'private', peerId: '3' })
 
   store.supersedePendingDrafts(key, 'new_inbound_message')
 
   assert.equal(store.getDraft(stale.id).status, 'superseded')
+  assert.equal(store.getDraft(queued.id).status, 'canceled')
+  assert.equal(store.getOutbox(queuedOutbox.id).status, 'canceled')
   assert.equal(store.getDraft(other.id).status, 'pending')
 })
 
@@ -148,6 +251,74 @@ test('a successful HTTP envelope without a send receipt remains unknown', async 
   globalThis.fetch = async () => ({ ok: true, json: async () => ({ status: 'ok', data: {} }) })
   await assert.rejects(controller.approveDraft(draft.id), /missing_send_receipt/)
   assert.equal(controller.persist.getDraft(draft.id).status, 'unknown')
+  const outbox = controller.persist.getOutboxForDraft(draft.id)
+  assert.equal(outbox.status, 'unknown')
+  assert.equal(controller.persist.listDeliveryAttempts(outbox.id)[0].status, 'unknown')
+})
+
+test('an unknown receipt blocks later drafts without sending them', async (t) => {
+  const { root, controller, draft: first } = fixture()
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  const second = controller.persist.addDraft({
+    accountId: first.accountId,
+    sessionKey: first.sessionKey,
+    type: first.type,
+    peerId: first.peerId,
+    text: 'must wait',
+  })
+  let sends = 0
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  globalThis.fetch = async () => {
+    sends++
+    return { ok: true, json: async () => ({ status: 'ok', data: {} }) }
+  }
+
+  const results = await Promise.allSettled([
+    controller.approveDraft(first.id),
+    controller.approveDraft(second.id),
+  ])
+
+  assert.equal(sends, 1)
+  assert.equal(results.filter((result) => result.status === 'rejected').length, 2)
+  assert.equal(controller.persist.getDraft(first.id).status, 'unknown')
+  assert.equal(controller.persist.getDraft(second.id).status, 'queued')
+  assert.equal(controller.persist.getOutboxForDraft(second.id).status, 'queued')
+  assert.equal(controller.persist.listDeliveryAttempts(controller.persist.getOutboxForDraft(second.id).id).length, 0)
+})
+
+test('a known NapCat rejection records failed and releases the next draft', async (t) => {
+  const { root, controller, draft: first } = fixture()
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  const second = controller.persist.addDraft({
+    accountId: first.accountId,
+    sessionKey: first.sessionKey,
+    type: first.type,
+    peerId: first.peerId,
+    text: 'send after rejection',
+  })
+  let sends = 0
+  const originalFetch = globalThis.fetch
+  t.after(() => { globalThis.fetch = originalFetch })
+  globalThis.fetch = async () => {
+    sends++
+    if (sends === 1) {
+      return { ok: true, json: async () => ({ status: 'failed', retcode: 1200, message: 'rejected' }) }
+    }
+    return { ok: true, json: async () => ({ status: 'ok', retcode: 0, data: { message_id: 88 } }) }
+  }
+
+  const results = await Promise.allSettled([
+    controller.approveDraft(first.id),
+    controller.approveDraft(second.id),
+  ])
+
+  assert.equal(sends, 2)
+  assert.equal(results[0].status, 'rejected')
+  assert.equal(results[1].status, 'fulfilled')
+  assert.equal(controller.persist.getDraft(first.id).status, 'failed')
+  assert.equal(controller.persist.getDraft(second.id).status, 'sent')
+  assert.equal(controller.persist.listDeliveryAttempts(controller.persist.getOutboxForDraft(first.id).id)[0].status, 'failed')
 })
 
 test('sqlite store imports legacy JSON once and preserves atomic draft claims', (t) => {

@@ -21,7 +21,7 @@ function readLegacy(filePath) {
   try {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'))
   } catch {
-    return { accountModes: {}, sessions: {}, drafts: {} }
+    return { accountModes: {}, sessions: {}, drafts: {}, outbox: {}, deliveryAttempts: {} }
   }
 }
 
@@ -36,9 +36,15 @@ export function createSqliteAgentStore(filePath) {
     CREATE TABLE IF NOT EXISTS agent_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS agent_sessions (key TEXT PRIMARY KEY, account_id TEXT NOT NULL, last_at INTEGER NOT NULL DEFAULT 0, value TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS agent_drafts (id TEXT PRIMARY KEY, account_id TEXT NOT NULL, session_key TEXT, status TEXT NOT NULL, created_at INTEGER NOT NULL, value TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS agent_outbox (id TEXT PRIMARY KEY, draft_id TEXT NOT NULL, account_id TEXT NOT NULL, session_key TEXT NOT NULL, status TEXT NOT NULL, sequence INTEGER NOT NULL, queued_at INTEGER NOT NULL, value TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS agent_delivery_attempts (id TEXT PRIMARY KEY, outbox_id TEXT NOT NULL, draft_id TEXT NOT NULL, session_key TEXT NOT NULL, number INTEGER NOT NULL, status TEXT NOT NULL, started_at INTEGER NOT NULL, completed_at INTEGER, value TEXT NOT NULL);
     CREATE INDEX IF NOT EXISTS idx_agent_sessions_account ON agent_sessions(account_id, last_at DESC);
     CREATE INDEX IF NOT EXISTS idx_agent_drafts_account_status ON agent_drafts(account_id, status, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_agent_drafts_session_status ON agent_drafts(session_key, status);
+    CREATE INDEX IF NOT EXISTS idx_agent_outbox_session_status_sequence ON agent_outbox(session_key, status, sequence);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_outbox_draft ON agent_outbox(draft_id);
+    CREATE INDEX IF NOT EXISTS idx_agent_attempts_outbox_number ON agent_delivery_attempts(outbox_id, number);
+    CREATE INDEX IF NOT EXISTS idx_agent_attempts_session_status ON agent_delivery_attempts(session_key, status);
   `)
 
   if (!db.prepare('SELECT value FROM agent_meta WHERE key = ?').get('json_imported')) {
@@ -47,9 +53,13 @@ export function createSqliteAgentStore(filePath) {
       const meta = db.prepare('INSERT OR REPLACE INTO agent_meta(key, value) VALUES (?, ?)')
       const session = db.prepare('INSERT OR REPLACE INTO agent_sessions(key, account_id, last_at, value) VALUES (?, ?, ?, ?)')
       const draft = db.prepare('INSERT OR REPLACE INTO agent_drafts(id, account_id, session_key, status, created_at, value) VALUES (?, ?, ?, ?, ?, ?)')
+      const outbox = db.prepare('INSERT OR REPLACE INTO agent_outbox(id, draft_id, account_id, session_key, status, sequence, queued_at, value) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      const attempt = db.prepare('INSERT OR REPLACE INTO agent_delivery_attempts(id, outbox_id, draft_id, session_key, number, status, started_at, completed_at, value) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
       for (const [accountId, mode] of Object.entries(legacy.accountModes || {})) meta.run(`accountMode:${accountId}`, String(mode))
       for (const [key, value] of Object.entries(legacy.sessions || {})) session.run(key, value.accountId || '', value.lastAt || 0, JSON.stringify(value))
       for (const [id, value] of Object.entries(legacy.drafts || {})) draft.run(id, value.accountId || '', value.sessionKey || null, value.status || 'pending', value.createdAt || 0, JSON.stringify(value))
+      for (const [id, value] of Object.entries(legacy.outbox || {})) outbox.run(id, value.draftId || '', value.accountId || '', value.sessionKey || '', value.status || 'queued', value.sequence || 0, value.queuedAt || 0, JSON.stringify(value))
+      for (const [id, value] of Object.entries(legacy.deliveryAttempts || {})) attempt.run(id, value.outboxId || '', value.draftId || '', value.sessionKey || '', value.number || 0, value.status || 'sending', value.startedAt || 0, value.completedAt || null, JSON.stringify(value))
       meta.run('json_imported', '1')
     })
   }
@@ -59,7 +69,9 @@ export function createSqliteAgentStore(filePath) {
     for (const row of db.prepare("SELECT key, value FROM agent_meta WHERE key LIKE 'accountMode:%'").all()) accountModes[row.key.slice(12)] = row.value
     const sessions = Object.fromEntries(db.prepare('SELECT key, value FROM agent_sessions').all().map((row) => [row.key, JSON.parse(row.value)]))
     const drafts = Object.fromEntries(db.prepare('SELECT id, value FROM agent_drafts').all().map((row) => [row.id, JSON.parse(row.value)]))
-    return { accountModes, sessions, drafts }
+    const outbox = Object.fromEntries(db.prepare('SELECT id, value FROM agent_outbox').all().map((row) => [row.id, JSON.parse(row.value)]))
+    const deliveryAttempts = Object.fromEntries(db.prepare('SELECT id, value FROM agent_delivery_attempts').all().map((row) => [row.id, JSON.parse(row.value)]))
+    return { accountModes, sessions, drafts, outbox, deliveryAttempts }
   }
   const getSession = (key) => {
     const row = db.prepare('SELECT value FROM agent_sessions WHERE key = ?').get(key)
@@ -89,9 +101,13 @@ export function createSqliteAgentStore(filePath) {
     const meta = db.prepare('INSERT OR REPLACE INTO agent_meta(key, value) VALUES (?, ?)')
     const session = db.prepare('INSERT OR REPLACE INTO agent_sessions(key, account_id, last_at, value) VALUES (?, ?, ?, ?)')
     const draft = db.prepare('INSERT OR REPLACE INTO agent_drafts(id, account_id, session_key, status, created_at, value) VALUES (?, ?, ?, ?, ?, ?)')
+    const outbox = db.prepare('INSERT OR REPLACE INTO agent_outbox(id, draft_id, account_id, session_key, status, sequence, queued_at, value) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    const attempt = db.prepare('INSERT OR REPLACE INTO agent_delivery_attempts(id, outbox_id, draft_id, session_key, number, status, started_at, completed_at, value) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
     for (const [accountId, mode] of Object.entries(out.accountModes || {})) meta.run(`accountMode:${accountId}`, String(mode))
     for (const [key, value] of Object.entries(out.sessions || {})) session.run(key, value.accountId || '', value.lastAt || 0, JSON.stringify(value))
     for (const [id, value] of Object.entries(out.drafts || {})) draft.run(id, value.accountId || '', value.sessionKey || null, value.status || 'pending', value.createdAt || 0, JSON.stringify(value))
+    for (const [id, value] of Object.entries(out.outbox || {})) outbox.run(id, value.draftId || '', value.accountId || '', value.sessionKey || '', value.status || 'queued', value.sequence || 0, value.queuedAt || 0, JSON.stringify(value))
+    for (const [id, value] of Object.entries(out.deliveryAttempts || {})) attempt.run(id, value.outboxId || '', value.draftId || '', value.sessionKey || '', value.number || 0, value.status || 'sending', value.startedAt || 0, value.completedAt || null, JSON.stringify(value))
     return out
   })
   function accountMode(accountId) {
@@ -162,18 +178,174 @@ export function createSqliteAgentStore(filePath) {
       return result.changes === 1 ? draft : null
     })
   }
+
+  function enqueueDraft(id) {
+    let outbox = null
+    mutate((data) => {
+      const draft = data.drafts[id]
+      if (!draft || draft.status !== 'pending') return data
+      const queuedAt = Date.now()
+      const sequence = Object.values(data.outbox).reduce((max, item) => (
+        item.sessionKey === draft.sessionKey ? Math.max(max, item.sequence || 0) : max
+      ), 0) + 1
+      const outboxId = `outbox-${id}`
+      outbox = {
+        id: outboxId,
+        draftId: id,
+        accountId: draft.accountId,
+        sessionKey: draft.sessionKey,
+        type: draft.type,
+        peerId: draft.peerId,
+        message: draft.message || draft.text,
+        status: 'queued',
+        sequence,
+        queuedAt,
+        updatedAt: queuedAt,
+      }
+      data.outbox[outboxId] = outbox
+      data.drafts[id] = { ...draft, status: 'queued', outboxId, queuedAt }
+    })
+    return outbox
+  }
+
+  function getOutbox(id) {
+    const row = db.prepare('SELECT value FROM agent_outbox WHERE id = ?').get(id)
+    return row ? JSON.parse(row.value) : null
+  }
+
+  function getOutboxForDraft(draftId) {
+    const row = db.prepare('SELECT value FROM agent_outbox WHERE draft_id = ?').get(draftId)
+    return row ? JSON.parse(row.value) : null
+  }
+
+  function listOutbox(sessionKeyValue = null, status = null) {
+    let rows
+    if (sessionKeyValue && status) rows = db.prepare('SELECT value FROM agent_outbox WHERE session_key = ? AND status = ? ORDER BY sequence, queued_at').all(sessionKeyValue, status)
+    else if (sessionKeyValue) rows = db.prepare('SELECT value FROM agent_outbox WHERE session_key = ? ORDER BY sequence, queued_at').all(sessionKeyValue)
+    else if (status) rows = db.prepare('SELECT value FROM agent_outbox WHERE status = ? ORDER BY session_key, sequence, queued_at').all(status)
+    else rows = db.prepare('SELECT value FROM agent_outbox ORDER BY session_key, sequence, queued_at').all()
+    return rows.map((row) => JSON.parse(row.value))
+  }
+
+  function listDeliveryAttempts(outboxId = null) {
+    const rows = outboxId
+      ? db.prepare('SELECT value FROM agent_delivery_attempts WHERE outbox_id = ? ORDER BY number, started_at').all(outboxId)
+      : db.prepare('SELECT value FROM agent_delivery_attempts ORDER BY session_key, started_at, number').all()
+    return rows.map((row) => JSON.parse(row.value))
+  }
+
+  function claimNextOutbox(sessionKeyValue) {
+    let claimed = null
+    mutate((data) => {
+      const items = Object.values(data.outbox).filter((item) => item.sessionKey === sessionKeyValue)
+      if (items.some((item) => item.status === 'sending' || item.status === 'unknown')) return data
+      const outbox = items.filter((item) => item.status === 'queued').sort((a, b) => (
+        (a.sequence || 0) - (b.sequence || 0) || (a.queuedAt || 0) - (b.queuedAt || 0)
+      ))[0]
+      if (!outbox) return data
+      const startedAt = Date.now()
+      const number = Object.values(data.deliveryAttempts).filter((attempt) => attempt.outboxId === outbox.id).length + 1
+      const attemptId = `attempt-${randomBytes(8).toString('hex')}`
+      const attempt = {
+        id: attemptId,
+        outboxId: outbox.id,
+        draftId: outbox.draftId,
+        sessionKey: outbox.sessionKey,
+        number,
+        status: 'sending',
+        startedAt,
+      }
+      const sending = { ...outbox, status: 'sending', attemptId, updatedAt: startedAt }
+      data.outbox[outbox.id] = sending
+      data.deliveryAttempts[attemptId] = attempt
+      const draft = data.drafts[outbox.draftId]
+      if (draft) data.drafts[outbox.draftId] = { ...draft, status: 'sending', attemptId, claimedAt: startedAt }
+      claimed = { outbox: sending, attempt }
+    })
+    return claimed
+  }
+
+  function finishDelivery(outboxId, attemptId, status, fields = {}) {
+    if (!['sent', 'failed', 'unknown'].includes(status)) throw new Error('invalid_delivery_status')
+    let result = null
+    mutate((data) => {
+      const outbox = data.outbox[outboxId]
+      const attempt = data.deliveryAttempts[attemptId]
+      if (!outbox || outbox.status !== 'sending' || !attempt || attempt.status !== 'sending') return data
+      const completedAt = Date.now()
+      const timestamp = { [`${status}At`]: completedAt }
+      const nextOutbox = { ...outbox, ...fields, ...timestamp, status, updatedAt: completedAt }
+      const nextAttempt = { ...attempt, ...fields, ...timestamp, status, completedAt }
+      data.outbox[outboxId] = nextOutbox
+      data.deliveryAttempts[attemptId] = nextAttempt
+      const draft = data.drafts[outbox.draftId]
+      const nextDraft = draft ? { ...draft, ...fields, ...timestamp, status, attemptId } : null
+      if (nextDraft) data.drafts[outbox.draftId] = nextDraft
+      result = { outbox: nextOutbox, attempt: nextAttempt, draft: nextDraft }
+    })
+    return result
+  }
+
   function recoverSendingDrafts() {
-    mutate((data) => { for (const [id, draft] of Object.entries(data.drafts)) if (draft.status === 'sending') { data.drafts[id] = { ...draft, status: 'unknown', unknownAt: Date.now(), error: draft.error || 'delivery_interrupted' }; if (draft.sessionKey && data.sessions[draft.sessionKey]) data.sessions[draft.sessionKey] = { ...data.sessions[draft.sessionKey], status: 'delivery_unknown' } } })
+    mutate((data) => {
+      const recoveredAt = Date.now()
+      for (const [id, outbox] of Object.entries(data.outbox)) {
+        if (outbox.status !== 'sending') continue
+        data.outbox[id] = {
+          ...outbox,
+          status: 'unknown',
+          unknownAt: recoveredAt,
+          updatedAt: recoveredAt,
+          error: outbox.error || 'delivery_interrupted',
+        }
+        for (const [attemptId, attempt] of Object.entries(data.deliveryAttempts)) {
+          if (attempt.outboxId === id && attempt.status === 'sending') {
+            data.deliveryAttempts[attemptId] = {
+              ...attempt,
+              status: 'unknown',
+              unknownAt: recoveredAt,
+              completedAt: recoveredAt,
+              error: attempt.error || 'delivery_interrupted',
+            }
+          }
+        }
+      }
+      for (const [id, draft] of Object.entries(data.drafts)) {
+        if (draft.status !== 'sending') continue
+        data.drafts[id] = {
+          ...draft,
+          status: 'unknown',
+          unknownAt: recoveredAt,
+          error: draft.error || 'delivery_interrupted',
+        }
+        if (draft.sessionKey && data.sessions[draft.sessionKey]) {
+          data.sessions[draft.sessionKey] = { ...data.sessions[draft.sessionKey], status: 'delivery_unknown' }
+        }
+      }
+    })
   }
   function supersedePendingDrafts(key, reason = 'conversation_changed') {
-    mutate((data) => { for (const [id, draft] of Object.entries(data.drafts)) if (draft.sessionKey === key && draft.status === 'pending') data.drafts[id] = { ...draft, status: 'superseded', supersededAt: Date.now(), reason } })
+    mutate((data) => {
+      for (const [id, draft] of Object.entries(data.drafts)) {
+        if (draft.sessionKey === key && draft.status === 'pending') {
+          data.drafts[id] = { ...draft, status: 'superseded', supersededAt: Date.now(), reason }
+        } else if (draft.sessionKey === key && draft.status === 'queued') {
+          const canceledAt = Date.now()
+          data.drafts[id] = { ...draft, status: 'canceled', canceledAt, reason }
+          const outbox = data.outbox[draft.outboxId]
+          if (outbox?.status === 'queued') {
+            data.outbox[draft.outboxId] = { ...outbox, status: 'canceled', canceledAt, updatedAt: canceledAt, reason }
+          }
+        }
+      }
+    })
   }
   function pendingCounts() {
     const counts = {}
     for (const draft of listDrafts(null, null)) if (draft.status === 'pending') counts[draft.accountId] = (counts[draft.accountId] || 0) + 1
     return counts
   }
-  return { load: readAll, accountMode, setAccountMode, sessionMode, upsertSession, getSession, listSessions, appendMessage, updateMessages, setSessionMode, addDraft, getDraft, listDrafts, patchDraft, claimDraft, recoverSendingDrafts, supersedePendingDrafts, pendingCounts, sessionKey: (accountId, type, peerId) => `${accountId}:${type || 'private'}:${peerId}` }
+  return { load: readAll, accountMode, setAccountMode, sessionMode, upsertSession, getSession, listSessions, appendMessage, updateMessages, setSessionMode, addDraft, getDraft, listDrafts, patchDraft, claimDraft, enqueueDraft, getOutbox, getOutboxForDraft, listOutbox, listDeliveryAttempts, claimNextOutbox, finishDelivery, recoverSendingDrafts, supersedePendingDrafts, pendingCounts, sessionKey: (accountId, type, peerId) => `${accountId}:${type || 'private'}:${peerId}` }
 }
 
 function transaction(db, fn) {

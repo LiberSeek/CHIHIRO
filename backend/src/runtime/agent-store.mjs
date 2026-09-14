@@ -4,6 +4,8 @@ import { randomBytes } from 'node:crypto'
 import { createSqliteAgentStore, sqliteAvailable } from './agent-store-sqlite.mjs'
 
 export const MODES = ['ask', 'auto', 'always']
+export const OUTBOX_STATES = ['queued', 'sending', 'sent', 'failed', 'unknown', 'canceled']
+export const DELIVERY_ATTEMPT_STATES = ['sending', 'sent', 'failed', 'unknown']
 const MAX_MESSAGES = 120
 
 export function sessionKey(accountId, type, peerId) {
@@ -18,7 +20,7 @@ export function createAgentStore(filePath) {
     try {
       return JSON.parse(fs.readFileSync(filePath, 'utf8'))
     } catch {
-      return { accountModes: {}, sessions: {}, drafts: {} }
+      return { accountModes: {}, sessions: {}, drafts: {}, outbox: {}, deliveryAttempts: {} }
     }
   }
 
@@ -179,14 +181,142 @@ export function createAgentStore(filePath) {
     return draft
   }
 
+  function enqueueDraft(id) {
+    let outbox = null
+    mutate((data) => {
+      const draft = data.drafts?.[id]
+      if (!draft || draft.status !== 'pending') return data
+      data.outbox = data.outbox || {}
+      const queuedAt = Date.now()
+      const sequence = Object.values(data.outbox).reduce((max, item) => (
+        item.sessionKey === draft.sessionKey ? Math.max(max, item.sequence || 0) : max
+      ), 0) + 1
+      const outboxId = `outbox-${id}`
+      outbox = {
+        id: outboxId,
+        draftId: id,
+        accountId: draft.accountId,
+        sessionKey: draft.sessionKey,
+        type: draft.type,
+        peerId: draft.peerId,
+        message: draft.message || draft.text,
+        status: 'queued',
+        sequence,
+        queuedAt,
+        updatedAt: queuedAt,
+      }
+      data.outbox[outboxId] = outbox
+      data.drafts[id] = { ...draft, status: 'queued', outboxId, queuedAt }
+    })
+    return outbox
+  }
+
+  function getOutbox(id) {
+    return load().outbox?.[id] || null
+  }
+
+  function getOutboxForDraft(draftId) {
+    return Object.values(load().outbox || {}).find((item) => item.draftId === draftId) || null
+  }
+
+  function listOutbox(sessionKeyValue = null, status = null) {
+    return Object.values(load().outbox || {}).filter((item) => {
+      if (sessionKeyValue && item.sessionKey !== sessionKeyValue) return false
+      if (status && item.status !== status) return false
+      return true
+    }).sort((a, b) => (a.sequence || 0) - (b.sequence || 0) || (a.queuedAt || 0) - (b.queuedAt || 0))
+  }
+
+  function listDeliveryAttempts(outboxId = null) {
+    return Object.values(load().deliveryAttempts || {}).filter((attempt) => (
+      !outboxId || attempt.outboxId === outboxId
+    )).sort((a, b) => (a.number || 0) - (b.number || 0) || (a.startedAt || 0) - (b.startedAt || 0))
+  }
+
+  function claimNextOutbox(sessionKeyValue) {
+    let claimed = null
+    mutate((data) => {
+      data.outbox = data.outbox || {}
+      data.deliveryAttempts = data.deliveryAttempts || {}
+      const items = Object.values(data.outbox).filter((item) => item.sessionKey === sessionKeyValue)
+      if (items.some((item) => item.status === 'sending' || item.status === 'unknown')) return data
+      const outbox = items.filter((item) => item.status === 'queued').sort((a, b) => (
+        (a.sequence || 0) - (b.sequence || 0) || (a.queuedAt || 0) - (b.queuedAt || 0)
+      ))[0]
+      if (!outbox) return data
+      const startedAt = Date.now()
+      const number = Object.values(data.deliveryAttempts).filter((attempt) => attempt.outboxId === outbox.id).length + 1
+      const attemptId = `attempt-${randomBytes(8).toString('hex')}`
+      const attempt = {
+        id: attemptId,
+        outboxId: outbox.id,
+        draftId: outbox.draftId,
+        sessionKey: outbox.sessionKey,
+        number,
+        status: 'sending',
+        startedAt,
+      }
+      const sending = { ...outbox, status: 'sending', attemptId, updatedAt: startedAt }
+      data.outbox[outbox.id] = sending
+      data.deliveryAttempts[attemptId] = attempt
+      const draft = data.drafts?.[outbox.draftId]
+      if (draft) data.drafts[outbox.draftId] = { ...draft, status: 'sending', attemptId, claimedAt: startedAt }
+      claimed = { outbox: sending, attempt }
+    })
+    return claimed
+  }
+
+  function finishDelivery(outboxId, attemptId, status, fields = {}) {
+    if (!['sent', 'failed', 'unknown'].includes(status)) throw new Error('invalid_delivery_status')
+    let result = null
+    mutate((data) => {
+      const outbox = data.outbox?.[outboxId]
+      const attempt = data.deliveryAttempts?.[attemptId]
+      if (!outbox || outbox.status !== 'sending' || !attempt || attempt.status !== 'sending') return data
+      const completedAt = Date.now()
+      const timestamp = { [`${status}At`]: completedAt }
+      const nextOutbox = { ...outbox, ...fields, ...timestamp, status, updatedAt: completedAt }
+      const nextAttempt = { ...attempt, ...fields, ...timestamp, status, completedAt }
+      data.outbox[outboxId] = nextOutbox
+      data.deliveryAttempts[attemptId] = nextAttempt
+      const draft = data.drafts?.[outbox.draftId]
+      const nextDraft = draft ? { ...draft, ...fields, ...timestamp, status, attemptId } : null
+      if (nextDraft) data.drafts[outbox.draftId] = nextDraft
+      result = { outbox: nextOutbox, attempt: nextAttempt, draft: nextDraft }
+    })
+    return result
+  }
+
   function recoverSendingDrafts() {
     mutate((data) => {
+      const recoveredAt = Date.now()
+      for (const [id, outbox] of Object.entries(data.outbox || {})) {
+        if (outbox.status !== 'sending') continue
+        data.outbox[id] = {
+          ...outbox,
+          status: 'unknown',
+          unknownAt: recoveredAt,
+          updatedAt: recoveredAt,
+          error: outbox.error || 'delivery_interrupted',
+        }
+        for (const [attemptId, attempt] of Object.entries(data.deliveryAttempts || {})) {
+          if (attempt.outboxId === id && attempt.status === 'sending') {
+            data.deliveryAttempts[attemptId] = {
+              ...attempt,
+              status: 'unknown',
+              unknownAt: recoveredAt,
+              completedAt: recoveredAt,
+              error: attempt.error || 'delivery_interrupted',
+            }
+          }
+        }
+      }
       for (const [id, draft] of Object.entries(data.drafts || {})) {
         if (draft.status === 'sending') {
           data.drafts[id] = {
             ...draft,
             status: 'unknown',
-            unknownAt: Date.now(),
+            unknownAt: recoveredAt,
             error: draft.error || 'delivery_interrupted',
           }
           if (draft.sessionKey && data.sessions?.[draft.sessionKey]) {
@@ -202,6 +332,13 @@ export function createAgentStore(filePath) {
       for (const [id, draft] of Object.entries(data.drafts || {})) {
         if (draft.sessionKey === key && draft.status === 'pending') {
           data.drafts[id] = { ...draft, status: 'superseded', supersededAt: Date.now(), reason }
+        } else if (draft.sessionKey === key && draft.status === 'queued') {
+          const canceledAt = Date.now()
+          data.drafts[id] = { ...draft, status: 'canceled', canceledAt, reason }
+          const outbox = data.outbox?.[draft.outboxId]
+          if (outbox?.status === 'queued') {
+            data.outbox[draft.outboxId] = { ...outbox, status: 'canceled', canceledAt, updatedAt: canceledAt, reason }
+          }
         }
       }
     })
@@ -232,6 +369,13 @@ export function createAgentStore(filePath) {
     listDrafts,
     patchDraft,
     claimDraft,
+    enqueueDraft,
+    getOutbox,
+    getOutboxForDraft,
+    listOutbox,
+    listDeliveryAttempts,
+    claimNextOutbox,
+    finishDelivery,
     recoverSendingDrafts,
     supersedePendingDrafts,
     pendingCounts,

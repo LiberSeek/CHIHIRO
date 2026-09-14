@@ -168,6 +168,7 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
   persist.recoverSendingDrafts()
   const listeners = new Set()
   const bridges = new Map()
+  const deliveryQueues = new Map()
   const wss = new WebSocketServer({ noServer: true })
 
   function emit() {
@@ -185,8 +186,11 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
   function view(accountId) {
     const sessions = persist.listSessions(accountId).map((s) => {
       const pending = persist.listDrafts(s.accountId, 'pending').filter((d) => d.sessionKey === s.key)
+      const delivering = persist.listDrafts(s.accountId, null).filter((d) => (
+        d.sessionKey === s.key && (d.status === 'queued' || d.status === 'sending')
+      ))
       let status = s.status || 'idle'
-      if (pending.length) status = 'pending_review'
+      if (pending.length || delivering.length) status = 'pending_review'
       return {
         ...s,
         mode: persist.sessionMode(s),
@@ -391,7 +395,11 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
 
   async function napcatAction(accountId, action, params = {}) {
     const inst = instForAccount(accountId)
-    if (!inst?.ports?.http) throw new Error('账号未在线')
+    if (!inst?.ports?.http) {
+      const error = new Error('账号未在线')
+      error.deliveryState = 'failed'
+      throw error
+    }
     const res = await fetch(`http://127.0.0.1:${inst.ports.http}/${action}`, {
       method: 'POST',
       headers: {
@@ -404,7 +412,9 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     const json = await res.json().catch(() => ({}))
     const ret = json.retcode
     if (!res.ok || json.status === 'failed' || (ret != null && Number(ret) !== 0)) {
-      throw new Error(json.message || json.wording || json.error || `${action}_failed`)
+      const error = new Error(json.message || json.wording || json.error || `${action}_failed`)
+      error.deliveryState = json.status === 'failed' || (ret != null && Number(ret) !== 0) ? 'failed' : 'unknown'
+      throw error
     }
     return json.data !== undefined ? json.data : json
   }
@@ -430,7 +440,11 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
       ? { group_id: Number(peerId), message }
       : { user_id: Number(peerId), message }
     const receipt = await napcatAction(accountId, action, params)
-    if (receipt?.message_id == null || String(receipt.message_id) === '0') throw new Error('missing_send_receipt')
+    if (receipt?.message_id == null || String(receipt.message_id) === '0') {
+      const error = new Error('missing_send_receipt')
+      error.deliveryState = 'unknown'
+      throw error
+    }
     return receipt
   }
 
@@ -649,57 +663,86 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     if (context.peerId != null && String(context.peerId) !== String(draft.peerId)) throw new Error('draft_peer_mismatch')
   }
 
+  function updateDeliveredMessage(draft) {
+    persist.updateMessages(draft.sessionKey, (messages) => {
+      let found = false
+      const next = messages.map((message) => {
+        if (message.role === 'draft' && (message.draftId === draft.id || message.id === draft.id)) {
+          found = true
+          return { ...message, id: `sent-${draft.id}`, role: 'bot', draftId: undefined }
+        }
+        return message
+      })
+      if (found) return next
+      return [...next, { id: `sent-${draft.id}`, role: 'bot', text: draft.text, at: Date.now() }]
+    })
+  }
+
+  async function drainOutbox(key) {
+    while (true) {
+      const claimed = persist.claimNextOutbox(key)
+      if (!claimed) return
+      const { outbox, attempt } = claimed
+      emit()
+      try {
+        const receipt = await napcatSend(outbox.accountId, {
+          type: outbox.type,
+          peerId: outbox.peerId,
+          message: outbox.message
+        })
+        const finished = persist.finishDelivery(outbox.id, attempt.id, 'sent', { receipt })
+        if (finished?.draft) {
+          persist.upsertSession({
+            ...persist.getSession(outbox.sessionKey),
+            key: outbox.sessionKey,
+            status: 'replied',
+            lastAt: Date.now(),
+            lastText: finished.draft.text
+          })
+          updateDeliveredMessage(finished.draft)
+        }
+      } catch (error) {
+        const status = error?.deliveryState === 'failed' ? 'failed' : 'unknown'
+        persist.finishDelivery(outbox.id, attempt.id, status, {
+          error: error?.message || String(error),
+        })
+        persist.upsertSession({
+          ...persist.getSession(outbox.sessionKey),
+          key: outbox.sessionKey,
+          status: status === 'failed' ? 'delivery_failed' : 'delivery_unknown',
+          lastAt: Date.now(),
+        })
+        emit()
+        if (status === 'unknown') return
+        continue
+      }
+      emit()
+    }
+  }
+
+  function dispatchOutbox(key) {
+    const active = deliveryQueues.get(key)
+    const run = active ? active.catch(() => {}).then(() => drainOutbox(key)) : drainOutbox(key)
+    let tracked
+    tracked = run.finally(() => {
+      if (deliveryQueues.get(key) === tracked) deliveryQueues.delete(key)
+    })
+    deliveryQueues.set(key, tracked)
+    return tracked
+  }
+
   async function approveDraft(id, context = {}) {
     const existing = persist.getDraft(id)
     if (!existing || existing.status !== 'pending') throw new Error('draft_not_found')
     requireDraftContext(existing, context)
-    const draft = persist.claimDraft(id)
-    if (!draft) throw new Error('draft_not_found')
+    const outbox = persist.enqueueDraft(id)
+    if (!outbox) throw new Error('draft_not_found')
     emit()
-    let receipt
-    try {
-      receipt = await napcatSend(draft.accountId, {
-        type: draft.type,
-        peerId: draft.peerId,
-        message: draft.message || draft.text
-      })
-    } catch (error) {
-      persist.patchDraft(id, {
-        status: 'unknown',
-        unknownAt: Date.now(),
-        error: error?.message || String(error),
-      })
-      persist.upsertSession({
-        ...persist.getSession(draft.sessionKey),
-        key: draft.sessionKey,
-        status: 'delivery_unknown',
-        lastAt: Date.now(),
-      })
-      emit()
-      throw error
-    }
-    persist.patchDraft(id, { status: 'sent', sentAt: Date.now(), receipt })
-    persist.upsertSession({
-      ...persist.getSession(draft.sessionKey),
-      key: draft.sessionKey,
-      status: 'replied',
-      lastAt: Date.now(),
-      lastText: draft.text
-    })
-    persist.updateMessages(draft.sessionKey, (messages) => {
-      let found = false
-      const next = messages.map((m) => {
-        if (m.role === 'draft' && (m.draftId === id || m.id === id)) {
-          found = true
-          return { ...m, id: `sent-${id}`, role: 'bot', draftId: undefined }
-        }
-        return m
-      })
-      if (found) return next
-      return [...next, { id: `sent-${id}`, role: 'bot', text: draft.text, at: Date.now() }]
-    })
-    emit()
-    return persist.getDraft(id)
+    await dispatchOutbox(outbox.sessionKey)
+    const draft = persist.getDraft(id)
+    if (draft?.status === 'sent') return draft
+    if (draft?.status === 'queued') throw new Error('delivery_blocked_unknown')
+    throw new Error(draft?.error || `delivery_${draft?.status || 'failed'}`)
   }
 
   function discardDraft(id, context = {}) {
@@ -1117,6 +1160,13 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     }
     return false
   }
+
+  queueMicrotask(() => {
+    const queuedSessions = new Set(persist.listOutbox(null, 'queued').map((item) => item.sessionKey))
+    for (const key of queuedSessions) {
+      void dispatchOutbox(key).catch((error) => logError('agent', 'outbox recovery', error))
+    }
+  })
 
   return {
     handleHttp,
