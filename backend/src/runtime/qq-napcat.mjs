@@ -82,27 +82,34 @@ async function getLoginInfo({ httpHost = '127.0.0.1', httpPort, httpToken }) {
   return null
 }
 
-function parsePs() {
-  try {
-    const out = execFileSync('ps', ['-axww', '-o', 'pid=,command='], { encoding: 'utf8' })
-    const rows = []
-    for (const line of out.split('\n')) {
-      const t = line.trim()
-      if (!t) continue
-      const sp = t.indexOf(' ')
-      if (sp < 0) continue
-      const pid = Number(t.slice(0, sp))
-      if (!pid) continue
-      rows.push({ pid, cmd: t.slice(sp + 1).trim() })
+export function parseProcessRows(execFile = execFileSync) {
+  const attempts = [
+    ['-eo', 'pid=,command='],
+    ['-eo', 'pid=,args='],
+    ['-axww', '-o', 'pid=,command='],
+  ]
+  for (const args of attempts) {
+    try {
+      const out = execFile('ps', args, { encoding: 'utf8' })
+      const rows = []
+      for (const line of out.split('\n')) {
+        const t = line.trim()
+        if (!t) continue
+        const match = t.match(/^(\d+)\s+(.+)$/)
+        if (!match) continue
+        rows.push({ pid: Number(match[1]), cmd: match[2].trim() })
+      }
+      return rows
+    } catch {
+      // Try the next ps dialect. BusyBox rejects BSD-style -x flags, while
+      // macOS may not support every GNU output column.
     }
-    return rows
-  } catch {
-    return []
   }
+  return []
 }
 
 function listQqCommands() {
-  return parsePs().filter((r) =>
+  return parseProcessRows().filter((r) =>
     r.cmd.includes('QQ.app/Contents/MacOS/QQ') &&
     r.cmd.includes('--no-sandbox') &&
     !r.cmd.includes('QQ Helper') &&
