@@ -13,8 +13,8 @@ case "$archive" in
 esac
 
 compose_project=${COMPOSE_PROJECT_NAME:-chihiro}
-for service in chihiro astrbot; do
-  volume="${compose_project}_${service}-data"
+for volume_name in chihiro-data astrbot-data; do
+  volume="${compose_project}_${volume_name}"
   if ! docker volume inspect "$volume" >/dev/null 2>&1; then
     echo "missing volume: $volume" >&2
     exit 1
