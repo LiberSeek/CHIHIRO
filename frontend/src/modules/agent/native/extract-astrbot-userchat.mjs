@@ -14,8 +14,8 @@ const supplementalEntries = [
   'theme/DarkTheme.ts',
   'types/themeTypes/ThemeType.ts',
 ]
-const sourceOutputRoot = join(moduleRoot, 'source')
-const sourcePrefix = '@/modules/agent/native/source/'
+const sourceOutputRoot = join(moduleRoot, 'src')
+const sourcePrefix = '@/modules/agent/native/src/'
 const extensions = ['', '.ts', '.js', '.mjs', '.vue', '.json', '.scss', '.css']
 const visited = new Set()
 const dependencies = new Set()

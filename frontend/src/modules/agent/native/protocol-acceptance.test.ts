@@ -5,11 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import axios, { type AxiosAdapter, type InternalAxiosRequestConfig } from "axios";
 import { ref } from "vue";
 
-import { configureApiBase } from "./source/api/v1";
-import { httpClient, setupHttpClient } from "./source/api/http";
-import { useMediaHandling } from "./source/composables/useMediaHandling";
-import { useMessages } from "./source/composables/useMessages";
-import { useProjects } from "./source/composables/useProjects";
+import { configureApiBase } from "./src/api/v1";
+import { httpClient, setupHttpClient } from "./src/api/http";
+import { useMediaHandling } from "./src/composables/useMediaHandling";
+import { useMessages } from "./src/composables/useMessages";
+import { useProjects } from "./src/composables/useProjects";
 
 interface FixtureRequest {
   method: string;

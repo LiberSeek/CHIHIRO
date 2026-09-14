@@ -87,7 +87,7 @@ describe('agent customizer follows the shell theme', () => {
   })
 
   it('keeps vuetify theme in lockstep with chihiro-theme', async () => {
-    const { useCustomizerStore } = await import('./modules/agent/native/source/stores/customizer')
+    const { useCustomizerStore } = await import('./modules/agent/native/src/stores/customizer')
     const customizer = useCustomizerStore()
     applyTheme('light')
     customizer.SYNC_THEME()

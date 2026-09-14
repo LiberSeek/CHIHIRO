@@ -2,8 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { onThemeChange } from '@/theme'
 import { UserChat } from './native'
-import { useCustomizerStore } from './native/source/stores/customizer'
-import { useToastStore } from './native/source/stores/toast.js'
+import { useCustomizerStore } from './native/src/stores/customizer'
+import { useToastStore } from './native/src/stores/toast.js'
 
 const customizer = useCustomizerStore()
 defineProps<{ sidebarTarget: HTMLElement; threadTarget: HTMLElement }>()

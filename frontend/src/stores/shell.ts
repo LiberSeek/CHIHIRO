@@ -69,6 +69,8 @@ export const useShellStore = defineStore('shell', () => {
   const loading = ref(false)
   const adding = ref(false)
   const accountAction = ref(false)
+  const cancelingLogin = ref(false)
+  const removingAccountId = ref<AccountId | null>(null)
   const error = ref('')
   const runtimePhase = ref('idle')
   const runtimeMessage = ref('')
@@ -106,9 +108,9 @@ export const useShellStore = defineStore('shell', () => {
     if (!unchanged) accounts.value = next
   }
 
-  function applyRuntimeState(value: unknown, preserveSelection = true) {
+  function applyRuntimeState(value: unknown, preserveSelection = true, options: { preserveLoginState?: boolean } = {}) {
     const state = parseRuntimeAccounts(value)
-    if (record(value)) {
+    if (record(value) && !options.preserveLoginState) {
       runtimePhase.value = typeof value.phase === 'string' ? value.phase : 'idle'
       runtimeMessage.value = typeof value.message === 'string' ? value.message : ''
       pendingAdd.value = value.pendingAdd === true
@@ -146,7 +148,8 @@ export const useShellStore = defineStore('shell', () => {
       const body: unknown = await response.json()
       if (version !== requestVersion) return
       const selectionBeforeApply = activeAccountId.value
-      const state = applyRuntimeState(body)
+      const staleNewLoginState = adding.value && pendingAdd.value && record(body) && body.pendingAdd !== true
+      const state = applyRuntimeState(body, true, { preserveLoginState: staleNewLoginState || cancelingLogin.value })
       const selectedStillExists = state.accounts.some(account => account.id === selectionBeforeApply)
       if (!selectedStillExists) {
         activeAccountId.value = selectionAtStart !== selectionVersion && activeAccountId.value === null
@@ -183,6 +186,11 @@ export const useShellStore = defineStore('shell', () => {
     if (adding.value || accountAction.value) return
     const version = ++loginVersion
     adding.value = true
+    pendingAdd.value = true
+    runtimePhase.value = 'starting'
+    runtimeMessage.value = '正在启动 QQ 登录'
+    qrReady.value = false
+    qrVersion.value = 0
     error.value = ''
     try {
       const response = await fetch('/api/runtime/start', {
@@ -195,7 +203,12 @@ export const useShellStore = defineStore('shell', () => {
       const state = applyRuntimeState(body, false)
       activeAccountId.value = state.activeId ?? state.accounts.at(-1)?.id ?? null
     } catch (cause) {
-      if (version === loginVersion) error.value = cause instanceof Error ? cause.message : '无法添加账号'
+      if (version === loginVersion) {
+        error.value = cause instanceof Error ? cause.message : '无法添加账号'
+        pendingAdd.value = false
+        runtimePhase.value = 'idle'
+        runtimeMessage.value = ''
+      }
     } finally {
       if (version === loginVersion) adding.value = false
     }
@@ -246,6 +259,7 @@ export const useShellStore = defineStore('shell', () => {
   async function removeAccount(id: AccountId) {
     if (accountAction.value) return false
     accountAction.value = true
+    removingAccountId.value = id
     error.value = ''
     try {
       const response = await fetch('/api/runtime/accounts/remove', {
@@ -260,6 +274,7 @@ export const useShellStore = defineStore('shell', () => {
       return false
     } finally {
       accountAction.value = false
+      removingAccountId.value = null
     }
   }
 
@@ -268,6 +283,10 @@ export const useShellStore = defineStore('shell', () => {
     ++loginVersion
     adding.value = false
     accountAction.value = true
+    cancelingLogin.value = true
+    runtimePhase.value = 'cancelling'
+    runtimeMessage.value = '正在取消登录…'
+    qrReady.value = false
     error.value = ''
     try {
       const response = await fetch('/api/runtime/login/cancel', { method: 'POST' })
@@ -279,6 +298,7 @@ export const useShellStore = defineStore('shell', () => {
     } finally {
       adding.value = false
       accountAction.value = false
+      cancelingLogin.value = false
     }
   }
 
@@ -290,7 +310,7 @@ export const useShellStore = defineStore('shell', () => {
   }
 
   return {
-    activeAccountId, activeAccount, accounts, loading, adding, accountAction, error,
+    activeAccountId, activeAccount, accounts, loading, adding, accountAction, cancelingLogin, removingAccountId, error,
     runtimePhase, runtimeMessage, pendingAdd, qrReady, qrVersion, clients,
     selectAccount, setAccountUnread, refreshAccounts, refreshClients, addAccount, reloginAccount, refreshLoginQr, removeAccount, cancelLogin, cancelRefresh,
   }

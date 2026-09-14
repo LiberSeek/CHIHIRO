@@ -1434,11 +1434,15 @@ onMounted(() => {
 
 <style>
 /* chihiro-moved-from-user-css */
-.message {
+.message,
+#base-app .message {
     position: relative;
-    width: calc(100% - 24px);
-    padding: 2px 12px 6px;
+    width: 100% !important;
+    max-width: 100%;
+    padding: 2px 0 6px;
     margin: 2px 0;
+    box-sizing: border-box;
+    flex-wrap: nowrap;
     transition: width 0.22s ease;
 }
 .user-skin .message.selected {
@@ -1448,13 +1452,13 @@ onMounted(() => {
 .user-skin .message.selected header a.time {
     display: none;
 }
-.user-skin.chat-pan.is-multiselect .message:not(.body-only) {
-    width: calc(100% - 24px - 40px);
+.user-skin.chat-pan.is-multiselect .message {
+    padding-right: 36px !important;
 }
 .chihiro-msg-check {
     position: absolute;
-    right: -24px;
-    top: 14px;
+    right: 4px;
+    top: 12px;
     width: 20px;
     height: 20px;
     border-radius: 50%;
@@ -1508,5 +1512,53 @@ onMounted(() => {
     font-size: 11px !important;
     border-radius: 999px !important;
     background: var(--color-card-1) !important;
+}
+.message-body > header,
+#base-app .message-body > header {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 4px;
+    min-height: 18px;
+}
+.message-body > header > span,
+#base-app .message-body > header > span {
+    display: inline-flex;
+    align-items: center;
+    margin: 0;
+    padding: 1px 5px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    line-height: 1.2;
+    flex-shrink: 0;
+    background: var(--color-font);
+    color: var(--color-font-r, #fff);
+}
+.message-body > header > span.owner,
+#base-app .message-body > header > span.owner {
+    background: var(--color-yellow, #f6c344);
+    color: #1c1c1e;
+}
+.message-body > header > span.admin,
+#base-app .message-body > header > span.admin {
+    background: var(--color-green, #6cd892);
+    color: #1c1c1e;
+}
+.message-body > header > span.robot,
+#base-app .message-body > header > span.robot {
+    background: var(--color-blue, #6291fd);
+    color: #fff;
+}
+.message-body > header > a,
+#base-app .message-body > header > a {
+    display: inline-block;
+    margin: 0;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    color: var(--color-font-1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 </style>

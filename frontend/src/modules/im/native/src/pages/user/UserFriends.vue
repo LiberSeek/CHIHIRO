@@ -70,8 +70,8 @@
                                 role="button" tabindex="0"
                                 @keydown.enter.prevent="userClick(item, $event)"
                                 @keydown.space.prevent="inspectContact(item)"
-                                @click="inspectContact(item)"
-                                @dblclick.stop="userClick(item, $event)" />
+                                @click="scheduleInspectContact(item)"
+                                @dblclick.stop.prevent="openContactChatFromPointer(item, $event)" />
                         </div>
                     </div>
                 </template>
@@ -84,8 +84,8 @@
                             role="button" tabindex="0"
                             @keydown.enter.prevent="userClick(item, $event)"
                             @keydown.space.prevent="inspectContact(item)"
-                            @click="inspectContact(item)"
-                            @dblclick.stop="userClick(item, $event)" />
+                            @click="scheduleInspectContact(item)"
+                            @dblclick.stop.prevent="openContactChatFromPointer(item, $event)" />
                     </div>
                 </div>
             </div>
@@ -105,7 +105,7 @@
 </template>
 
 <script setup lang="ts">
-    import { ref, computed, watch } from 'vue'
+    import { ref, computed, watch, onBeforeUnmount } from 'vue'
 
     import FriendBody from '@renderer/components/user/UserFriendBody.vue'
     import UserListHead from '@renderer/components/user/UserListHead.vue'
@@ -228,6 +228,31 @@
     watch(searchInfo, (value) => {
         applySearch(value)
     })
+
+
+    let contactInspectTimer: number | undefined
+
+    function cancelScheduledContactInspect() {
+        if (contactInspectTimer !== undefined) {
+            window.clearTimeout(contactInspectTimer)
+            contactInspectTimer = undefined
+        }
+    }
+
+    function scheduleInspectContact(data: UserFriendElem & UserGroupElem) {
+        cancelScheduledContactInspect()
+        contactInspectTimer = window.setTimeout(() => {
+            contactInspectTimer = undefined
+            inspectContact(data)
+        }, 180)
+    }
+
+    function openContactChatFromPointer(data: UserFriendElem & UserGroupElem, event: Event) {
+        cancelScheduledContactInspect()
+        userClick(data, event)
+    }
+
+    onBeforeUnmount(cancelScheduledContactInspect)
 
     function getShowName(data: UserFriendElem & UserGroupElem) {
         const group = data.group_name

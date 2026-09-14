@@ -1,0 +1,18 @@
+{
+  "name": "千寻IM",
+  "short_name": "千寻",
+  "description": "千寻IM - 千人千面, 千域千寻",
+  "start_url": "/next/im",
+  "scope": "/next/",
+  "display": "standalone",
+  "background_color": "#1c1c1e",
+  "theme_color": "#1c1c1e",
+  "icons": [
+    {
+      "src": "/next/icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

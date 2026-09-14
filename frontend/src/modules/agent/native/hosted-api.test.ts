@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import axios, { AxiosError, type AxiosAdapter, type InternalAxiosRequestConfig } from 'axios'
-import { chatApi, configureApiBase, fileApi } from './source/api/v1'
-import { httpClient, setupHttpClient } from './source/api/http'
+import { chatApi, configureApiBase, fileApi } from './src/api/v1'
+import { httpClient, setupHttpClient } from './src/api/http'
 
 const requests: InternalAxiosRequestConfig[] = []
 let previousAdapter: typeof httpClient.defaults.adapter

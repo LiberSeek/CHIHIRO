@@ -487,7 +487,7 @@
                 @start-chat="onProfileStartChat" />
         </Transition>
         <div v-if="profileOnly && chat.show.type === 'group'" class="contact-profile-actions">
-            <button type="button" class="ss-button" @click="emit('startChat')">{{ $t('发送消息') }}</button>
+            <button type="button" class="contact-profile-send" @click="emit('startChat')">{{ $t('发送消息') }}</button>
         </div>
         <!-- 转发面板 -->
         <Transition name="forward-float" :duration="{ enter: 220, leave: 180 }">
@@ -836,11 +836,14 @@ const composer = useTemplateRef<{
     getInput: () => HTMLElement | null
     insertText: (text: string) => void
     insertFace: (id: number) => void
+    insertAt: (qq: number | string, name: string) => void
     replaceFromLastAt: (text: string) => void
+    replaceLastAtWithMention: (qq: number | string, name: string) => void
     serialize: (cache: MsgItemElem[]) => string
     clear: () => void
     getPlainText: () => string
     hasInlineFaces: () => boolean
+    hasInlineAts: () => boolean
 }>('composer')
 function getMainInput() {
     return composer.value?.getInput?.() ?? null
@@ -1265,7 +1268,9 @@ function setupChatPaddingObserver() {
 function resizeMainInput(target?: HTMLElement | null) {
     const input = target ?? getMainInput()
     if (!input) return
-    const empty = composer.value?.getPlainText?.() === '' && !composer.value?.hasInlineFaces?.()
+    const empty = composer.value?.getPlainText?.() === '' &&
+        !composer.value?.hasInlineFaces?.() &&
+        !composer.value?.hasInlineAts?.()
     if (!Option.get('use_breakline')) {
         input.style.height = COMPOSER_INPUT_HEIGHT + 'px'
         input.classList.remove('is-multiline')
@@ -1655,12 +1660,11 @@ function mainSubmit(event?: Event) {
 
 function choiceAt(id: number | undefined) {
     if (id != undefined) {
-        const index = sendCache.value.length
-        sendCache.value.push({ type: 'at', qq: Number(id) })
-        const sqCode = `[SQ:${index}]`
-        if (composer.value?.replaceFromLastAt) composer.value.replaceFromLastAt(sqCode)
-        else {
-            msg.value = msg.value.substring(0, msg.value.lastIndexOf('@')) + sqCode
+        const name = atDisplayName(id)
+        if (composer.value?.replaceLastAtWithMention) {
+            composer.value.replaceLastAtWithMention(id, name)
+        } else {
+            msg.value = msg.value.substring(0, msg.value.lastIndexOf('@')) + '@' + name + ' '
         }
     }
     toMainInput()
@@ -2526,8 +2530,31 @@ function insertFaceAtCursor(id: number) {
     insertTextAtCursor(Emoji.get(id)?.value || '')
 }
 
+function atDisplayName(qq: number | string, sender?: { card?: string, nickname?: string } | null) {
+    const fromSender = sender?.card?.trim() || sender?.nickname?.trim()
+    if (fromSender) return fromSender
+    const members = chatStore.chatInfo.info.group_members
+    const user = members?.find((item) => item.user_id == Number(qq))
+    if (user) {
+        const name = user.card && user.card !== '' ? user.card : user.nickname
+        if (name) return name
+    }
+    return String(qq)
+}
+
+function insertAtAtCursor(qq: number | string, name?: string) {
+    const label = (name || atDisplayName(qq)).replace(/^@/, '')
+    if (composer.value?.insertAt) {
+        composer.value.insertAt(qq, label)
+        return
+    }
+    insertTextAtCursor('@' + label + ' ')
+}
+
 function hasOutgoingContent() {
-    return msg.value !== '' || imgCache.value.size > 0 || !!composer.value?.hasInlineFaces?.()
+    return msg.value !== '' || imgCache.value.size > 0 ||
+        !!composer.value?.hasInlineFaces?.() ||
+        !!composer.value?.hasInlineAts?.()
 }
 
 function imageSegFromSrc(src: string) {
@@ -2716,6 +2743,12 @@ async function editImg(key: number) {
 
 function addSpecialMsg(data: SQCodeElem) {
     if (data !== undefined) {
+        if (data.msgObj?.type === 'at' && data.addText) {
+            const qq = data.msgObj.qq
+            const raw = typeof data.msgObj.text === 'string' ? data.msgObj.text : ''
+            insertAtAtCursor(qq, raw.replace(/^@/, '') || atDisplayName(qq, selectedMsg.value?.sender))
+            return -1
+        }
         const index = sendCache.value.length
         sendCache.value.push(data.msgObj)
         if (!data.addText) return index
@@ -3341,6 +3374,9 @@ function reedit(msgData: any) {
             else if (file.startsWith('base64://')) addAttachSrc('data:image/png;base64,' + file.slice(9))
         } else if (seg.type === 'face' && seg.id != null && !Number.isNaN(Number(seg.id))) {
             insertFaceAtCursor(Number(seg.id))
+        } else if (seg.type === 'at') {
+            const raw = typeof seg.text === 'string' ? seg.text : ''
+            insertAtAtCursor(seg.qq, raw.replace(/^@/, '') || atDisplayName(seg.qq))
         } else {
             addSpecialMsg({
                 addText: true,
@@ -3445,7 +3481,7 @@ function exitWin() {
         flex-direction: column;
     }
     .contact-profile-view:has(.contact-profile-actions) :deep(.chat-info-pan) {
-        inset: 0 0 68px !important;
+        inset: 0 0 76px !important;
     }
     .contact-profile-view :deep(.chat-info) {
         position: relative !important;
@@ -3471,8 +3507,35 @@ function exitWin() {
     .contact-profile-view :deep(.chihiro-friend-profile) {
         overflow: auto;
     }
-    .contact-profile-actions { position: absolute; inset: auto 0 0; height: 68px; display: flex; align-items: center; justify-content: center; background: var(--color-bg); }
-    .contact-profile-actions button { min-width: 140px; background: var(--color-main); color: var(--color-font-r); }
+    .contact-profile-actions {
+        position: absolute;
+        inset: auto 0 0;
+        height: 76px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 28px 16px;
+        box-sizing: border-box;
+        border-top: 1px solid rgba(127, 127, 127, 0.12);
+        background: var(--color-bg);
+    }
+    .contact-profile-send {
+        width: 100%;
+        max-width: 420px;
+        height: 44px;
+        margin: 0;
+        padding: 0 20px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--color-main);
+        color: var(--color-font-r);
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .contact-profile-send:hover {
+        filter: brightness(1.06);
+    }
     /* 消息动画 */
     .msglist-move {
         transition: all 0.3s;
@@ -3792,7 +3855,7 @@ function exitWin() {
     width: 100% !important;
     height: 52px !important;
     min-height: 52px;
-    padding: 0 20px 0 16px !important;
+    padding: 0 16px !important;
     box-sizing: border-box !important;
     border-radius: 0 !important;
     background: var(--color-bg) !important;

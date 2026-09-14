@@ -37,10 +37,9 @@
                     :title="$t('回到底部')"
                     @click="emit('jump-bottom')">
                     <div>
-                        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                            <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4.2 2.6 8 6.2 11.8 2.6"/>
-                            <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4.2 6.4 8 10 11.8 6.4"/>
-                            <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M4.2 10.2 8 13.8 11.8 10.2"/>
+                        <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true">
+                            <path class="jump-arrow-top" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M4 3.8 8 7.6 12 3.8"/>
+                            <path class="jump-arrow-bot" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M4 8.4 8 12.2 12 8.4"/>
                         </svg>
                         <span v-if="newMsgNum > 0">{{ newMsgNum }}</span>
                     </div>
@@ -191,7 +190,7 @@
     watch(() => props.modelValue, (value) => {
         if (syncingFromParent) return
         if (value === getPlainText()) return
-        if (hasInlineFaces() && value !== '') return
+        if (hasInlineTokens() && value !== '') return
         setPlainText(value)
     })
 
@@ -205,8 +204,16 @@
         return !!mainInput.value?.querySelector('.chihiro-inline-face')
     }
 
+    function hasInlineAts() {
+        return !!mainInput.value?.querySelector('.chihiro-inline-at')
+    }
+
+    function hasInlineTokens() {
+        return hasInlineFaces() || hasInlineAts()
+    }
+
     function refreshEmpty() {
-        isEmpty.value = !hasInlineFaces() && getPlainText() === ''
+        isEmpty.value = !hasInlineTokens() && getPlainText() === ''
     }
 
     function setPlainText(text: string) {
@@ -295,28 +302,51 @@
         syncToModel()
     }
 
-    function replaceFromLastAt(replacement: string) {
+    function insertAt(qq: number | string, name: string) {
+        const label = String(name || qq).replace(/^@/, '').trim() || String(qq)
+        const span = document.createElement('span')
+        span.className = 'chihiro-inline-at'
+        span.contentEditable = 'false'
+        span.dataset.atQq = String(qq)
+        span.textContent = '@' + label
+        insertNodeAtCaret(span)
+        insertNodeAtCaret(document.createTextNode(' '))
+        syncToModel()
+    }
+
+    function deleteFromLastAt() {
         const el = mainInput.value
-        if (!el) {
-            insertText(replacement)
-            return
-        }
+        if (!el) return false
         const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
         let lastAt: { node: Text, offset: number } | null = null
         while (walker.nextNode()) {
             const node = walker.currentNode as Text
+            if (node.parentElement?.closest('.chihiro-inline-at, .chihiro-inline-face')) continue
             const index = node.data.lastIndexOf('@')
             if (index >= 0) lastAt = { node, offset: index }
         }
-        if (!lastAt) {
-            insertText(replacement)
-            return
-        }
+        if (!lastAt) return false
         const range = document.createRange()
         range.setStart(lastAt.node, lastAt.offset)
         range.setEnd(el, el.childNodes.length)
         range.deleteContents()
+        const sel = window.getSelection()
+        if (sel) {
+            sel.removeAllRanges()
+            sel.addRange(range)
+            savedRange = range.cloneRange()
+        }
+        return true
+    }
+
+    function replaceFromLastAt(replacement: string) {
+        deleteFromLastAt()
         insertText(replacement)
+    }
+
+    function replaceLastAtWithMention(qq: number | string, name: string) {
+        deleteFromLastAt()
+        insertAt(qq, name)
     }
 
     function serialize(cache: MsgItemElem[]) {
@@ -336,6 +366,16 @@
                     if (!Number.isNaN(id)) {
                         const index = cache.length
                         cache.push({ type: 'face', id })
+                        out += `[SQ:${index}]`
+                    }
+                    continue
+                }
+                if (child.classList.contains('chihiro-inline-at') && child.dataset.atQq) {
+                    const raw = child.dataset.atQq
+                    const qq = raw === 'all' ? 'all' : Number(raw)
+                    if (raw === 'all' || !Number.isNaN(qq)) {
+                        const index = cache.length
+                        cache.push({ type: 'at', qq })
                         out += `[SQ:${index}]`
                     }
                     continue
@@ -364,7 +404,7 @@
         const el = mainInput.value
         // Chrome leaves a caret-only <br> after deleting the final character.
         if (el && (event as InputEvent).inputType?.startsWith('delete') &&
-            !el.textContent?.replace(/\u200B/g, '') && !hasInlineFaces()) {
+            !el.textContent?.replace(/\u200B/g, '') && !hasInlineTokens()) {
             el.replaceChildren()
             savedRange = null
         }
@@ -395,11 +435,14 @@
         getInput: () => mainInput.value,
         insertText,
         insertFace,
+        insertAt,
         replaceFromLastAt,
+        replaceLastAtWithMention,
         serialize,
         clear,
         getPlainText,
         hasInlineFaces,
+        hasInlineAts,
     })
 </script>
 
@@ -553,6 +596,13 @@
     vertical-align: text-bottom;
     object-fit: contain;
 }
+.chihiro-composer .chihiro-composer-form .chihiro-inline-at {
+    display: inline;
+    color: var(--color-main);
+    font-weight: 500;
+    white-space: nowrap;
+    user-select: all;
+}
 .chihiro-composer .chihiro-plus-wrap,
 .chihiro-composer .chihiro-plus,
 .chihiro-composer .chihiro-input-face,
@@ -584,12 +634,8 @@
 }
 .chihiro-composer .chihiro-send {
     flex: 0 0 36px;
-    background: rgba(255, 255, 255, 0.16);
-    color: #fff;
-}
-html.bp-light .chihiro-composer .chihiro-send {
-    background: rgba(0, 0, 0, 0.08);
-    color: #171717;
+    background: var(--color-main);
+    color: var(--color-font-r, #fff);
 }
 .chihiro-composer .chihiro-plus:hover,
 .chihiro-composer .chihiro-plus.active,
@@ -793,8 +839,8 @@ html.bp-light .chihiro-composer .chihiro-send {
     position: relative;
     right: auto;
     bottom: auto;
-    width: 36px;
-    height: 36px;
+    width: 54px;
+    height: 34px;
     pointer-events: none;
 }
 .chihiro-composer .chihiro-jump-bottom.is-on {
@@ -802,23 +848,28 @@ html.bp-light .chihiro-composer .chihiro-send {
     pointer-events: all;
 }
 .chihiro-composer .chihiro-jump-bottom > div {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: #636366;
+    width: 54px;
+    height: 34px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-font) 12%, transparent);
+    backdrop-filter: blur(18px);
     display: grid;
     place-items: center;
-    color: #fff;
     cursor: pointer;
     position: relative;
 }
 .chihiro-composer .chihiro-jump-bottom.is-on > div:hover {
-    filter: brightness(1.12);
+    background: color-mix(in srgb, var(--color-font) 18%, transparent);
 }
 .chihiro-composer .chihiro-jump-bottom svg {
+    display: block;
     fill: none;
-    stroke: #fff;
-    color: #fff;
+}
+.chihiro-composer .chihiro-jump-bottom .jump-arrow-top {
+    stroke: #8ec5ff;
+}
+.chihiro-composer .chihiro-jump-bottom .jump-arrow-bot {
+    stroke: #007aff;
 }
 .chihiro-composer .chihiro-jump-bottom span {
     position: absolute;
@@ -860,6 +911,17 @@ html.bp-light .chihiro-composer .chihiro-send {
     display: none !important;
 }
 .user-skin.chat-pan > div.chat {
-    margin-bottom: 70px;
+    width: 100% !important;
+    max-width: none !important;
+    margin: -90px 0 70px !important;
+    padding: 90px 28px 0 !important;
+    box-sizing: border-box;
+    overflow-y: auto !important;
+    scrollbar-width: none;
+}
+.user-skin.chat-pan > div.chat::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent;
 }
 </style>

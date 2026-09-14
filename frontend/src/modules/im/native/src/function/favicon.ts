@@ -15,7 +15,9 @@ export function refreshFavicon() {
     setTimeout(() => {
         needRefreshFavicon = false
         let num = 0
-        if (useSettingsStore().sysConfig.use_favicon_notice === false) return main(0)
+        // 千寻统一前端的产品图标由 frontend/index.html 持有。关闭通知角标时，
+        // 不应再用 Stapxs 的动态 SVG 替换它。
+        if (useSettingsStore().sysConfig.use_favicon_notice === false) return
         const contactStore = useContactStore()
         for (const session of contactStore.onMsgList) {
             if (session.new_msg) num ++

@@ -15,6 +15,11 @@
                 </button>
                 <span v-if="chat.show.type === 'group'">{{ $t('群资料') }}</span>
                 <span v-else>{{ $t('好友') }}</span>
+                <button
+                    v-if="chat.show.type !== 'group'"
+                    type="button"
+                    class="chat-info-share"
+                    @click="shareUser">{{ $t('分享') }}</button>
             </header>
             <div v-if="chat.show.type === 'group'" :class="'chat-info-base ' + chat.show.type">
                 <div class="chat-info-identity">
@@ -83,7 +88,6 @@
                         <font-awesome-icon class="chihiro-fp-chevron" :icon="['fas', 'angle-right']" />
                     </button>
                     <div class="chihiro-fp-actions">
-                        <button type="button" class="chihiro-fp-btn" @click="shareUser">{{ $t('分享') }}</button>
                         <button type="button" class="chihiro-fp-btn" @click="callUser">{{ $t('音视频通话') }}</button>
                         <button type="button" class="chihiro-fp-btn is-primary" @click="startFriendChat">{{ $t('发消息') }}</button>
                     </div>
@@ -860,6 +864,26 @@ function canEditMember(role: string) {
     margin: 0 !important;
 }
 .chat-info-back:hover {
+    background: rgba(127, 127, 127, 0.12);
+}
+.chat-info-share {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    height: 36px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--color-font);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1;
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+.chat-info-share:hover {
     background: rgba(127, 127, 127, 0.12);
 }
 .chat-info-base {

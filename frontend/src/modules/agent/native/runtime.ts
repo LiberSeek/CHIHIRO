@@ -4,9 +4,9 @@ import 'vuetify/styles'
 import 'markstream-vue/index.css'
 import '@mdi/font/css/materialdesignicons.css'
 
-import { configureApiBase } from './source/api/v1'
-import { setupHttpClient } from './source/api/http'
-import { setupI18n } from './source/i18n/composables'
+import { configureApiBase } from './src/api/v1'
+import { setupHttpClient } from './src/api/http'
+import { setupI18n } from './src/i18n/composables'
 import { createAgentVuetify } from './vuetify'
 
 export type AgentNativeOptions = {

@@ -240,7 +240,7 @@
     {
       "path": "src/components/user/UserComposer.vue",
       "upstreamPath": "components/user/UserComposer.vue",
-      "sha256": "a804b24a9d5bdb4072204fee20be6a6bdd4c3b5d55dd51700dbdaa97aba7ced1",
+      "sha256": "c11c1d0caeaa7e73e0c18964853f886c9bf2ba0f1aeede00133117accb200a59",
       "extractedSha256": "5a72399947ada83841f94339b6d2f03fcf576921e53f47ae3f8baa70bfd05268"
     },
     {
@@ -357,7 +357,7 @@
     {
       "path": "src/components/user/UserViewerCom.vue",
       "upstreamPath": "components/user/UserViewerCom.vue",
-      "sha256": "63262cdd18bfd223bc6cb5804d22de41e43ada53f4b3d5fd71c041f07d57a20d",
+      "sha256": "901ded7ac2157466493933014e5210ca991f05b3b99aef8107a6c49803a4d04e",
       "extractedSha256": "901ded7ac2157466493933014e5210ca991f05b3b99aef8107a6c49803a4d04e"
     },
     {
@@ -405,7 +405,7 @@
     {
       "path": "src/function/favicon.ts",
       "upstreamPath": "function/favicon.ts",
-      "sha256": "3610761f5ac496b208708bd69b87c6e70f0e727e23e35b3a4e1a0703fa63789a"
+      "sha256": "e8ffb3b3e3da965acea43f49b65790f45f1494cadc3aee94615492d941aec77c"
     },
     {
       "path": "src/function/input.ts",
@@ -430,7 +430,7 @@
     {
       "path": "src/function/msg.ts",
       "upstreamPath": "function/msg.ts",
-      "sha256": "839b1f76f945a6c28f4e35a81d09c3911eb71f456ea5efd670caa57b9a40a1a8",
+      "sha256": "82d0f5e45426fe459ac1609bf1de7904b3a6f56b6971d5987cf4f40c6fee5981",
       "extractedSha256": "6a2cefefc07e90c244c3458f68f4b823cdab46928c804d7641c32c1af28003fe"
     },
     {
@@ -441,7 +441,7 @@
     {
       "path": "src/function/option.ts",
       "upstreamPath": "function/option.ts",
-      "sha256": "0d9ecf4aaf01c27f55f826226623ae0f6a0b67cbe58fea1d990ad74126c00821",
+      "sha256": "98dc6b74c07095ab1ceb236dfc359d7492f5704252195388d427480e69fa4cf0",
       "extractedSha256": "8af2a9ab9b4c7cbfe2473cfbac3a863c68354e5c959c4ef706a04ded57f1c25c"
     },
     {
@@ -512,7 +512,7 @@
     {
       "path": "src/pages/user/UserChat.vue",
       "upstreamPath": "pages/user/UserChat.vue",
-      "sha256": "a4f779b55313f65426613dd5729811ad1388b9b1c684e50651ab3a49695d222b",
+      "sha256": "10f765030a95f8012464fa228d330c8b81306f5c2ee12a7db434a1515ce68b34",
       "extractedSha256": "a4f779b55313f65426613dd5729811ad1388b9b1c684e50651ab3a49695d222b"
     },
     {
@@ -524,7 +524,7 @@
     {
       "path": "src/pages/user/UserInfo.vue",
       "upstreamPath": "pages/user/UserInfo.vue",
-      "sha256": "e49f15960147d2b0e47eb696d3a0bac079fa020ee6b453fc77243d8ae8e65f96",
+      "sha256": "c2b0a50074afc017229a7ae3745f026d3982043eb5442ce09396ec6faa2f23aa",
       "extractedSha256": "3aa5dbca03e38ad0a4c32c16d6cb819e592126315fb0f0ad64c9e25ce68669d9"
     },
     {
@@ -561,7 +561,7 @@
     {
       "path": "src/pages/user/UserOptions.vue",
       "upstreamPath": "pages/user/UserOptions.vue",
-      "sha256": "cb58e12e3e9b1f7ea46f9f2a1b1aac21787149e2b02be7ff9c798cf17c61a2f1"
+      "sha256": "230fbfb7c8c35b3c8560e0c2ee9e065dbfa4dedee87d5cfc568848f23cf9aa85"
     },
     {
       "path": "src/pages/user/UserOptView.vue",
@@ -723,7 +723,7 @@
     {
       "path": "src/assets/css/options.css",
       "upstreamPath": "assets/css/options.css",
-      "sha256": "fec4f34ca6655a102deb68d38880bcd51cf8811e9ae190f20ad65742802352d0",
+      "sha256": "de82d34bb2d0b165859f04d81c747702c157fae70981da2119b01a3c815b7043",
       "extractedSha256": "7d66a20f34b41c8ba2f689f1c185488fbc79ae8c76434212ef98661550d39e1e",
       "sourceTreeCommit": "0686935276ac8c471068958893467f835e3905f4"
     },
@@ -737,7 +737,7 @@
     {
       "path": "src/assets/css/user.css",
       "upstreamPath": "assets/css/user.css",
-      "sha256": "315ebd78e25b81f0e379943266235e685193a2c963576b362a4fb700641d7fe0",
+      "sha256": "e45eb50b0d21c0ac8647dd8ea013347fdceb2726c660271c9ed40b1af9e78e04",
       "extractedSha256": "e45eb50b0d21c0ac8647dd8ea013347fdceb2726c660271c9ed40b1af9e78e04",
       "sourceTreeCommit": "0686935276ac8c471068958893467f835e3905f4"
     },

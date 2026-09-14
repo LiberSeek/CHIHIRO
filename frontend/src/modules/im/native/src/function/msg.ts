@@ -735,11 +735,9 @@ const msgFunctions = {
                 action: 'label',
                 value: data.nickname,
             })
-            const title = `${data.nickname} `
-            if (backend.platform == 'web') {
-                document.title = '千寻IM - 千人千面, 千域千寻'
-            } else {
-                document.title = title
+            const title = '千寻IM - 千人千面, 千域千寻'
+            document.title = title
+            if (backend.platform != 'web') {
                 backend.call(undefined, 'win:setTitle', false, title)
             }
             // 结束登录页面的水波动画

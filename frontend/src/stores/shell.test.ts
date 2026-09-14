@@ -113,6 +113,36 @@ describe('runtime account shell', () => {
     expect(shell.adding).toBe(false)
   })
 
+  it('enters a clean pending-new-account state before the start response returns', async () => {
+    const start = deferred<Response>()
+    const staleLoggedInState = { ...state(), phase: 'ready', message: '已登录 Name qq:123', qr: { exists: true, mtime: 1 } }
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(response(staleLoggedInState))
+      .mockReturnValueOnce(start.promise)
+      .mockResolvedValueOnce(response(staleLoggedInState))
+    vi.stubGlobal('fetch', fetcher)
+    const shell = useShellStore()
+    await shell.refreshAccounts()
+
+    const pending = shell.addAccount('qq')
+
+    expect(shell.adding).toBe(true)
+    expect(shell.pendingAdd).toBe(true)
+    expect(shell.runtimePhase).toBe('starting')
+    expect(shell.runtimeMessage).toBe('正在启动 QQ 登录')
+    expect(shell.qrReady).toBe(false)
+
+    await shell.refreshAccounts()
+    expect(shell.pendingAdd).toBe(true)
+    expect(shell.runtimeMessage).toBe('正在启动 QQ 登录')
+    expect(shell.qrReady).toBe(false)
+
+    start.resolve(response(state(b)))
+    await pending
+    expect(shell.activeAccountId).toBe(b)
+    expect(shell.adding).toBe(false)
+  })
+
   it('relogs and removes an account through runtime lifecycle endpoints', async () => {
     const fetcher = vi.fn()
       .mockResolvedValueOnce(response(state()))
@@ -130,6 +160,21 @@ describe('runtime account shell', () => {
     expect(shell.activeAccountId).toBe(b)
   })
 
+  it('marks the account removal action while the runtime endpoint is pending', async () => {
+    const removal = deferred<Response>()
+    vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(removal.promise))
+    const shell = useShellStore()
+
+    const pending = shell.removeAccount(a)
+
+    expect(shell.accountAction).toBe(true)
+    expect(shell.removingAccountId).toBe(a)
+    removal.resolve(response(state(b)))
+    expect(await pending).toBe(true)
+    expect(shell.accountAction).toBe(false)
+    expect(shell.removingAccountId).toBeNull()
+  })
+
   it('cancels login and ignores the late start response', async () => {
     const start = deferred<Response>()
     const fetcher = vi.fn()
@@ -138,10 +183,15 @@ describe('runtime account shell', () => {
     vi.stubGlobal('fetch', fetcher)
     const shell = useShellStore()
     const pending = shell.addAccount()
-    await shell.cancelLogin()
+    const cancel = shell.cancelLogin()
+    expect(shell.cancelingLogin).toBe(true)
+    expect(shell.runtimePhase).toBe('cancelling')
+    expect(shell.runtimeMessage).toBe('正在取消登录…')
+    await cancel
     start.resolve(response({ ...state(b), phase: 'ready', pendingAdd: false })); await pending
     expect(fetcher).toHaveBeenNthCalledWith(2, '/api/runtime/login/cancel', { method: 'POST' })
     expect(shell.activeAccountId).toBe(a)
     expect(shell.adding).toBe(false)
+    expect(shell.cancelingLogin).toBe(false)
   })
 })

@@ -2,8 +2,8 @@ import { createVuetify } from 'vuetify'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 
-import { PurpleThemeDark } from './source/theme/DarkTheme'
-import { PurpleTheme } from './source/theme/LightTheme'
+import { PurpleThemeDark } from './src/theme/DarkTheme'
+import { PurpleTheme } from './src/theme/LightTheme'
 
 export function createAgentVuetify() {
   return createVuetify({

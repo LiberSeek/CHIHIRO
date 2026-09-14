@@ -18,21 +18,33 @@ const settingsOpen = ref(false)
 const externalSettings = ref<{ title: string; src: string } | null>(null)
 const accountMenu = ref<{ account: AccountContext; x: number; y: number } | null>(null)
 const exitAccount = ref<AccountContext | null>(null)
+const addLauncherOpen = ref(false)
 const clientMenuOpen = ref(false)
 const selectedClientId = ref('qq')
 const themeMode = ref<ThemeMode>('dark')
 const themeLabel = computed(() => labels[themeMode.value])
+const runtimeBootstrapped = ref(false)
+const accountRouteActive = computed(() => (route.name === 'im' || route.name === 'agent') && route.query.settings !== '1')
+const showRuntimeBootLoading = computed(() => accountRouteActive.value && !runtimeBootstrapped.value)
 const loginInProgress = computed(() => shell.adding || shell.pendingAdd || ['starting', 'logging_in', 'qr', 'qr_expired', 'cancelling'].includes(shell.runtimePhase))
 const loginNeedsRestart = computed(() => Boolean(shell.activeAccount) && !shell.qrReady
   && /(失效|过期|重新登录|请刷新|错误|超时)/.test(shell.runtimeMessage))
-const showLoginPanel = computed(() => route.name === 'im' && route.query.settings !== '1' && route.query.tab !== 'workbench'
+const showLoginPanel = computed(() => accountRouteActive.value && !showRuntimeBootLoading.value
   && (loginInProgress.value || !shell.activeAccount || shell.activeAccount.status !== 'online'))
-const loginMessage = computed(() => shell.runtimeMessage || (loginInProgress.value
-  ? '正在准备登录…'
-  : shell.activeAccount
-    ? '重新登录后即可继续使用此账号'
-    : '点击左侧 + 添加并登录 QQ 账号'))
-const showEmptyLauncher = computed(() => !loginInProgress.value && !shell.activeAccount)
+const loginMessage = computed(() => {
+  if (shell.cancelingLogin) return '正在取消登录…'
+  if (shell.pendingAdd) {
+    if (shell.qrReady) return shell.runtimeMessage || '请使用 QQ 扫描二维码。约两分钟有效。'
+    return shell.runtimeMessage && !shell.runtimeMessage.startsWith('已登录') ? shell.runtimeMessage : '正在启动 QQ 登录'
+  }
+  return shell.runtimeMessage || (loginInProgress.value
+    ? '正在准备登录…'
+    : shell.activeAccount
+      ? '重新登录后即可继续使用此账号'
+      : '点击左侧 + 添加并登录 QQ 账号')
+})
+const showEmptyLauncher = computed(() => !showRuntimeBootLoading.value && !loginInProgress.value && !shell.activeAccount)
+const exitBusy = computed(() => Boolean(exitAccount.value && shell.removingAccountId === exitAccount.value.id))
 const selectedClient = computed(() => shell.clients.find(client => client.id === selectedClientId.value)
   ?? shell.clients.find(client => client.enabled)
   ?? shell.clients[0])
@@ -47,7 +59,8 @@ function cycleTheme() {
 function selectAccount(id: AccountId) {
   closeAccountMenu()
   shell.selectAccount(id)
-  if (router.currentRoute.value.path !== '/im') void router.push('/im')
+  const current = router.currentRoute.value
+  if (current.path !== '/im' || Object.keys(current.query).length > 0) void router.push('/im')
 }
 function openAccountMenu(event: MouseEvent, account: AccountContext) {
   settingsOpen.value = false
@@ -58,6 +71,10 @@ function openAccountMenu(event: MouseEvent, account: AccountContext) {
   }
 }
 function closeAccountMenu() { accountMenu.value = null }
+function closeAddLauncher() {
+  addLauncherOpen.value = false
+  clientMenuOpen.value = false
+}
 function relogin(account: AccountContext, refreshQr = false) {
   closeAccountMenu()
   void shell.reloginAccount(account.id, refreshQr)
@@ -65,6 +82,9 @@ function relogin(account: AccountContext, refreshQr = false) {
 function askExit(account: AccountContext) {
   closeAccountMenu()
   exitAccount.value = account
+}
+function closeExitDialog() {
+  if (!exitBusy.value) exitAccount.value = null
 }
 async function confirmExit() {
   const account = exitAccount.value
@@ -82,10 +102,21 @@ function openExternalSettings(title: string, src: string) {
   settingsOpen.value = false
   externalSettings.value = { title, src }
 }
+function openAccountNapCatSettings(account: AccountContext) {
+  shell.selectAccount(account.id)
+  closeAccountMenu()
+  settingsOpen.value = false
+  externalSettings.value = { title: `NapCat 设置 · ${account.label}`, src: '/webui' }
+}
 function closeMenus(event: MouseEvent) {
-  if (!(event.target as Element).closest('.shell-settings')) settingsOpen.value = false
-  if (!(event.target as Element).closest('.account-context-menu')) closeAccountMenu()
-  if (!(event.target as Element).closest('.client-dropdown')) clientMenuOpen.value = false
+  const target = event.target as Element
+  if (!target.closest('.shell-settings')) settingsOpen.value = false
+  if (!target.closest('.account-context-menu')) closeAccountMenu()
+  if (!target.closest('.client-dropdown')) clientMenuOpen.value = false
+  if (!target.closest('.rail-add-slot')) addLauncherOpen.value = false
+}
+function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && exitAccount.value) closeExitDialog()
 }
 function selectClient(id: string) {
   const client = shell.clients.find(item => item.id === id)
@@ -95,23 +126,50 @@ function selectClient(id: string) {
 }
 function startSelectedClient() {
   if (!selectedClient.value?.enabled) return
+  closeAddLauncher()
+  void router.push('/im')
   void shell.addAccount(selectedClient.value.id)
 }
+function openAddLauncher() {
+  settingsOpen.value = false
+  closeAccountMenu()
+  if (loginInProgress.value || showEmptyLauncher.value) {
+    closeAddLauncher()
+    void router.push('/im')
+    return
+  }
+  addLauncherOpen.value = !addLauncherOpen.value
+  if (!addLauncherOpen.value) clientMenuOpen.value = false
+}
+async function bootstrapRuntime() {
+  try {
+    await shell.refreshAccounts()
+  } finally {
+    if (!mounted) return
+    runtimeBootstrapped.value = true
+    refreshTimer ??= window.setInterval(() => { void shell.refreshAccounts() }, 1500)
+  }
+}
+
+let refreshTimer: number | undefined
+let stopTheme: (() => void) | undefined
+let mounted = false
 onMounted(() => {
+  mounted = true
   applyTheme(readThemeMode())
   stopTheme = onThemeChange(mode => { themeMode.value = mode })
   watchSystemTheme()
-  void shell.refreshAccounts()
+  void bootstrapRuntime()
   void shell.refreshClients()
   document.addEventListener('click', closeMenus)
-  refreshTimer = window.setInterval(() => { void shell.refreshAccounts() }, 1500)
+  document.addEventListener('keydown', onKeydown)
 })
-let refreshTimer: number | undefined
-let stopTheme: (() => void) | undefined
 onUnmounted(() => {
+  mounted = false
   shell.cancelRefresh()
   assistant.clear()
   document.removeEventListener('click', closeMenus)
+  document.removeEventListener('keydown', onKeydown)
   stopTheme?.()
   if (refreshTimer !== undefined) window.clearInterval(refreshTimer)
 })
@@ -133,10 +191,34 @@ onUnmounted(() => {
           <span v-if="account.botEnabled" class="account-bot-badge">BOT</span>
         </button>
       </div>
-      <button class="rail-button add-account" type="button" :disabled="shell.adding" title="添加账号" aria-label="添加账号" @click="shell.addAccount()">
-        <span v-if="shell.adding" class="rail-spinner" aria-hidden="true" />
-        <span v-else aria-hidden="true">+</span>
-      </button>
+      <div class="rail-add-slot">
+        <button class="rail-button add-account" type="button" :disabled="shell.adding" title="添加账号" aria-label="添加账号"
+          :aria-expanded="addLauncherOpen" aria-haspopup="dialog" @click.stop="openAddLauncher">
+          <span v-if="shell.adding" class="rail-spinner" aria-hidden="true" />
+          <span v-else aria-hidden="true">+</span>
+        </button>
+        <div v-if="addLauncherOpen && !showLoginPanel" class="add-account-popover" role="dialog" aria-label="添加账号" @click.stop>
+          <h2>添加账号</h2>
+          <div class="launch-row">
+            <div class="client-dropdown">
+              <button type="button" class="client-drop-button" aria-haspopup="listbox" :aria-expanded="clientMenuOpen" @click.stop="clientMenuOpen = !clientMenuOpen">
+                <span class="client-badge">{{ selectedClient?.badge }}</span>
+                <span>{{ selectedClient?.name }}</span>
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M4.2 6.2a.75.75 0 0 1 1.06 0L8 8.94l2.74-2.74a.75.75 0 1 1 1.06 1.06l-3.27 3.27a.75.75 0 0 1-1.06 0L4.2 7.26a.75.75 0 0 1 0-1.06z"/></svg>
+              </button>
+              <div v-if="clientMenuOpen" class="client-menu" role="listbox">
+                <button v-for="client in shell.clients" :key="client.id" type="button" role="option"
+                  :aria-selected="client.id === selectedClient?.id" :disabled="!client.enabled"
+                  :class="{ active: client.id === selectedClient?.id }" @click.stop="selectClient(client.id)">
+                  <span class="client-badge">{{ client.badge }}</span>
+                  <span>{{ client.name }}{{ client.enabled ? '' : '（即将支持）' }}</span>
+                </button>
+              </div>
+            </div>
+            <button type="button" class="launch-button" :disabled="shell.adding || !selectedClient?.enabled" @click="startSelectedClient">启动</button>
+          </div>
+        </div>
+      </div>
       <div class="rail-space" />
       <button class="rail-button theme-button" type="button" :title="`主题：${themeLabel}`" :aria-label="`主题：${themeLabel}`" @click="cycleTheme">
         <svg v-if="themeMode === 'light'" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="currentColor"/><path d="M12 3v2m0 14v2M3 12h2m14 0h2M5.6 5.6 7 7m10 10 1.4 1.4M5.6 18.4 7 17m10-10 1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -149,7 +231,6 @@ onUnmounted(() => {
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         </button>
         <div v-if="settingsOpen" class="settings-menu" role="menu">
-          <button type="button" role="menuitem" @click="openExternalSettings('NapCat 设置', '/webui')"><SlidersHorizontal :size="16" />NapCat 设置</button>
           <button type="button" role="menuitem" @click="openExternalSettings('AstrBot 设置', '/astrbot')"><Bot :size="16" />AstrBot 设置</button>
           <button type="button" role="menuitem" @click="openImSettings"><Settings :size="16" />{{ route.path === '/im' && route.query.settings === '1' ? '返回千寻 IM' : '千寻 IM 设置' }}</button>
         </div>
@@ -157,7 +238,11 @@ onUnmounted(() => {
     </nav>
 
     <main v-show="!showLoginPanel" class="app-content">
-      <RouterView />
+      <div v-if="showRuntimeBootLoading" class="app-loading" role="status">
+        <span class="app-loading-spinner" aria-hidden="true" />
+        <p>加载中…</p>
+      </div>
+      <RouterView v-else />
     </main>
     <section v-if="showLoginPanel" class="login-panel" aria-label="QQ 登录">
       <div v-if="showEmptyLauncher" class="login-card empty-launcher">
@@ -194,20 +279,21 @@ onUnmounted(() => {
         <div class="login-actions">
           <button v-if="(!loginInProgress || loginNeedsRestart) && shell.activeAccount" type="button" class="primary" :disabled="shell.accountAction" @click="relogin(shell.activeAccount, loginNeedsRestart)">重新登录</button>
           <button v-if="shell.qrReady || loginNeedsRestart" type="button" :disabled="shell.accountAction" @click="shell.refreshLoginQr">刷新二维码</button>
-          <button v-if="loginInProgress" type="button" @click="shell.cancelLogin">取消登录</button>
+          <button v-if="loginInProgress" type="button" :disabled="shell.cancelingLogin" @click="shell.cancelLogin"><span v-if="shell.cancelingLogin" class="button-spinner" aria-hidden="true" />{{ shell.cancelingLogin ? '取消中…' : '取消登录' }}</button>
           <button v-if="!loginInProgress && shell.activeAccount" type="button" class="danger" @click="askExit(shell.activeAccount)">退出账号</button>
         </div>
       </div>
     </section>
     <div v-if="accountMenu" class="account-context-menu" :style="{ left: `${accountMenu.x}px`, top: `${accountMenu.y}px` }" @click.stop>
+      <button v-if="accountMenu.account.platform === 'qq'" type="button" @click="openAccountNapCatSettings(accountMenu.account)"><SlidersHorizontal :size="16" />NapCat 设置</button>
       <button type="button" @click="relogin(accountMenu.account)">{{ accountMenu.account.status === 'online' ? '重新登录' : '登录账号' }}</button>
       <button type="button" class="danger" @click="askExit(accountMenu.account)">退出账号</button>
     </div>
-    <div v-if="exitAccount" class="shell-dialog" role="dialog" aria-modal="true" aria-labelledby="exit-account-title" @click.self="exitAccount = null">
+    <div v-if="exitAccount" class="shell-dialog" role="dialog" aria-modal="true" aria-labelledby="exit-account-title" @click.self="closeExitDialog">
       <div class="shell-dialog-card">
         <h2 id="exit-account-title">退出账号</h2>
         <p>确定退出“{{ exitAccount.label }}”吗？该账号的隔离运行数据会被删除，其他账号不受影响。</p>
-        <div><button type="button" @click="exitAccount = null">取消</button><button type="button" class="danger" :disabled="shell.accountAction" @click="confirmExit">退出账号</button></div>
+        <div><button type="button" :disabled="exitBusy" @click="closeExitDialog">取消</button><button type="button" class="danger" :disabled="exitBusy" @click="confirmExit"><span v-if="exitBusy" class="button-spinner danger-spinner" aria-hidden="true" />{{ exitBusy ? '退出中…' : '退出账号' }}</button></div>
       </div>
     </div>
     <ExternalSettingsDialog

@@ -19,6 +19,10 @@
     --color-font-1: #c7c7cc;
     --color-font-2: #8e8e93;
     --color-shader: #00000066;
+    --color-blue: #6291fd;
+    --color-green: #6cd892;
+    --color-red: #f56269;
+    --color-yellow: #f6c344;
 }
 html, body {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif !important;
@@ -38,6 +42,10 @@ html.bp-dark,
     --color-font-1: #c7c7cc;
     --color-font-2: #8e8e93;
     --color-shader: #00000066;
+    --color-blue: #6291fd;
+    --color-green: #6cd892;
+    --color-red: #f56269;
+    --color-yellow: #f6c344;
 }
 html.bp-light,
 :root[data-theme="light"] {
@@ -53,6 +61,10 @@ html.bp-light,
     --color-font-1: #595959;
     --color-font-2: #858585;
     --color-shader: #00000026;
+    --color-blue: #316cf4;
+    --color-green: #408558;
+    --color-red: #cb444a;
+    --color-yellow: #d68100;
 }
 
 #base-app {
