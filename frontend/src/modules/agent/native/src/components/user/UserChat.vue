@@ -328,7 +328,7 @@
     >
       <UserChatHeader v-if="isChihiroHosted">
         <template #actions>
-          <StyledMenu location="bottom end" offset="6" :close-on-content-click="false">
+          <StyledMenu v-model="headerSettingsMenuOpen" location="bottom end" offset="6" :close-on-content-click="false">
             <template #activator="{ props: menuProps }">
               <button v-bind="menuProps" type="button" class="header-settings-btn"
                 :aria-label="t('core.common.settings')" :title="t('core.common.settings')">
@@ -383,6 +383,11 @@
                   </v-list>
                 </v-card>
               </v-menu>
+              <v-divider class="settings-menu-divider my-1" />
+              <v-list-item class="styled-menu-item settings-menu-item" rounded="md" @click="openAstrBotSettings">
+                <template #prepend><Settings :size="18" class="styled-menu-lucide-icon" /></template>
+                <v-list-item-title>AstrBot 设置</v-list-item-title>
+              </v-list-item>
             </div>
           </StyledMenu>
         </template>
@@ -713,8 +718,15 @@ const { t } = useI18n();
 const { tm } = useModuleI18n("features/chat");
 const confirmDialog = useConfirmDialog();
 const toast = useToast();
+const headerSettingsMenuOpen = ref(false);
 const { languageOptions, currentLanguage, switchLanguage, locale } =
   useLanguageSwitcher();
+function openAstrBotSettings() {
+  headerSettingsMenuOpen.value = false;
+  window.dispatchEvent(new CustomEvent('chihiro-open-external-settings', {
+    detail: { title: 'AstrBot 设置', src: '/astrbot/#/settings' },
+  }));
+}
 const {
   sessions,
   currSessionId,
@@ -2280,6 +2292,11 @@ async function stopCurrentSession() {
   flex: 0 0 auto;
   color: currentcolor;
   stroke-width: 2;
+}
+
+.settings-menu-divider {
+  border-color: var(--chat-border) !important;
+  opacity: 0.8;
 }
 
 .settings-menu-value {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
-import { Bot, SlidersHorizontal, Settings } from '@lucide/vue'
+import { SlidersHorizontal, Settings } from '@lucide/vue'
 
 import ExternalSettingsDialog from '@/app/ExternalSettingsDialog.vue'
 import { useAssistantStore } from '@/modules/assistant/session'
@@ -98,9 +98,11 @@ function openImSettings() {
     ? { path: '/im' }
     : { path: '/im', query: { settings: '1' } })
 }
-function openExternalSettings(title: string, src: string) {
+function openExternalSettingsEvent(event: Event) {
+  const detail = (event as CustomEvent<{ title?: unknown; src?: unknown }>).detail
+  if (!detail || typeof detail.title !== 'string' || typeof detail.src !== 'string') return
   settingsOpen.value = false
-  externalSettings.value = { title, src }
+  externalSettings.value = { title: detail.title, src: detail.src }
 }
 function openAccountNapCatSettings(account: AccountContext) {
   shell.selectAccount(account.id)
@@ -163,6 +165,7 @@ onMounted(() => {
   void shell.refreshClients()
   document.addEventListener('click', closeMenus)
   document.addEventListener('keydown', onKeydown)
+  window.addEventListener('chihiro-open-external-settings', openExternalSettingsEvent)
 })
 onUnmounted(() => {
   mounted = false
@@ -170,6 +173,7 @@ onUnmounted(() => {
   assistant.clear()
   document.removeEventListener('click', closeMenus)
   document.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('chihiro-open-external-settings', openExternalSettingsEvent)
   stopTheme?.()
   if (refreshTimer !== undefined) window.clearInterval(refreshTimer)
 })
@@ -231,7 +235,6 @@ onUnmounted(() => {
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         </button>
         <div v-if="settingsOpen" class="settings-menu" role="menu">
-          <button type="button" role="menuitem" @click="openExternalSettings('AstrBot 设置', '/astrbot')"><Bot :size="16" />AstrBot 设置</button>
           <button type="button" role="menuitem" @click="openImSettings"><Settings :size="16" />{{ route.path === '/im' && route.query.settings === '1' ? '返回千寻 IM' : '千寻 IM 设置' }}</button>
         </div>
       </div>
