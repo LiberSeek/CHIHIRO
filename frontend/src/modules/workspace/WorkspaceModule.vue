@@ -28,8 +28,8 @@ import UserTooltips from '../im/native/src/components/user/tooltip/UserTooltips.
 import UserFileManager, { panelVisible } from '../im/native/src/components/user/UserFileManager.vue'
 import { setNativeViewerHost } from '../im/native/viewer'
 import AgentEntry from '../agent/AgentEntry.vue'
-import { routeForHostedAgent } from '../agent/native/src/navigation'
 import { routeForImConversation, routeForWorkspaceList, useWorkspace, type ListTab, type WorkspaceRoute } from './workspace'
+import { queryText, syncWorkspaceFromRoute, workspaceRouteMatches } from './routeSync'
 import { canRestoreNativeConversation, contactToChatInfo, findNativeConversationForRoute } from './nativeConversation'
 
 const workspace = useWorkspace()
@@ -64,24 +64,17 @@ const nativeAccountConnecting = computed(() => {
     && (!login.status || readyNativeAccountId.value !== account.id))
 })
 watch(() => route.fullPath, () => {
-  if (route.name === 'agent') {
+  const action = syncWorkspaceFromRoute({
+    name: route.name,
+    params: route.params,
+    query: route.query,
+  })
+  if (action.type === 'select-agent') {
     workspace.selectList('workbench')
-    const id = route.params.conversationId
-    const sessionId = typeof id === 'string' ? id : ''
-    workspace.selectAgent(sessionId)
-    void router.replace(routeForHostedAgent(sessionId || undefined))
-    return
-  }
-  if (route.name === 'im' && route.query.settings !== '1') {
-    const agentId = queryText(route.query.agent)
-    if (agentId) {
-      workspace.selectList('workbench')
-      workspace.selectAgent(agentId)
-    } else if (route.query.tab) {
-      workspace.selectList(route.query.tab === 'workbench' ? 'workbench' : 'friends')
-    } else {
-      workspace.selectList('messages')
-    }
+    workspace.selectAgent(action.sessionId)
+    if (action.normalizeTo) void router.replace(action.normalizeTo)
+  } else if (action.type === 'select-list') {
+    workspace.selectList(action.tab)
   }
 }, { immediate: true })
 const modal = computed(() => ui.popBoxList[0])
@@ -139,21 +132,8 @@ async function connect() {
   }
 }
 
-function queryText(value: unknown) {
-  if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0] : undefined
-  return typeof value === 'string' ? value : undefined
-}
-
-function currentRouteMatches(target: WorkspaceRoute) {
-  return route.path === target.path
-    && queryText(route.query.tab) === target.query?.tab
-    && queryText(route.query.chat) === target.query?.chat
-    && queryText(route.query.agent) === target.query?.agent
-    && queryText(route.query.settings) === undefined
-}
-
 function replaceWorkspaceRoute(target: WorkspaceRoute) {
-  if (!currentRouteMatches(target)) void router.replace(target)
+  if (!workspaceRouteMatches(route, target)) void router.replace(target)
 }
 
 function changeChat(info: BaseChatInfoElem) {
