@@ -5,6 +5,8 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from 'axios';
 
+import type { ResolvedAgentApiBase } from '../api-base';
+
 const AUTH_HEADER = 'Authorization';
 const LOCALE_HEADER = 'Accept-Language';
 
@@ -28,9 +30,9 @@ export function isHosted(): boolean {
   return hosted;
 }
 
-export function configureHttpClient(nextHosted: boolean) {
-  hosted = nextHosted;
-  apiV1Client.defaults.baseURL = hosted ? '/astrbot/api/v1' : '/api/v1';
+export function configureHttpClient(configuration: ResolvedAgentApiBase) {
+  hosted = configuration.hosted;
+  apiV1Client.defaults.baseURL = configuration.apiV1Base;
 }
 
 function getToken(): string | null {

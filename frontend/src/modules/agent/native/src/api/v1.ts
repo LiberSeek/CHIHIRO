@@ -1,5 +1,9 @@
 import type { AxiosRequestConfig, AxiosResponse } from 'axios';
 
+import {
+  resolveAgentApiBase,
+  type AgentApiBaseOptions,
+} from '../../api-base';
 import * as openApiV1 from './generated/openapi-v1';
 import {
   type BackupChunkUploadRequest,
@@ -58,13 +62,17 @@ import {
 } from './generated/openapi-v1';
 import { apiV1Client, configureHttpClient, fetchWithAuth, httpClient, isHosted } from './http';
 
-const apiPrefix = () => isHosted() ? '/astrbot/api/v1' : '/api/v1';
+let activeApiBase = resolveAgentApiBase();
+const apiPrefix = () => activeApiBase.apiV1Base;
 
-export function configureApiBase(hosted: boolean) {
-  configureHttpClient(hosted);
+export function configureApiBase(options: AgentApiBaseOptions | boolean) {
+  activeApiBase = resolveAgentApiBase(
+    typeof options === 'boolean' ? { hosted: options } : options,
+  );
+  configureHttpClient(activeApiBase);
   openApiV1Client.setConfig({
     axios: httpClient,
-    baseURL: hosted ? '/astrbot' : '',
+    baseURL: activeApiBase.dashboardBase,
     throwOnError: true,
   });
 }

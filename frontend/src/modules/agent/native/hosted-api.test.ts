@@ -51,4 +51,15 @@ describe('native hosted API with the real generated client', () => {
     expect(window.location.hash).toBe('#/next/agent')
     expect(httpClient).not.toBe(axios)
   })
+
+  it('takes its hosted base from the component installer instead of Dashboard globals', async () => {
+    vi.stubGlobal('__CHIHIRO_CHATUI_HOSTED__', false)
+    configureApiBase({ hosted: true, gatewayBase: '/gateway/agent/' })
+
+    await chatApi.listSessions()
+
+    expect(httpClient.getUri(requests[0])).toBe('/gateway/agent/api/v1/chat/sessions')
+    expect(chatApi.sendStreamUrl()).toBe('/gateway/agent/api/v1/chat')
+    expect(fileApi.contentUrl('file/a')).toBe('/gateway/agent/api/v1/files/file%2Fa/content')
+  })
 })

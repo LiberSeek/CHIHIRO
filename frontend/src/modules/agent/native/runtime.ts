@@ -11,6 +11,7 @@ import { createAgentVuetify } from './vuetify'
 
 export type AgentNativeOptions = {
   hosted?: boolean
+  gatewayBase?: string
   initializeLocale?: boolean
 }
 
@@ -28,7 +29,10 @@ export function installAgentNative(app: App, options: AgentNativeOptions = {}) {
 }
 
 async function initializeAgentNative(app: App, options: AgentNativeOptions) {
-  configureApiBase(options.hosted ?? true)
+  configureApiBase({
+    hosted: options.hosted ?? true,
+    gatewayBase: options.gatewayBase,
+  })
   setupHttpClient()
   if (options.initializeLocale ?? true) await setupI18n()
   app.use(createAgentVuetify())

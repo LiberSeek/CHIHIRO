@@ -91,21 +91,34 @@ function adaptSource(sourcePath, source) {
 
   if (sourcePath === 'api/http.ts') {
     adapted = readFileSync(join(moduleRoot, 'adaptations/api-http.ts'), 'utf8')
+      .replace("from '../api-base';", "from '../../api-base';")
   }
 
   if (sourcePath === 'api/v1.ts') {
     adapted = adapted
+      .replace(
+        "import type { AxiosRequestConfig, AxiosResponse } from 'axios';",
+        "import type { AxiosRequestConfig, AxiosResponse } from 'axios';\n\nimport { resolveAgentApiBase, type AgentApiBaseOptions } from '../../api-base';",
+      )
       .replace(
         "import { apiV1Client, fetchWithAuth, httpClient } from './http';",
         "import { apiV1Client, configureHttpClient, fetchWithAuth, httpClient, isHosted } from './http';",
       )
       .replace(
         "const apiPrefix = () => Boolean((globalThis as any).__CHIHIRO_CHATUI_HOSTED__)\n  ? '/astrbot/api/v1'\n  : '/api/v1';",
-        "const apiPrefix = () => isHosted() ? '/astrbot/api/v1' : '/api/v1';",
+        "let activeApiBase = resolveAgentApiBase();\nconst apiPrefix = () => activeApiBase.apiV1Base;",
       )
       .replace(
         "  (globalThis as any).__CHIHIRO_CHATUI_HOSTED__ = hosted;\n  apiV1Client.defaults.baseURL = hosted ? '/astrbot/api/v1' : '/api/v1';",
-        '  configureHttpClient(hosted);',
+        "  activeApiBase = resolveAgentApiBase(typeof options === 'boolean' ? { hosted: options } : options);\n  configureHttpClient(activeApiBase);",
+      )
+      .replace(
+        'export function configureApiBase(hosted: boolean) {',
+        'export function configureApiBase(options: AgentApiBaseOptions | boolean) {',
+      )
+      .replace(
+        "    baseURL: hosted ? '/astrbot' : '',",
+        '    baseURL: activeApiBase.dashboardBase,',
       )
       .replace(
         'configureApiBase(Boolean((globalThis as any).__CHIHIRO_CHATUI_HOSTED__));',

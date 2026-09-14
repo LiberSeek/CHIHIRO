@@ -9,7 +9,7 @@ export function createAgentLoader(app: App): AgentLoader {
   return () => {
     pending ??= (async () => {
       const { installAgentNative } = await import('./native/runtime')
-      await installAgentNative(app, { hosted: true })
+      await installAgentNative(app, { hosted: true, gatewayBase: '/astrbot' })
       const { default: component } = await import('./AgentModule.vue')
       return component
     })().catch(error => {
