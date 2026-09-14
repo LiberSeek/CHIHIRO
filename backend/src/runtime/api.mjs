@@ -8,6 +8,7 @@ import { createBotController } from './bot.mjs'
 import { createAgentController } from './agent.mjs'
 import { createChatuiProxy } from './chatui.mjs'
 import { createCustomerInsights } from '../core/customer-insights.mjs'
+import { createGroupIntelligence } from '../core/group-intelligence.mjs'
 import { log, logError } from './log.mjs'
 
 export function createRuntime({ root, cfg, services = {} }) {
@@ -21,6 +22,7 @@ export function createRuntime({ root, cfg, services = {} }) {
   const astrbot = services.astrbot || createAstrbotRuntime({ root, cfg })
   const agent = createAgentController({ root, store, qq, astrbot, cfg })
   const customers = services.customers || createCustomerInsights({ root })
+  const groupIntelligence = services.groupIntelligence || createGroupIntelligence({ root })
   const bot = services.bot || createBotController({ store, qq, astrbot, cfg })
   const chatui = services.chatui || createChatuiProxy({ astrbot })
 
@@ -126,6 +128,44 @@ export function createRuntime({ root, cfg, services = {} }) {
         return json(res, customers.ingest(body))
       } catch (e) {
         return customerError(res, e)
+      }
+    }
+
+    if (p === '/api/runtime/group-intelligence/messages/ingest' && method === 'POST') {
+      try {
+        const body = await readJson(req)
+        const accountId = req.headers['x-chihiro-account']
+        if (accountId && body.accountId && String(accountId) !== String(body.accountId)) throw new Error('account_mismatch')
+        if (accountId && !body.accountId) body.accountId = String(accountId)
+        return json(res, groupIntelligence.ingest(body))
+      } catch (e) {
+        return groupIntelligenceError(res, e)
+      }
+    }
+    if (p === '/api/runtime/group-intelligence/reports' && method === 'GET') {
+      try {
+        const accountId = req.headers['x-chihiro-account'] || url.searchParams.get('accountId')
+        return json(res, groupIntelligence.listReports({ accountId }))
+      } catch (e) {
+        return groupIntelligenceError(res, e)
+      }
+    }
+    if (p === '/api/runtime/group-intelligence/reports' && method === 'POST') {
+      try {
+        const accountId = req.headers['x-chihiro-account']
+        if (!accountId) throw new Error('missing_account')
+        return json(res, groupIntelligence.createReport(await readJson(req), { accountId: String(accountId) }))
+      } catch (e) {
+        return groupIntelligenceError(res, e)
+      }
+    }
+    const reportMatch = p.match(/^\/api\/runtime\/group-intelligence\/reports\/([^/]+)$/)
+    if (reportMatch && method === 'GET') {
+      try {
+        const accountId = req.headers['x-chihiro-account'] || url.searchParams.get('accountId')
+        return json(res, groupIntelligence.getReport(decodePathPart(reportMatch[1]), { accountId }))
+      } catch (e) {
+        return groupIntelligenceError(res, e)
       }
     }
 
@@ -297,7 +337,7 @@ export function createRuntime({ root, cfg, services = {} }) {
     await astrbot.stopIfOwned().catch((e) => logError('api', 'astrbot stop', e))
   }
 
-  return { handle, qq, store, astrbot, bot, agent, customers, snapshot, shutdown }
+  return { handle, qq, store, astrbot, bot, agent, customers, groupIntelligence, snapshot, shutdown }
 }
 
 function json(res, obj, status = 200) {
@@ -316,6 +356,11 @@ function customerError(res, error) {
   const code = error?.message || 'customer_insights_failed'
   const status = code === 'customer_not_found' ? 404 : 400
   return json(res, { error: code, message: code }, status)
+}
+
+function groupIntelligenceError(res, error) {
+  const code = error?.message || 'group_intelligence_failed'
+  return json(res, { error: code }, code === 'report_not_found' ? 404 : 400)
 }
 
 function decodePathPart(part) {
