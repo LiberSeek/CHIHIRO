@@ -245,7 +245,7 @@ export function createOneBotAccountConnector(
       terminate(error)
       emitClosed({ code: 1011, reason: 'websocket error', wasClean: false })
       if (socket.readyState === CONNECTING || socket.readyState === OPEN) {
-        socket.close(1011, 'websocket error')
+        socket.close(4000, 'websocket error')
       }
     }
     const onClose = (event: CloseEvent) => {

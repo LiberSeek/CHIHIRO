@@ -8,6 +8,7 @@ export default defineConfig({
   plugins: [vue(), yaml()],
   resolve: {
     alias: {
+      '@': fileURLToPath(new URL('../../../', import.meta.url)),
       '@renderer': fileURLToPath(new URL('./src', import.meta.url)),
       '@chihiro/im-native': fileURLToPath(new URL('./', import.meta.url)),
     },

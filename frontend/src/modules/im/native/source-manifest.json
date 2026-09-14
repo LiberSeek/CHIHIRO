@@ -379,7 +379,8 @@
     {
       "path": "src/function/connect.ts",
       "upstreamPath": "function/connect.ts",
-      "sha256": "54e846402e619454fa8fd4180e0fe8e2ec8a463b4022e9f43f743a7cd81b1be1"
+      "sha256": "16a214cff5f3a8a4360a3cb6cb4c20a0dfa0a7f254665ae69188b67fc8b74940",
+      "extractedSha256": "54e846402e619454fa8fd4180e0fe8e2ec8a463b4022e9f43f743a7cd81b1be1"
     },
     {
       "path": "src/function/elements/information.ts",
@@ -424,7 +425,7 @@
     {
       "path": "src/function/msg.ts",
       "upstreamPath": "function/msg.ts",
-      "sha256": "f064342b6a46a4bbc4d4ae4b25519919cfee572c0131f32ba33445c8d49fc063",
+      "sha256": "66d21192fe1b5d404fab35face8015dc170a3e574fd783ea8678d622c4d3c075",
       "extractedSha256": "6a2cefefc07e90c244c3458f68f4b823cdab46928c804d7641c32c1af28003fe"
     },
     {

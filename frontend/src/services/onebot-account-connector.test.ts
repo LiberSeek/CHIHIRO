@@ -34,6 +34,9 @@ class FakeSocket implements OneBotWebSocket {
   }
 
   close(code?: number, reason?: string): void {
+    if (code !== undefined && code !== 1000 && (code < 3000 || code > 4999)) {
+      throw new DOMException('Invalid browser WebSocket close code', 'InvalidAccessError')
+    }
     this.closeCalls.push([code, reason])
     this.readyState = 3
   }
@@ -197,7 +200,7 @@ describe('OneBot account connector', () => {
     const errored = setup()
     errored.socket.error()
     await expect(errored.connecting).rejects.toThrow('failed')
-    expect(errored.socket.closeCalls).toEqual([[1011, 'websocket error']])
+    expect(errored.socket.closeCalls).toEqual([[4000, 'websocket error']])
 
     const { socket, connection } = await connected()
     const events: string[] = []
