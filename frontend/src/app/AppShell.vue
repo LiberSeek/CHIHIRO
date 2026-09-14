@@ -49,6 +49,9 @@ function selectAccount(event: Event) {
         <RouterLink to="/assistant" class="nav-link" active-class="is-active">
           <span aria-hidden="true">✎</span>会话助手
         </RouterLink>
+        <RouterLink to="/customers" class="nav-link" active-class="is-active">
+          <span aria-hidden="true">◎</span>客户资料
+        </RouterLink>
       </nav>
 
       <main class="app-content" :class="{ 'workspace-content': route.name === 'agent' || route.name === 'im' }">
