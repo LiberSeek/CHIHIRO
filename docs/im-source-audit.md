@@ -36,4 +36,6 @@ The source also imports Node's `querystring`; Vite externalizes it for browser c
 
 ## Validation and limits
 
+2026-09-14 strict compilation update: the source inventory is now 116 files, including the product-owned `src/env.d.ts`. The unified TypeScript and Vite builds pass after native aliases, actual dependency typings, provider mapping result types, optional-value guards and component event contracts were repaired. The manifest preserves the original extracted hashes for modified files. Four native message mapping tests cover recent contacts, absent file results, malformed JSONPath and account placeholders. These checks do not verify missing runtime globs, account isolation or real QQ sends; `UserJsonSegComp` still requires a dynamic dependency audit before route activation.
+
 `node frontend/src/modules/im/native/verify-source.mjs` verifies 115 files, hashes, and bootstrap exclusion. `npm run build:im-native --workspace frontend` builds the real exports from `index.ts` with 961 transformed modules and emits the referenced CSS assets. `git diff --check` verifies patch formatting. Build warnings remain for type-only imports that upstream did not mark with `import type`, Node/browser externalization, and dynamic/static chunk overlap. No runtime, visual, account-isolation, or protocol claim is made by this build proof.
