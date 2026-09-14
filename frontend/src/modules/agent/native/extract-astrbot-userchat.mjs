@@ -20,6 +20,7 @@ const extensions = ['', '.ts', '.js', '.mjs', '.vue', '.json', '.scss', '.css']
 const visited = new Set()
 const dependencies = new Set()
 const unresolved = new Set()
+const excludedSourceFiles = new Set(['composables/useChihiroEmbed.ts'])
 
 if (!existsSync(entry)) {
   throw new Error(`AstrBot UserChat source not found: ${entry}`)
@@ -122,10 +123,29 @@ function adaptSource(sourcePath, source) {
 
   if (sourcePath === 'components/user/UserChat.vue') {
     adapted = adapted
+      .replace("      'chihiro-embed': isChihiroEmbed,\n      'chihiro-sidebar': isChihiroSidebar,\n      'chihiro-thread': isChihiroThread,\n", '')
+      .replace('      v-if="!isChihiroThread"\n', '')
+      .replace('      v-if="!isChihiroSidebar"\n', '')
+      .replace(`import { useChihiroEmbed } from "${sourcePrefix}composables/useChihiroEmbed";\n`, '')
+      .replace(`const {
+  isChihiroEmbed: routeChihiroEmbed,
+  isChihiroSidebar: routeChihiroSidebar,
+  isChihiroThread: routeChihiroThread,
+} = useChihiroEmbed();
+`, '')
+      .replace('const isChihiroEmbed = computed(() => isChihiroHosted.value || routeChihiroEmbed.value);\n', '')
+      .replace('const isChihiroSidebar = computed(() => isChihiroHosted.value ? false : routeChihiroSidebar.value);\n', '')
+      .replace('const isChihiroThread = computed(() => isChihiroHosted.value ? false : routeChihiroThread.value);\n', '')
+      .replace(/function notifyChihiroSession[\s\S]*?\n}\n\nfunction applyChihiroEmbedLayout[\s\S]*?\n}\n\nfunction onChihiroShellMessage[\s\S]*?\n}\n\n/, '')
+      .replace(/  if \(isChihiroEmbed\.value && !isChihiroHosted\.value\) \{[\s\S]*?\n  }\n/, '')
+      .replace('  window.removeEventListener("message", onChihiroShellMessage);\n', '')
+      .replace('  notifyChihiroSession(sessionId);\n', '')
+      .replace(/\.chat-ui\.chihiro-embed \{[\s\S]*?\.chat-ui\.chihiro-thread \.chat-main \{[\s\S]*?\n}\n/, '')
       .replace(
         `    <Teleport\n      :to="props.sidebarTarget || 'body'"\n      :disabled="!isChihiroHosted || !props.sidebarTarget"\n    >`,
         '    <div class="native-chat-sidebar-root">',
       )
+      .replace('    >\n      <div class="sidebar-top">', '    >\n      <slot v-if="isChihiroHosted" name="workspace-tabs" />\n      <div class="sidebar-top">')
       .replace('    </main>\n    </Teleport>', '    </main>\n    </div>')
       .replace(
         `    <Teleport\n      :to="props.mainTarget || 'body'"\n      :disabled="!isChihiroHosted || !props.mainTarget"\n    >`,
@@ -139,10 +159,96 @@ function adaptSource(sourcePath, source) {
       .replace('return props.chatboxMode ? "/chatbox" : "/chat";', 'return props.chihiroHosted ? "/agent" : props.chatboxMode ? "/chatbox" : "/chat";')
   }
 
+  if (sourcePath === 'composables/useMessages.ts') {
+    adapted = adapted
+      .replace(
+        `  async function stopSession(sessionId: string) {
+    if (!sessionId) return;
+    await chatApi.stopSession(sessionId);
+  }`,
+        `  async function stopSession(sessionId: string) {
+    if (!sessionId) return;
+    const sessionConnections = Object.values(activeConnections).filter(
+      (connection) => connection.sessionId === sessionId,
+    );
+    const sessionSockets = new Set(
+      sessionConnections
+        .map((connection) => connection.ws)
+        .filter((ws): ws is WebSocket => Boolean(ws)),
+    );
+
+    for (const connection of sessionConnections) {
+      delete activeConnections[connection.messageId];
+      connection.abort?.abort();
+    }
+    for (const ws of sessionSockets) closeTrackedWebSocket(ws);
+    const socket = chatWebSockets[sessionId];
+    if (socket) closeTrackedWebSocket(socket);
+    delete chatWebSockets[sessionId];
+
+    await chatApi.stopSession(sessionId);
+  }`,
+      )
+      .replace(
+        `  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split("\\n\\n");
+    buffer = events.pop() || "";
+
+    for (const event of events) {
+      const data = event
+        .split("\\n")
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trimStart())
+        .join("\\n");
+      if (!data) continue;
+      try {
+        onPayload(JSON.parse(data));
+      } catch (error) {
+        console.error("Failed to parse SSE payload:", error, data);
+      }
+    }
+  }`,
+        `  const dispatch = (event: string) => {
+    const data = event
+      .split(/\\r?\\n/)
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).trimStart())
+      .join("\\n");
+    if (!data) return;
+    try {
+      onPayload(JSON.parse(data));
+    } catch (error) {
+      console.error("Failed to parse SSE payload:", error, data);
+    }
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) {
+      buffer += decoder.decode();
+      if (buffer) dispatch(buffer);
+      break;
+    }
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split(/\\r?\\n\\r?\\n/);
+    buffer = events.pop() || "";
+
+    for (const event of events) dispatch(event);
+  }`,
+      )
+  }
+
   return adapted
 }
 
-for (const sourceFile of [...visited].sort()) {
+const copiedSourceFiles = [...visited]
+  .filter((sourceFile) => !excludedSourceFiles.has(relative(sourceRoot, sourceFile)))
+  .sort()
+
+for (const sourceFile of copiedSourceFiles) {
   const sourcePath = relative(sourceRoot, sourceFile)
   const destination = join(sourceOutputRoot, sourcePath)
   mkdirSync(dirname(destination), { recursive: true })
@@ -159,10 +265,10 @@ const manifest = {
   upstream: 'https://github.com/AstrBotDevs/AstrBot',
   revision: '8b958b08e7fef3948d750d2891aabd80c0828f76',
   entry: 'components/user/UserChat.vue',
-  files: [...visited].map((file) => relative(sourceRoot, file)).sort(),
+  files: copiedSourceFiles.map((file) => relative(sourceRoot, file)),
   packages: [...dependencies].sort(),
 }
 
 writeFileSync(join(moduleRoot, 'source-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`)
 cpSync(join(sourceRoot, '../../LICENSE'), join(moduleRoot, 'LICENSE'))
-console.log(`Extracted ${visited.size} files from ${entry}`)
+console.log(`Extracted ${copiedSourceFiles.length} files from ${entry}`)

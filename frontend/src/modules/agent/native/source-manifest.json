@@ -68,7 +68,6 @@
     "components/shared/ThemeAwareMarkdownCodeBlock.vue",
     "components/user/UserChat.vue",
     "components/user/UserChatHeader.vue",
-    "composables/useChihiroEmbed.ts",
     "composables/useConfigTextResolver.js",
     "composables/useDragUpload.ts",
     "composables/useMediaHandling.ts",

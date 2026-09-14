@@ -5,14 +5,10 @@
     :class="{
       'is-dark': isDark,
       'sidebar-collapsed': isSidebarCollapsed,
-      'chihiro-embed': isChihiroEmbed,
-      'chihiro-sidebar': isChihiroSidebar,
-      'chihiro-thread': isChihiroThread,
     }"
   >
     <div class="native-chat-sidebar-root">
     <v-navigation-drawer
-      v-if="!isChihiroThread"
       v-model="chatSidebarDrawer"
       class="chat-sidebar"
       :class="{ collapsed: isSidebarCollapsed, 'chihiro-hosted-sidebar': isChihiroHosted, 'is-dark': isDark }"
@@ -339,7 +335,6 @@
 
     <div class="native-chat-main-root">
     <main
-      v-if="!isChihiroSidebar"
       class="chat-main"
       :class="{ 'empty-chat': isEmptyChat, 'chihiro-hosted-main': isChihiroHosted, 'is-dark': isDark }"
       v-on="dragEvents"
@@ -628,7 +623,6 @@ import { useProjects } from "@/modules/agent/native/source/composables/useProjec
 import { useDragUpload } from "@/modules/agent/native/source/composables/useDragUpload";
 import { useChatHeaderStore } from "@/modules/agent/native/source/stores/chatHeader";
 import { useCustomizerStore } from "@/modules/agent/native/source/stores/customizer";
-import { useChihiroEmbed } from "@/modules/agent/native/source/composables/useChihiroEmbed";
 import ProviderChatCompletionPanel from "@/modules/agent/native/source/components/provider/ProviderChatCompletionPanel.vue";
 import {
   useI18n,
@@ -660,15 +654,7 @@ const props = withDefaults(defineProps<UserChatProps>(), {
 
 const route = useRoute();
 const router = useRouter();
-const {
-  isChihiroEmbed: routeChihiroEmbed,
-  isChihiroSidebar: routeChihiroSidebar,
-  isChihiroThread: routeChihiroThread,
-} = useChihiroEmbed();
 const isChihiroHosted = computed(() => props.chihiroHosted === true);
-const isChihiroEmbed = computed(() => isChihiroHosted.value || routeChihiroEmbed.value);
-const isChihiroSidebar = computed(() => isChihiroHosted.value ? false : routeChihiroSidebar.value);
-const isChihiroThread = computed(() => isChihiroHosted.value ? false : routeChihiroThread.value);
 const { lgAndUp } = useDisplay();
 const chatHeader = useChatHeaderStore();
 const customizer = useCustomizerStore();
@@ -1029,42 +1015,7 @@ watch(
   },
 );
 
-function notifyChihiroSession(sessionId: string) {
-  if (!isChihiroSidebar.value || !sessionId) return;
-  try {
-    window.parent.postMessage(
-      { source: "chihiro-chatui", kind: "session", sessionId },
-      "*",
-    );
-  } catch {
-    /* ignore */
-  }
-}
-
-function applyChihiroEmbedLayout() {
-  if (!isChihiroEmbed.value) return;
-  if (isChihiroSidebar.value) {
-    customizer.SET_CHAT_SIDEBAR(true);
-    customizer.SET_CHAT_SIDEBAR_COLLAPSED(false);
-    return;
-  }
-  customizer.SET_CHAT_SIDEBAR(false);
-  customizer.SET_CHAT_SIDEBAR_COLLAPSED(true);
-}
-
-function onChihiroShellMessage(event: MessageEvent) {
-  const data = event.data;
-  if (!data || data.source !== "chihiro-shell") return;
-  if (data.kind === "feature-status" && data.status === "open") {
-    applyChihiroEmbedLayout();
-  }
-}
-
 onMounted(async () => {
-  if (isChihiroEmbed.value && !isChihiroHosted.value) {
-    applyChihiroEmbedLayout();
-    window.addEventListener("message", onChihiroShellMessage);
-  }
   if (typeof ResizeObserver !== "undefined") {
     composerResizeObserver = new ResizeObserver(([entry]) => {
       const container = messagesContainer.value;
@@ -1093,7 +1044,6 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener("message", onChihiroShellMessage);
   composerResizeObserver?.disconnect();
   chatHeader.CLEAR_CONTEXT();
   cleanupMediaCache();
@@ -1408,7 +1358,6 @@ async function selectSession(sessionId: string, pushRoute = true) {
   showChatWorkspace();
   selectedProjectId.value = null;
   currSessionId.value = sessionId;
-  notifyChihiroSession(sessionId);
   replyTarget.value = null;
   if (pushRoute && route.path !== `${basePath()}/${sessionId}`) {
     await router.push(`${basePath()}/${sessionId}`);
@@ -2490,29 +2439,6 @@ kbd {
     margin-bottom: .5rem;
 }
 
-.chat-ui.chihiro-embed {
-  --chat-header-offset: 0px;
-}
-.chat-ui.chihiro-embed .chat-sidebar {
-  top: 0 !important;
-  height: 100% !important;
-}
-.chat-ui.chihiro-sidebar {
-  height: 100%;
-}
-.chat-ui.chihiro-sidebar .chat-sidebar {
-  position: relative !important;
-  width: 100% !important;
-  max-width: none !important;
-  height: 100% !important;
-  transform: none !important;
-  visibility: visible !important;
-}
-.chat-ui.chihiro-thread .chat-main {
-  margin: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-}
 .chat-sidebar.chihiro-hosted-sidebar {
   position: absolute !important;
   inset: 0 auto 0 0 !important;

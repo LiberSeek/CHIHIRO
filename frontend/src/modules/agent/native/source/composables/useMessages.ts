@@ -568,15 +568,11 @@ export function useMessages(options: UseMessagesOptions) {
         .filter((ws): ws is WebSocket => Boolean(ws)),
     );
 
-    // Remove ownership before aborting so stream finally blocks do not report
-    // a normal session refresh after an intentional stop.
     for (const connection of sessionConnections) {
       delete activeConnections[connection.messageId];
       connection.abort?.abort();
     }
-    for (const ws of sessionSockets) {
-      closeTrackedWebSocket(ws);
-    }
+    for (const ws of sessionSockets) closeTrackedWebSocket(ws);
     const socket = chatWebSockets[sessionId];
     if (socket) closeTrackedWebSocket(socket);
     delete chatWebSockets[sessionId];
