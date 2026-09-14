@@ -208,3 +208,9 @@ P5 仍未全部完成：当前 JSON 存储的同步占用只适用于单进程 R
 会话助手 store 已增加 Node 22 `node:sqlite` 实现：默认使用 WAL 数据库和 `BEGIN IMMEDIATE` 事务，旧 `data/agent/state.json` 在首次启动时导入一次；`CHIHIRO_AGENT_STORE=json` 可用于旧环境回退。草稿 claim 使用条件更新，进程并发审批最多只有一个发送者。Node 20 等不带 `node:sqlite` 的环境继续使用原子临时文件替换的 JSON store。
 
 这一步只解决持久化和审批占用，尚未替代完整 outbox、发送顺序、重试/人工确认队列。SQLite 迁移测试已加入后端套件；容器发布仍需在磁盘恢复后完成真实镜像验收。
+
+### 原生 Agent 协议 fixture 验收（2026-09-14）
+
+在不启动 Gateway、AstrBot、NapCat 或 QQ 的前提下，新增 `protocol-acceptance.test.ts`，通过 loopback HTTP fixture 驱动真实生成 API client 与 `useProjects`、`useMediaHandling`：验证 hosted 路径下项目创建/刷新、项目选择、会话归属写入与读取，以及真实 multipart 文件上传返回 attachment ID。随后用同一 fixture 的 SSE 响应驱动 `useMessages`，确认发送体携带该 attachment ID、增量文本进入 bot 记录，并处理服务端以未终止空行关闭的最终 SSE 事件。停止测试确认 AstrBot stop endpoint 与本地 `AbortSignal` 同时生效，且被停止连接不会触发正常刷新回调。新增协议 fixture 3 项，加上 hosted API 与消息流回归共 10 项通过；类型检查、Agent native 构建和 `git diff --check` 通过。
+
+该验收证明的是生成 client、原生 composable 与 Gateway hosted URL/事件形状之间的兼容性，不证明真实 AstrBot 的运行时行为、鉴权令牌、持久化写入、WebSocket、多媒体内容下载或真实客户消息发送；这些仍需使用明确授权的隔离服务目标继续验收。

@@ -559,6 +559,28 @@ export function useMessages(options: UseMessagesOptions) {
 
   async function stopSession(sessionId: string) {
     if (!sessionId) return;
+    const sessionConnections = Object.values(activeConnections).filter(
+      (connection) => connection.sessionId === sessionId,
+    );
+    const sessionSockets = new Set(
+      sessionConnections
+        .map((connection) => connection.ws)
+        .filter((ws): ws is WebSocket => Boolean(ws)),
+    );
+
+    // Remove ownership before aborting so stream finally blocks do not report
+    // a normal session refresh after an intentional stop.
+    for (const connection of sessionConnections) {
+      delete activeConnections[connection.messageId];
+      connection.abort?.abort();
+    }
+    for (const ws of sessionSockets) {
+      closeTrackedWebSocket(ws);
+    }
+    const socket = chatWebSockets[sessionId];
+    if (socket) closeTrackedWebSocket(socket);
+    delete chatWebSockets[sessionId];
+
     await chatApi.stopSession(sessionId);
   }
 
@@ -1382,26 +1404,32 @@ async function readSseStream(
   const decoder = new TextDecoder();
   let buffer = "";
 
+  const dispatch = (event: string) => {
+    const data = event
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).trimStart())
+      .join("\n");
+    if (!data) return;
+    try {
+      onPayload(JSON.parse(data));
+    } catch (error) {
+      console.error("Failed to parse SSE payload:", error, data);
+    }
+  };
+
   while (true) {
     const { value, done } = await reader.read();
-    if (done) break;
+    if (done) {
+      buffer += decoder.decode();
+      if (buffer) dispatch(buffer);
+      break;
+    }
     buffer += decoder.decode(value, { stream: true });
-    const events = buffer.split("\n\n");
+    const events = buffer.split(/\r?\n\r?\n/);
     buffer = events.pop() || "";
 
-    for (const event of events) {
-      const data = event
-        .split("\n")
-        .filter((line) => line.startsWith("data:"))
-        .map((line) => line.slice(5).trimStart())
-        .join("\n");
-      if (!data) continue;
-      try {
-        onPayload(JSON.parse(data));
-      } catch (error) {
-        console.error("Failed to parse SSE payload:", error, data);
-      }
-    }
+    for (const event of events) dispatch(event);
   }
 }
 

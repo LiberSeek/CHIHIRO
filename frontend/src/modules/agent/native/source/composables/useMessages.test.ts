@@ -189,6 +189,40 @@ describe("native AstrBot useMessages SSE behavior", () => {
     expect(messages.isSessionRunning("session-a")).toBe(false);
   });
 
+  it("flushes the final SSE event when AstrBot closes without a blank-line terminator", async () => {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ type: "plain", data: "tail" })}`),
+        );
+        controller.close();
+      },
+    });
+    mockedFetchWithAuth.mockResolvedValueOnce(response(stream));
+    const { messages } = createSubject();
+    const exchange = messages.createLocalExchange({
+      sessionId: "session-a",
+      messageId: "msg-eof",
+      parts: [{ type: "plain", text: "tail" }],
+    });
+
+    messages.sendMessageStream({
+      sessionId: "session-a",
+      messageId: "msg-eof",
+      parts: [{ type: "plain", text: "tail" }],
+      transport: "sse",
+      ...exchange,
+    });
+
+    await waitForCondition(() => {
+      expect(exchange.botRecord.content.message).toEqual([
+        { type: "plain", text: "tail" },
+      ]);
+      expect(messages.isSessionRunning("session-a")).toBe(false);
+    });
+  });
+
   it("aborts the in-flight stream locally and tells AstrBot to stop the session", async () => {
     const { stream } = sseStream([], { close: false });
     mockedFetchWithAuth.mockResolvedValueOnce(response(stream));
@@ -212,7 +246,6 @@ describe("native AstrBot useMessages SSE behavior", () => {
     expect(messages.isSessionRunning("session-a")).toBe(true);
 
     await messages.stopSession("session-a");
-    messages.cleanupConnections();
     await flushPromises();
 
     expect(mockedChatApi.stopSession).toHaveBeenCalledWith("session-a");
