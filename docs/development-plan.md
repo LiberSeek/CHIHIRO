@@ -159,4 +159,6 @@ vendor/                           上游来源和兼容参考
 
 `a6f55e1` 在打开原生 Agent 页面时先等待 Runtime ensure，失败可重试。原生会话 1 → 会话 2 路由与消息切换、创建项目弹层已经通过 mock 浏览器检查。真实写入、流式运行仍待验收。前端 20 项测试及原生构建通过。
 
-IM 提取代理完成 `87cb117`（独立 `codex/im-native-closure` worktree）：88 文件及来源校验通过，但缺少编译依赖、动态资源、全局注册及账号隔离适配。此提交暂未合入 develop，防止破坏当前可构建预览。后续必须补足这些边界再验收。原生 ChatUI 与后端代理本批任务已完成，无活动进程；IM 后续编译/隔离任务另行分配。
+IM 原生闭包已合入并完成 116 文件来源校验。统一前端已补齐 native alias、运行时声明、动态资源插件和严格类型适配；`npm run typecheck:web`、`npm run build:web`、`npm run build:im-native --workspace frontend` 均通过。消息映射、账号边界和 Agent hosted API 回归测试共 33 项前端测试通过。原生 IM 仍未切换为默认工作区模块：其模块级 Connector/Pinia 状态和全局 UI 仍需账号隔离、主题注册和真实 NapCat 会话验收，因此旧壳继续保留。
+
+Docker 镜像已恢复统一前端构建阶段，同时继续将 `apps/web` 作为可回退根入口；镜像构建、容器健康检查和重启恢复仍需在 Docker daemon 可用时执行。`0.0.1` 基线标签保持不变。

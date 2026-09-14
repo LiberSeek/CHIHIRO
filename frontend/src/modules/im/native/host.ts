@@ -1,10 +1,10 @@
-export type Translate = (key: string, values?: Record<string, unknown>) => string
+export type Translate = (key: string, values?: Record<string, unknown> | number) => string
 
 export const uptime = Date.now()
 
 export interface NativeImI18n {
   global: {
-    locale: unknown
+    locale: string | { value: string }
     fallbackLocale: unknown
     t: Translate
     setLocaleMessage(locale: string, messages: unknown): void

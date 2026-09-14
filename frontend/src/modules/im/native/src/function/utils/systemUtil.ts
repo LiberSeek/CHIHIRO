@@ -642,12 +642,12 @@ export async function getApi(url: string) {
  * 复制内容到剪贴板
  * @param text
  */
-export async function copyToClipboard(text: string)
+export async function copyToClipboard(text: string): Promise<void>
 /**
  * 复制内容到剪贴板
  * @param content
  */
-export async function copyToClipboard(content: ClipboardItem[])
+export async function copyToClipboard(content: ClipboardItem[]): Promise<void>
 export async function copyToClipboard(content: ClipboardItem[] | string) {
     if (window.navigator.clipboard === undefined) {
         new PopInfo().add(PopType.ERR, i18n.global.t('当前环境不支持剪贴板操作'))

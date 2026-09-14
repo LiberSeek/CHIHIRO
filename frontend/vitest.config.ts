@@ -8,6 +8,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@renderer': fileURLToPath(new URL('./src/modules/im/native/src', import.meta.url)),
+      '@chihiro/im-native': fileURLToPath(new URL('./src/modules/im/native', import.meta.url)),
     },
   },
   test: {

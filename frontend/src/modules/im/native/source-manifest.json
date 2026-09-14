@@ -23,7 +23,8 @@
     {
       "path": "src/env.d.ts",
       "upstreamPath": null,
-      "sha256": "c51ff10e329624f6693da315343927febf0f5ad7f415afe8a2c034d4e33ae14f"
+      "sha256": "2ce73402381c3a05478de6b77c8f773ce0cf897b96952e44a023eca635dc4519",
+      "extractedSha256": "c51ff10e329624f6693da315343927febf0f5ad7f415afe8a2c034d4e33ae14f"
     },
     {
       "path": "src/assets/css/append/append_full_vibrancy.css",
@@ -273,7 +274,8 @@
     {
       "path": "src/components/user/UserJsonSegComp.vue",
       "upstreamPath": "components/user/UserJsonSegComp.vue",
-      "sha256": "db0bae492040a3b3fab6af4864a6c6770b8ba739459d5cb9eb95aa2772d3d65f"
+      "sha256": "a7cab9d3c8efda550bb3b26bd7caea3b738b7e599b0796a545d64c59b4629a31",
+      "extractedSha256": "db0bae492040a3b3fab6af4864a6c6770b8ba739459d5cb9eb95aa2772d3d65f"
     },
     {
       "path": "src/components/user/UserLazyLottie.vue",
@@ -293,7 +295,8 @@
     {
       "path": "src/components/user/UserMsgBody.vue",
       "upstreamPath": "components/user/UserMsgBody.vue",
-      "sha256": "52387ba4ff41a58814518999375b8b318c05cb43b3a965fb21edac86ff7b0338"
+      "sha256": "219eec2bf82ac95aeab37abd7bcbbcaa136948e69e79b51c746a9dd0f55f3ef7",
+      "extractedSha256": "52387ba4ff41a58814518999375b8b318c05cb43b3a965fb21edac86ff7b0338"
     },
     {
       "path": "src/components/user/UserMusicPlayer.vue",
@@ -308,7 +311,8 @@
     {
       "path": "src/components/user/UserProfilePop.vue",
       "upstreamPath": "components/user/UserProfilePop.vue",
-      "sha256": "40520d0c380b22b215ba8ba543b0df82caef031cebc6b4f53801f1ef311e72a5"
+      "sha256": "89ba604581a108fc35bd6741c42670c0371cc061193213f114f3f57e0e2cf02f",
+      "extractedSha256": "40520d0c380b22b215ba8ba543b0df82caef031cebc6b4f53801f1ef311e72a5"
     },
     {
       "path": "src/components/user/UserQzonePermissionPan.vue",
@@ -343,7 +347,8 @@
     {
       "path": "src/components/user/UserViewerCom.vue",
       "upstreamPath": "components/user/UserViewerCom.vue",
-      "sha256": "afc8ebbadf1a557789e677af4522aa54f3380bd86dc8e36f0448c6a2c1c75205"
+      "sha256": "0dc310537cd6222e83739296d384b13382be4e25a43b2e31cd63d12de899b229",
+      "extractedSha256": "afc8ebbadf1a557789e677af4522aa54f3380bd86dc8e36f0448c6a2c1c75205"
     },
     {
       "path": "src/components/user/UserVoiceMsg.vue",
@@ -413,7 +418,8 @@
     {
       "path": "src/function/msg.ts",
       "upstreamPath": "function/msg.ts",
-      "sha256": "6a2cefefc07e90c244c3458f68f4b823cdab46928c804d7641c32c1af28003fe"
+      "sha256": "c1c6d661a612f6f85fbb0865e2e353fc6dc406c47a03479b0ac9c58ebca233aa",
+      "extractedSha256": "6a2cefefc07e90c244c3458f68f4b823cdab46928c804d7641c32c1af28003fe"
     },
     {
       "path": "src/function/notify.ts",
@@ -438,7 +444,8 @@
     {
       "path": "src/function/utils/appUtil.ts",
       "upstreamPath": "function/utils/appUtil.ts",
-      "sha256": "f365cd0bffbcf023d7a76ffcd0fb4058ddfaed48b4360cffebfa54504c56d694"
+      "sha256": "13780ed1ecde353956d390e54ad396557e74593014c074a6b97a8f6d968f786e",
+      "extractedSha256": "f365cd0bffbcf023d7a76ffcd0fb4058ddfaed48b4360cffebfa54504c56d694"
     },
     {
       "path": "src/function/utils/backgroundUtil.ts",
@@ -458,7 +465,8 @@
     {
       "path": "src/function/utils/msgUtil.ts",
       "upstreamPath": "function/utils/msgUtil.ts",
-      "sha256": "674b1680694e122125be16cf7d78a9895fa94d9d203679c09301d57aa7fb3038"
+      "sha256": "cbf6c674cbb9fadb97e87b977625cdaad71d5357441ff6f8409f0120425a8fe1",
+      "extractedSha256": "674b1680694e122125be16cf7d78a9895fa94d9d203679c09301d57aa7fb3038"
     },
     {
       "path": "src/function/utils/pinyin.ts",
@@ -478,7 +486,8 @@
     {
       "path": "src/function/utils/systemUtil.ts",
       "upstreamPath": "function/utils/systemUtil.ts",
-      "sha256": "71845d0508492cebe91bd0e7a514c6282d6c71c7e9d8b912b3fca51bd3e95137"
+      "sha256": "6c774275174479842ca136c2a0d3f7174a3bf4da05b1b09d96c375266ea4ffad",
+      "extractedSha256": "71845d0508492cebe91bd0e7a514c6282d6c71c7e9d8b912b3fca51bd3e95137"
     },
     {
       "path": "src/package-info.ts",
@@ -488,7 +497,8 @@
     {
       "path": "src/pages/user/UserChat.vue",
       "upstreamPath": "pages/user/UserChat.vue",
-      "sha256": "45204dcd1251b456692c72023973b9e5ac755bb3df5a3b057512e055ebbe388a"
+      "sha256": "8912f0f1fd914d48a318510c553ce1e3f8c3c492eb216ea3530956b2666d5da3",
+      "extractedSha256": "45204dcd1251b456692c72023973b9e5ac755bb3df5a3b057512e055ebbe388a"
     },
     {
       "path": "src/pages/user/UserFriends.vue",
@@ -498,12 +508,14 @@
     {
       "path": "src/pages/user/UserInfo.vue",
       "upstreamPath": "pages/user/UserInfo.vue",
-      "sha256": "3aa5dbca03e38ad0a4c32c16d6cb819e592126315fb0f0ad64c9e25ce68669d9"
+      "sha256": "e49f15960147d2b0e47eb696d3a0bac079fa020ee6b453fc77243d8ae8e65f96",
+      "extractedSha256": "3aa5dbca03e38ad0a4c32c16d6cb819e592126315fb0f0ad64c9e25ce68669d9"
     },
     {
       "path": "src/pages/user/UserMessages.vue",
       "upstreamPath": "pages/user/UserMessages.vue",
-      "sha256": "c31c9d735b0c0d416ddbb068cc4b4c756f6436733291e041631c84406e8b7985"
+      "sha256": "e071b8d7239ed5f602499f00eaaf446f24bd3c6a66ff8a0580726d083001e61c",
+      "extractedSha256": "c31c9d735b0c0d416ddbb068cc4b4c756f6436733291e041631c84406e8b7985"
     },
     {
       "path": "src/pages/user/UserOptAccount.vue",

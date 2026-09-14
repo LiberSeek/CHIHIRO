@@ -13,6 +13,15 @@ COPY frontend/package.json ./frontend/package.json
 COPY backend/package.json ./backend/package.json
 RUN npm ci --omit=dev && npm cache clean --force
 
+FROM ${NODE_IMAGE} AS frontend-build
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY frontend/package.json ./frontend/package.json
+COPY backend/package.json ./backend/package.json
+RUN npm ci
+COPY frontend ./frontend
+RUN npm --prefix frontend run build
+
 FROM ${NODE_IMAGE} AS runtime
 WORKDIR /app
 
@@ -22,6 +31,7 @@ COPY --from=dependencies --chown=node:node /app/node_modules ./node_modules
 COPY --chown=node:node package.json package-lock.json ./
 COPY --chown=node:node backend ./backend
 COPY --chown=node:node apps ./apps
+COPY --from=frontend-build --chown=node:node /app/frontend/dist ./frontend/dist
 COPY --chown=node:node config/chihiro.default.json ./config/chihiro.default.json
 COPY --chown=node:node deploy ./deploy
 

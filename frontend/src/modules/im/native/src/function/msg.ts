@@ -639,7 +639,7 @@ const msgFunctions = {
      * 保存 Bot 信息
      */
     getVersionInfo: (_: string, msg: { [key: string]: any }) => {
-        const data = getMsgData('version_info', msg, msgPath.version_info)[0]
+        const data = getMsgData('version_info', msg, msgPath.version_info)?.[0]
 
         if (data) {
             // 如果 runtime 存在（即不是第一次连接），且 app_name 不同，重置 runtime
@@ -1053,9 +1053,9 @@ const msgFunctions = {
         const chatStore = useChatStore()
         // chatStore.chatInfo.info.user_info =
         //     msg.data.data.result.buddy.info_list[0]
-        const data = getMsgData('friend_info', msg, msgPath.friend_info)[0]
-        data.regTime = new Date(data.reg_time).getTime()
+        const data = getMsgData('friend_info', msg, msgPath.friend_info)?.[0]
         if (data) {
+            data.regTime = new Date(data.reg_time).getTime()
             chatStore.chatInfo.info.user_info = data
         }
     },
@@ -1135,7 +1135,7 @@ const msgFunctions = {
         })
         // 寻找 item
         const folderId = echoList[1]
-        const folder = chatStore.chatInfo.info.group_files.find((item) => {
+        const folder = chatStore.chatInfo.info.group_files.find((item: GroupFileFolderElem) => {
             return item.folder_id == folderId
         })
         if (folder) {
@@ -1147,7 +1147,8 @@ const msgFunctions = {
      * 下载文件（聊天中）
      */
     downloadFile: (_: string, msg: { [key: string]: any }, echoList: string[]) => {
-        const data = getMsgData('file_download', msg, msgPath.file_download)[0]
+        const data = getMsgData('file_download', msg, msgPath.file_download)?.[0]
+        if (!data?.file_url) throw new Error('File download response is missing its URL')
         const url = data.file_url
 
         const fileName = decodeURIComponent(atob(echoList[2]))
@@ -1166,7 +1167,8 @@ const msgFunctions = {
      * 下载文件（群文件）
      */
     downloadGroupFile: (_: string, msg: { [key: string]: any }, echoList: string[]) => {
-        const data = getMsgData('file_download', msg, msgPath.file_download)[0]
+        const data = getMsgData('file_download', msg, msgPath.file_download)?.[0]
+        if (!data?.file_url) throw new Error('Group file download response is missing its URL')
         const url = data.file_url
 
         const fileName = decodeURIComponent(atob(echoList[2]))
@@ -1190,7 +1192,8 @@ const msgFunctions = {
         echoList: string[],
     ) => {
         const chatStore = useChatStore()
-        const data = getMsgData('file_download', msg, msgPath.file_download)[0]
+        const data = getMsgData('file_download', msg, msgPath.file_download)?.[0]
+        if (!data?.file_url) throw new Error('File preview response is missing its URL')
         let url = data.file_url
         const msgId = echoList[1]
         const ext = echoList[2]

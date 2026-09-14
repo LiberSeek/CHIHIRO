@@ -36,8 +36,8 @@ export function getMsgData(
     name: string,
     msg: { [key: string]: any },
     map: string | { [key: string]: any },
-) {
-    let back = undefined as any
+): any[] | undefined {
+    let back: any[] | undefined
     // 解析数据
     if (map != undefined) {
         if (typeof map == 'string' || map.source != undefined) {
@@ -186,7 +186,7 @@ export function parseMsgList(
                         map,
                     )
                     // 如果 data 里有 type 字段，改成 type_item
-                    if (data[0] && data[0]['type'] != undefined) {
+                    if (data?.[0] && data[0]['type'] != undefined) {
                         data[0]['type_item'] = data[0]['type']
                         delete data[0]['type']
                     }
@@ -821,7 +821,7 @@ export function isShowTime(
  * @param level QQ 等级
  * @returns 图标数量
  */
-export function qqLevelIcons(level) {
+export function qqLevelIcons(level: number) {
     const result = {
         crown: 0,  // 皇冠
         sun: 0,    // 太阳
@@ -848,7 +848,7 @@ export function qqLevelIcons(level) {
  * @param level QQ 等级
  * @returns 表情字符串
  */
-export function qqLevelToEmoji(level) {
+export function qqLevelToEmoji(level: number) {
     const rawLevel = level
     if (level <= 0) return level
 
@@ -990,8 +990,8 @@ export function getDifferencesWithRanges(a: string, b: string) {
  * lgr专用发送消息，懒得写了，不做通用适配，胡乱应付下吧
  * @param msg 消息内容
  */
-function lgrSendMsg(id: string, msg: any, type: string, cb: string) {
-    if (msg[0].type === 'node') {
+function lgrSendMsg(id: string, msg: string | { type: string; data: any }[], type: string, cb: string) {
+    if (Array.isArray(msg) && msg[0]?.type === 'node') {
         const sendMsgs = [] as any[]
         msg.forEach((item) => {
             const msg = {
@@ -999,12 +999,11 @@ function lgrSendMsg(id: string, msg: any, type: string, cb: string) {
                 data: {
                     user_id: item.data.user_id.toString(),
                     nickname: item.data.nickname,
-                    content: item.data.content.map((item) => {
-                        const copy = { ...item }
-                        delete copy.type
+                    content: item.data.content.map((item: { type: string; [key: string]: unknown }) => {
+                        const { type, ...copy } = item
                         return {
-                            type: item.type,
-                            data: { ...copy }
+                            type,
+                            data: copy
                         }
                     }),
                 },

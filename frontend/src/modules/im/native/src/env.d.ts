@@ -2,7 +2,7 @@
 
 import type { CapacitorGlobal } from '@capacitor/core'
 import type { ElectronAPI } from '@electron-toolkit/preload'
-import type { Translate } from '../../host'
+import type { Translate } from '../host'
 
 declare global {
   interface Window {
@@ -40,12 +40,6 @@ declare module 'vue' {
     $copyText(value: string): Promise<void>
   }
 }
-
-declare module 'vue3-danmaku'
-declare module 'markdown-it'
-declare module 'semver'
-declare module 'jsonpath'
-declare module 'animejs'
 
 declare module '*.po' {
   const value: string

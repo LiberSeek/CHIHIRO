@@ -1530,7 +1530,7 @@ export function useKeyboard(...args: [string, ...string[], () => boolean | undef
 
         for (const key of keyList) {
             if (modifierKeys.includes(key)) {
-                if (!event[`${key}Key`]) {
+                if (!event[`${key}Key` as 'ctrlKey' | 'shiftKey' | 'altKey' | 'metaKey']) {
                     allMatch = false
                     break
                 }
@@ -1694,8 +1694,8 @@ function createVMenu(): Directive<HTMLElement, (event: MenuEventData) => void> {
                 menuTouchEnd(event)
                 activeMenu = false
                 // 快速点击则触发点击事件
-                if (Date.now() - touchStartTime < 200)
-                    event.target?.['click']?.()
+                if (Date.now() - touchStartTime < 200 && event.target instanceof HTMLElement)
+                    event.target.click()
             }, options)
             el.addEventListener('pointerdown', (event) => {
                 recordPointerType(event, true)
@@ -1939,7 +1939,7 @@ function createVMove<T extends HTMLElement>(): Directive<T, VMoveOptions<T>> {
                 return el.getBoundingClientRect().width * option.value / 100
             }
             const getLimit = (type: 'left' | 'right') => {
-                const option: { type: 'px' | '%', value: number } = options?.[type + 'Limit']
+                const option = options?.[type === 'left' ? 'leftLimit' : 'rightLimit']
                 if (!option) return 0
                 return getPxValue(option)
             }
