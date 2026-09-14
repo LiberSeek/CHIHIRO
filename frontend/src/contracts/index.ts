@@ -18,6 +18,7 @@ export interface ConversationKey {
 export interface AccountContext {
   id: AccountId
   label: string
+  avatar?: string
   platform: 'qq'
   status: 'offline' | 'connecting' | 'online' | 'error'
 }

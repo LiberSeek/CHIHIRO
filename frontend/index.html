@@ -1,10 +1,22 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark" data-theme-mode="dark">
   <head>
     <meta charset="UTF-8" />
     <meta id="viewport" name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0e1726" />
-    <title>千寻 · AI IM</title>
+    <script>
+      (function () {
+        var mode = 'dark'
+        try { mode = localStorage.getItem('chihiro-theme') || 'dark' } catch (e) {}
+        if (mode !== 'light' && mode !== 'dark' && mode !== 'system') mode = 'dark'
+        var resolved = mode === 'system'
+          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : mode
+        document.documentElement.dataset.theme = resolved
+        document.documentElement.dataset.themeMode = mode
+      })()
+    </script>
+    <meta name="theme-color" content="#1c1c1e" />
+    <title>千寻IM - 千人千面, 千与千寻</title>
   </head>
   <body>
     <div id="app"></div>

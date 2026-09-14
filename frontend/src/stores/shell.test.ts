@@ -76,4 +76,17 @@ describe('runtime account shell', () => {
     expect(shell.activeAccountId).toBeNull()
     expect(shell.error).toBe('')
   })
+
+  it('starts a new QQ account and adopts the returned selection', async () => {
+    const fetcher = vi.fn().mockResolvedValue(response(state(b)))
+    vi.stubGlobal('fetch', fetcher)
+    const shell = useShellStore()
+    await shell.addAccount()
+    expect(fetcher).toHaveBeenCalledWith('/api/runtime/start', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ client: 'qq', mode: 'new' }),
+    }))
+    expect(shell.activeAccountId).toBe(b)
+    expect(shell.adding).toBe(false)
+  })
 })

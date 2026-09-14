@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, onBeforeUnmount, provide, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import DOMPurify from 'dompurify'
 import { useShellStore } from '@/stores/shell'
 import { useAssistantStore } from '@/modules/assistant/session'
@@ -12,6 +12,7 @@ import { useAuthStore } from './native/src/state/auth'
 import { useChatStore } from './native/src/state/chat'
 import { useContactStore } from './native/src/state/contact'
 import { useUIStore } from './native/src/state/ui'
+import { useSettingsStore } from './native/src/state/settings'
 import { loadHistory } from './native/src/function/utils/appUtil'
 import { PopInfo, popList } from './native/src/function/base'
 import type { BaseChatInfoElem } from './native/src/function/elements/information'
@@ -19,6 +20,7 @@ import UserMessages from './native/src/pages/user/UserMessages.vue'
 import UserFriends from './native/src/pages/user/UserFriends.vue'
 import UserChat from './native/src/pages/user/UserChat.vue'
 import UserSystemNotice from './native/src/pages/user/UserSystemNotice.vue'
+import UserOptions from './native/src/pages/user/UserOptions.vue'
 import UserViewer from './native/src/components/user/UserViewerCom.vue'
 import UserTooltips from './native/src/components/user/tooltip/UserTooltips.vue'
 import UserFileManager, { panelVisible } from './native/src/components/user/UserFileManager.vue'
@@ -27,16 +29,19 @@ const sessions = inject(accountSessionManagerKey)!
 const shell = useShellStore()
 const assistant = useAssistantStore()
 const route = useRoute()
+const router = useRouter()
 const chat = useChatStore()
 const contacts = useContactStore()
 const auth = useAuthStore()
 const ui = useUIStore()
+const settings = useSettingsStore()
 const viewer = ref<InstanceType<typeof UserViewer>>()
 provide('viewer', { viewer })
 const error = ref('')
 let generation = 0
 let detach: (() => void) | undefined
 const hasChat = computed(() => chat.chatInfo.show.id !== 0)
+const showSettings = computed(() => route.query.settings === '1')
 const modal = computed(() => ui.popBoxList[0])
 const safeModalHtml = computed(() => DOMPurify.sanitize(modal.value?.html ?? ''))
 const popInfo = new PopInfo()
@@ -102,9 +107,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="chihiro-native-im bp-light" aria-label="消息与联系人">
-    <Teleport to="body"><div id="chihiro-im-overlays" class="bp-light" /></Teleport>
-    <div id="base-app" :class="{ 'native-has-chat': hasChat }">
+  <section class="chihiro-native-im" aria-label="消息与联系人">
+    <Teleport to="body"><div id="chihiro-im-overlays" /></Teleport>
+    <div v-if="showSettings" class="native-options">
+      <button type="button" class="native-options-close" aria-label="返回消息" title="返回消息" @click="router.push('/im')">×</button>
+      <UserOptions show class="active" :config="settings.sysConfig" />
+    </div>
+    <div v-else id="base-app" :class="{ 'native-has-chat': hasChat }">
       <aside class="native-list">
         <UserFriends v-if="route.query.tab === 'contacts'" :key="shell.activeAccountId ?? 'none'" :list="contacts.userList" @user-click="changeChat" @load-history="loadHistory" />
         <UserMessages v-else :key="shell.activeAccountId ?? 'none'" :chat="chat.chatInfo" @user-click="changeChat" @load-history="loadHistory" />
@@ -135,7 +144,13 @@ onBeforeUnmount(() => {
 
 <style>
 .chihiro-native-im { width:100%; height:100%; min-height:0; color:var(--color-font); --safe-area-top:0px; --safe-area-bottom:0px; --chihiro-list-width:280px; --color-font-3:#a6a6a6; --color-bg-yellow:#fff7d9; --color-bg-red:#ffe5e5; }
+#chihiro-im-overlays { position:fixed; z-index:1100; inset:0; width:0; height:0; overflow:visible; pointer-events:none; }
+#chihiro-im-overlays>* { pointer-events:auto; }
 .chihiro-native-im #base-app { display:grid; grid-template-columns:280px minmax(0,1fr); overflow:hidden; }
+.chihiro-native-im .native-options { position:relative; width:100%; height:100%; min-height:0; overflow:hidden; background:var(--color-bg); }
+.chihiro-native-im .native-options>.opt-main { width:100%; height:100%!important; }
+.chihiro-native-im .native-options-close { position:absolute; z-index:20; top:16px; right:18px; display:grid; width:32px; height:32px; place-items:center; padding:0; border:0; border-radius:50%; color:var(--color-font-1); background:var(--color-card-1); cursor:pointer; font-size:22px; line-height:1; }
+.chihiro-native-im .native-options-close:hover { color:var(--color-font); background:var(--color-card-2); }
 .chihiro-native-im .native-list { min-height:0; border-right:1px solid #e5e5e5; }
 .chihiro-native-im .native-chat { min-width:0; min-height:0; position:relative; }
 .chihiro-native-im #base-app .friend-view, .chihiro-native-im #base-app .friend-list-container, .chihiro-native-im #base-app .friend-list { width:100% !important; height:100%; min-width:0 !important; }
