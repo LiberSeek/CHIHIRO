@@ -19,12 +19,18 @@ export function parseRuntimeAccounts(value: unknown): { accounts: AccountContext
     }
     ids.add(item.id)
     const avatar = typeof item.avatar === 'string' && /^https?:\/\//.test(item.avatar) ? item.avatar : undefined
+    const instanceId = typeof item.instanceId === 'string' && item.instanceId.trim() ? item.instanceId : undefined
+    const unread = typeof item.unread === 'number' && Number.isFinite(item.unread) ? Math.max(0, Math.floor(item.unread)) : undefined
     return {
       id: accountId(item.id),
       label: [item.label, item.nickname, item.id].find((label): label is string => typeof label === 'string' && Boolean(label.trim()))!,
       ...(avatar ? { avatar } : {}),
+      ...(instanceId ? { instanceId } : {}),
       platform: 'qq',
       status: item.online === true ? 'online' : 'offline',
+      ...(item.botEnabled === true ? { botEnabled: true } : {}),
+      ...(item.botWired === true ? { botWired: true } : {}),
+      ...(unread !== undefined ? { unread } : {}),
     }
   })
   const selected = value.accounts.activeId
@@ -33,6 +39,28 @@ export function parseRuntimeAccounts(value: unknown): { accounts: AccountContext
 
 function messageFrom(value: unknown, fallback: string): string {
   return record(value) && typeof value.message === 'string' && value.message.trim() ? value.message : fallback
+}
+
+export interface RuntimeClient {
+  id: string
+  name: string
+  badge: string
+  enabled: boolean
+  hint?: string
+}
+
+export function parseRuntimeClients(value: unknown): RuntimeClient[] {
+  if (!record(value) || !Array.isArray(value.clients)) throw new Error('客户端列表响应格式无效')
+  return value.clients.flatMap((item): RuntimeClient[] => {
+    if (!record(item) || typeof item.id !== 'string' || typeof item.name !== 'string') return []
+    return [{
+      id: item.id,
+      name: item.name,
+      badge: typeof item.badge === 'string' && item.badge ? item.badge : item.name.slice(0, 2),
+      enabled: item.enabled === true,
+      ...(typeof item.hint === 'string' && item.hint ? { hint: item.hint } : {}),
+    }]
+  })
 }
 
 export const useShellStore = defineStore('shell', () => {
@@ -47,11 +75,36 @@ export const useShellStore = defineStore('shell', () => {
   const pendingAdd = ref(false)
   const qrReady = ref(false)
   const qrVersion = ref(0)
+  const clients = ref<RuntimeClient[]>([{ id: 'qq', name: 'QQ', badge: 'QQ', enabled: true }])
   const activeAccount = computed(() => accounts.value.find(account => account.id === activeAccountId.value) ?? null)
   let requestVersion = 0
   let selectionVersion = 0
   let loginVersion = 0
   let controller: AbortController | undefined
+
+  function sameAccount(a: AccountContext, b: AccountContext) {
+    return a.id === b.id &&
+      a.label === b.label &&
+      a.avatar === b.avatar &&
+      a.instanceId === b.instanceId &&
+      a.platform === b.platform &&
+      a.status === b.status &&
+      a.botEnabled === b.botEnabled &&
+      a.botWired === b.botWired &&
+      a.unread === b.unread
+  }
+
+  function mergeAccounts(nextAccounts: AccountContext[]) {
+    const currentById = new Map(accounts.value.map(account => [account.id, account]))
+    const next = nextAccounts.map(account => {
+      const current = currentById.get(account.id)
+      const withLocalUnread = account.unread === undefined && current?.unread ? { ...account, unread: current.unread } : account
+      return current && sameAccount(current, withLocalUnread) ? current : withLocalUnread
+    })
+    const unchanged = next.length === accounts.value.length &&
+      next.every((account, index) => account === accounts.value[index])
+    if (!unchanged) accounts.value = next
+  }
 
   function applyRuntimeState(value: unknown, preserveSelection = true) {
     const state = parseRuntimeAccounts(value)
@@ -67,7 +120,7 @@ export const useShellStore = defineStore('shell', () => {
         qrVersion.value = 0
       }
     }
-    accounts.value = state.accounts
+    mergeAccounts(state.accounts)
     const selectedStillExists = state.accounts.some(account => account.id === activeAccountId.value)
     if (!preserveSelection || !selectedStillExists) activeAccountId.value = state.activeId ?? state.accounts[0]?.id ?? null
     return state
@@ -106,7 +159,27 @@ export const useShellStore = defineStore('shell', () => {
     }
   }
 
-  async function addAccount() {
+  function setAccountUnread(id: AccountId, count: number) {
+    const unread = Math.max(0, Math.floor(Number.isFinite(count) ? count : 0))
+    const index = accounts.value.findIndex(account => account.id === id)
+    if (index < 0 || accounts.value[index].unread === unread) return
+    const next = accounts.value.slice()
+    next[index] = { ...next[index], ...(unread > 0 ? { unread } : { unread: undefined }) }
+    accounts.value = next
+  }
+
+  async function refreshClients() {
+    try {
+      const response = await fetch('/api/runtime/clients', { cache: 'no-store' })
+      if (!response.ok) throw new Error(`无法加载客户端（HTTP ${response.status}）`)
+      const list = parseRuntimeClients(await response.json())
+      if (list.length) clients.value = list
+    } catch (cause) {
+      error.value = cause instanceof Error ? cause.message : '无法加载客户端'
+    }
+  }
+
+  async function addAccount(client = 'qq') {
     if (adding.value || accountAction.value) return
     const version = ++loginVersion
     adding.value = true
@@ -114,7 +187,7 @@ export const useShellStore = defineStore('shell', () => {
     try {
       const response = await fetch('/api/runtime/start', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client: 'qq', mode: 'new' }),
+        body: JSON.stringify({ client, mode: 'new' }),
       })
       const body: unknown = await response.json().catch(() => ({}))
       if (version !== loginVersion) return
@@ -218,7 +291,7 @@ export const useShellStore = defineStore('shell', () => {
 
   return {
     activeAccountId, activeAccount, accounts, loading, adding, accountAction, error,
-    runtimePhase, runtimeMessage, pendingAdd, qrReady, qrVersion,
-    selectAccount, refreshAccounts, addAccount, reloginAccount, refreshLoginQr, removeAccount, cancelLogin, cancelRefresh,
+    runtimePhase, runtimeMessage, pendingAdd, qrReady, qrVersion, clients,
+    selectAccount, setAccountUnread, refreshAccounts, refreshClients, addAccount, reloginAccount, refreshLoginQr, removeAccount, cancelLogin, cancelRefresh,
   }
 })

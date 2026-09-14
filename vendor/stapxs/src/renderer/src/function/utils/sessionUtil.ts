@@ -4,6 +4,25 @@ export function getSessionId(item: Session) {
     return Number(item.user_id ?? item.group_id)
 }
 
+export function getSessionTime(item: Pick<Session, 'time'>) {
+    const time = Number(item.time ?? 0)
+    if (!Number.isFinite(time) || time <= 0) return 0
+    return time < 1_000_000_000_000 ? time * 1000 : time
+}
+
+export function compareSessionsByRecency(a: Session, b: Session) {
+    const timeDelta = getSessionTime(b) - getSessionTime(a)
+    if (timeDelta !== 0) return timeDelta
+    return getSessionId(a) - getSessionId(b)
+}
+
+export function shouldApplySessionPreview(
+    session: Pick<Session, 'time' | 'raw_msg'>,
+    preview: Pick<Session, 'time'>,
+) {
+    return !session.raw_msg || getSessionTime(preview) >= getSessionTime(session)
+}
+
 export function findSessionContact(
     contacts: Session[],
     sessionId: number,
@@ -84,6 +103,65 @@ export function mergeSessionState(
         copyDefinedSessionState(contact, currentSession, key),
     )
     return contact
+}
+
+type ContactKind = 'friend' | 'group'
+
+function isContactKind(item: Session, kind: ContactKind) {
+    if (kind === 'friend') return Boolean(item.user_id)
+    return Boolean(item.group_id) && !item.user_id
+}
+
+function replaceStaticContactData(
+    currentContact: Session,
+    nextContact: Session,
+) {
+    const sessionState: Record<string, unknown> = {}
+    SESSION_STATE_KEYS.forEach((key) => {
+        const value = currentContact[key]
+        if (value !== undefined && nextContact[key] === undefined) {
+            sessionState[key] = value
+        }
+    })
+
+    Object.keys(currentContact).forEach((key) => {
+        delete (currentContact as unknown as Record<string, unknown>)[key]
+    })
+    Object.assign(currentContact, nextContact, sessionState)
+    return currentContact
+}
+
+export function mergeContactListByKind(
+    currentContacts: Session[],
+    incomingContacts: Session[],
+    kind: ContactKind,
+) {
+    const existingById = new Map<number, Session>()
+    currentContacts.forEach((item) => {
+        if (isContactKind(item, kind)) {
+            existingById.set(getSessionId(item), item)
+        }
+    })
+
+    const mergedIncoming = incomingContacts.map((item) => {
+        const current = existingById.get(getSessionId(item))
+        return current ? replaceStaticContactData(current, item) : item
+    })
+
+    const friends = kind === 'friend'
+        ? mergedIncoming
+        : currentContacts.filter((item) => isContactKind(item, 'friend'))
+    const groups = kind === 'group'
+        ? mergedIncoming
+        : currentContacts.filter((item) => isContactKind(item, 'group'))
+    const others = currentContacts.filter((item) => {
+        return !isContactKind(item, 'friend') && !isContactKind(item, 'group')
+    })
+
+    return {
+        all: friends.concat(groups, others),
+        incoming: mergedIncoming,
+    }
 }
 
 /**

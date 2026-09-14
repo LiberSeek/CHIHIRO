@@ -8,6 +8,7 @@ import { useStickerStore } from './src/state/sticker'
 import { useUIStore } from './src/state/ui'
 import { resetNativeMessageRuntimeState } from './src/function/msg'
 import { resetNativeFileTasks } from './src/components/user/UserFileManager.vue'
+import { clearNativePopups } from './popups'
 
 export function resetNativeAccountState(): void {
   resetNativeMessageRuntimeState()
@@ -72,5 +73,5 @@ export function resetNativeAccountState(): void {
   ui.canLoadHistory = true
   ui.loadHistoryFail = false
   ui.historyBeforeTime = undefined
-  ui.popBoxList = []
+  clearNativePopups()
 }

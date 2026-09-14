@@ -7,12 +7,6 @@
     --color-font-r: #ffffff;
     --color-font-1-r: rgba(255, 255, 255, 0.78);
     --chihiro-list-width: 280px;
-}
-html, body {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif !important;
-    background: var(--color-bg) !important;
-}
-html.bp-dark {
     --color-bg: #1c1c1e;
     --color-card: #2c2c2e;
     --color-card-1: #3a3a3c;
@@ -26,7 +20,27 @@ html.bp-dark {
     --color-font-2: #8e8e93;
     --color-shader: #00000066;
 }
-html.bp-light {
+html, body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif !important;
+    background: var(--color-bg) !important;
+}
+html.bp-dark,
+:root[data-theme="dark"] {
+    --color-bg: #1c1c1e;
+    --color-card: #2c2c2e;
+    --color-card-1: #3a3a3c;
+    --color-card-2: #48484a;
+    --color-bg-rgb: 28, 28, 30;
+    --color-card-rgb: 44, 44, 46;
+    --color-card-1-rgb: 58, 58, 60;
+    --color-card-2-rgb: 72, 72, 74;
+    --color-font: #f5f5f7;
+    --color-font-1: #c7c7cc;
+    --color-font-2: #8e8e93;
+    --color-shader: #00000066;
+}
+html.bp-light,
+:root[data-theme="light"] {
     --color-bg: #ffffff;
     --color-card: #ffffff;
     --color-card-1: #f3f3f3;
@@ -100,9 +114,11 @@ html.bp-light {
 }
 .opt-main {
     background: var(--color-bg) !important;
-    padding: 12px !important;
+    padding: 0 !important;
 }
 .ss-card {
+    background-color: var(--color-card);
+    color: var(--color-font);
     border-radius: 12px !important;
     border: 1px solid rgba(127, 127, 127, 0.12);
 }

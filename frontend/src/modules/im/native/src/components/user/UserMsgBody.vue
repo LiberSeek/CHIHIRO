@@ -28,7 +28,8 @@
         <template v-if="type != 'body'">
             <img v-menu.prevent="event => $emit('showMenu', event, data)"
                 name="avatar"
-                :src="'https://q1.qlogo.cn/g?b=qq&s=0&nk=' + data.sender.user_id"
+                referrerpolicy="no-referrer"
+                :src="backend.proxyUrl('https://q1.qlogo.cn/g?b=qq&s=0&nk=' + data.sender.user_id)"
                 :alt="data.sender.card ? data.sender.card : data.sender.nickname"
                 @click="onAvatarClick"
                 @dblclick="sendPoke">
@@ -96,13 +97,15 @@
                             class="msg-md" />
                         <img v-else-if="item.type == 'image' && item.file == 'marketface'"
                             :class=" imgStyle(data.message.length, Number(index), true) + ' msg-mface'"
-                            :src="item.url"
+                            referrerpolicy="no-referrer"
+                            :src="getImgSrc(item.url)"
                             :alt="item.summary"
                             @load="imageLoaded"
                             @error="imgLoadFail">
                         <img v-else-if="item.type == 'mface'"
                             :class=" imgStyle(data.message.length, Number(index), true) + ' msg-mface'"
-                            :src="item.url"
+                            referrerpolicy="no-referrer"
+                            :src="getImgSrc(item.url)"
                             :alt="item.summary"
                             @load="imageLoaded"
                             @error="imgLoadFail">
@@ -122,11 +125,12 @@
                                 :title="(!item.summary || item.summary == '') ? $t('预览图片') : item.summary"
                                 :alt="$t('图片')"
                                 :class=" imgStyle(data.message.length, Number(index), isFace(item))"
+                                referrerpolicy="no-referrer"
                                 :src="getImgSrc(item.url)"
                                 data-type="image"
                                 @load="imageLoaded"
                                 @error="imgLoadFail"
-                                @click="imgClick(item.url)">
+                                @click="imgClick(item.url, getImgSrc(item.url))">
                         </template>
                         <template v-else-if="item.type == 'face'">
                             <EmojiFace :emoji="Emoji.get(Number(item.id))" class="msg-face" />
@@ -163,7 +167,8 @@
                             <div v-if="data.fileView && Object.keys(data.fileView).length > 0"
                                 class="file-view">
                                 <img v-if="['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(data.fileView.ext)"
-                                    :src="data.fileView.url">
+                                    referrerpolicy="no-referrer"
+                                    :src="getImgSrc(data.fileView.url)">
                                 <video v-else-if="['mp4', 'avi', 'mkv', 'flv'].includes(data.fileView.ext)"
                                     playsinline controls muted
                                     autoplay>
@@ -285,7 +290,8 @@
                                 :id="data.message_id + '-linkview-img'"
                                 alt="预览图片"
                                 title="查看图片"
-                                :src="pageViewInfo.img"
+                                referrerpolicy="no-referrer"
+                                :src="getImgSrc(pageViewInfo.img)"
                                 @load="linkViewPicFin"
                                 @error="linkViewPicErr"
                                 @click="preImgClick(pageViewInfo.img)">
@@ -306,7 +312,7 @@
                             class="link-view-bilibili"
                             @click="openLink(pageViewInfo.url)">
                             <div class="user">
-                                <img :src="backend.proxyUrl(pageViewInfo.data.owner.face)">
+                                <img referrerpolicy="no-referrer" :src="backend.proxyUrl(pageViewInfo.data.owner.face)">
                                 <span>{{ pageViewInfo.data.owner.name }}</span>
                                 <a>{{ Intl.DateTimeFormat(trueLang, {
                                     year: 'numeric',
@@ -316,7 +322,7 @@
                                     minute: 'numeric'
                                 }).format(getViewTime(pageViewInfo.data.public)) }}</a>
                             </div>
-                            <img :src="backend.proxyUrl(pageViewInfo.data.pic)">
+                            <img referrerpolicy="no-referrer" :src="backend.proxyUrl(pageViewInfo.data.pic)">
                             <span>{{ pageViewInfo.data.title }}</span>
                             <a>{{ pageViewInfo.data.desc }}</a>
                             <div class="data">
@@ -338,7 +344,7 @@
                                     </a>
                                     <span>{{ pageViewInfo.data.info.author.join('/') }}</span>
                                 </div>
-                                <img :src="pageViewInfo.data.cover">
+                                <img referrerpolicy="no-referrer" :src="getImgSrc(pageViewInfo.data.cover)">
                                 <font-awesome-icon
                                     :icon="['fas', 'play']"
                                     :class="{ light: pageViewInfo.data.cover_light }"
@@ -649,10 +655,10 @@ function imgStyle(length: number, at: number, isFace: boolean) {
     return style
 }
 
-function imgClick(url: string) {
+function imgClick(url: string, displayUrl?: string) {
     if (selecting) return
     if (viewerRef?.value && imageListHeader) {
-        viewerRef.value.openBySrc(imageListHeader, url)
+        viewerRef.value.openBySrc(imageListHeader, url, displayUrl)
     }
 }
 

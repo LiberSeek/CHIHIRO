@@ -3,7 +3,7 @@
         <Transition name="global-session-search-bar">
             <div v-if="currentImg" v-esc="escClose"
                 v-move="moveOptions"
-                class="mask-background"
+                class="mask-background chihiro-image-viewer"
                 @click="closeClick"
                 @v-move-left="nextImg"
                 @v-move-right="prevImg"
@@ -154,7 +154,8 @@
                             <img v-show="!edit"
                                 :key="currentImg?.src"
                                 :class="getImgCursorClassByTool()"
-                                :src="currentImg?.src"
+                                referrerpolicy="no-referrer"
+                                :src="viewerImageSrc"
                                 :style="viewerTransformStyle"
                                 alt=""
                                 @wheel="onWheel"
@@ -245,6 +246,7 @@ const lineWidthList = [3, 5, 10, 15, 20]
 type Color = keyof typeof colorMap
 
 const currentImg = shallowRef<Img | undefined>()
+const displaySrcOverrides = shallowReactive(new WeakMap<Img, string>())
 const modify = shallowReactive({
     rotate: 0,
     scale: 1,
@@ -256,6 +258,7 @@ const { vw, vh } = useViewportUnits()
 const canvas = useTemplateRef('canvas')
 const prev = computed(() => currentImg.value?.prev)
 const next = computed(() => currentImg.value?.next)
+const viewerImageSrc = computed(() => getViewerImageSrc(currentImg.value))
 const activeToolConfig = computed(() => currentTool.value === 'hand' ? toolConfig.pen : toolConfig[currentTool.value])
 const currentColor = computed(() => activeToolConfig.value.color)
 const currentLineWidth = computed(() => activeToolConfig.value.width)
@@ -334,6 +337,11 @@ const isOwnImage = computed(() => {
     return Number(msg.sender.user_id) === Number(authStore.loginInfo.uin)
 })
 
+function getViewerImageSrc(img = currentImg.value): string {
+    if (!img) return ''
+    return displaySrcOverrides.get(img) ?? img.src
+}
+
 let canCors: boolean = false
 setTimeout(()=>{
     canCors = !backend.isWeb()
@@ -374,7 +382,7 @@ function open(img: Img) {
     init()
 }
 
-function openBySrc(img: Img, src: string) {
+function openBySrc(img: Img, src: string, displaySrc?: string) {
     currentImg.value = toRaw(img)
     const target = currentImg.value.getBySrc(src)
     if (!target) {
@@ -382,6 +390,7 @@ function openBySrc(img: Img, src: string) {
         return
     }
     currentImg.value = toRaw(target)
+    if (displaySrc) displaySrcOverrides.set(currentImg.value, displaySrc)
     init()
 }
 
@@ -499,17 +508,17 @@ function init() {
     if(backend.type === 'capacitor' && backend.function && 'plugins' in backend.function && 'CapacitorHttp' in backend.function.plugins) {
         const capacitorHttp = backend.function.plugins.CapacitorHttp
         capacitorHttp.get({
-            url: currentImg.value.src,
+            url: getViewerImageSrc(),
             responseType: 'blob',
         }).then((r: any) => {
             if (generation !== viewerGeneration || !currentImg.value) return
             img.src = 'data:image/png;base64,' + r.data
         }).catch(() => {
             if (generation !== viewerGeneration || !currentImg.value) return
-            img.src = currentImg.value?.src || ''
+            img.src = getViewerImageSrc()
         })
     } else {
-        img.src = currentImg.value.src
+        img.src = getViewerImageSrc()
     }
 
     img.onload = loadFinish
@@ -570,7 +579,7 @@ async function download() {
         downloadFile(URL.createObjectURL(data), 'img.png', () => undefined, () => undefined)
     }else {
         if (!currentImg.value) return
-        downloadFile(currentImg.value.src, 'img.png', () => undefined, () => undefined)
+        downloadFile(getViewerImageSrc(), 'img.png', () => undefined, () => undefined)
     }
 }
 /**
@@ -1457,7 +1466,7 @@ async function getBlob(): Promise<Blob|undefined> {
         if (edit.value)
             tmpUrl = canvas.value!.toDataURL('image/png')
         else
-            tmpUrl = currentImg.value?.src
+            tmpUrl = getViewerImageSrc()
         const tmpImg = new Image()
         const newCanvas = document.createElement('canvas')
         const newCtx = newCanvas.getContext('2d')
@@ -1564,6 +1573,12 @@ defineExpose({
 
 <style>
 /* chihiro-moved-from-user-css */
+.mask-background.chihiro-image-viewer {
+    /* The teleport host has no layout size; anchor the viewer to the viewport. */
+    position: fixed;
+    inset: 0;
+    --safe-area-bottom: 0px;
+}
 .viewer-bar {
     width: 100% !important;
     max-width: none;
@@ -1623,7 +1638,8 @@ defineExpose({
 .viewer-button-bar {
     bottom: 0 !important;
     height: 56px;
-    padding: 0 40px 0 16px;
+    /* Keep sender details clear of the shell's 56px account rail. */
+    padding: 0 24px 0 72px;
     padding-bottom: var(--safe-area-bottom, 0px);
     opacity: 1;
     justify-content: space-between;
@@ -1632,7 +1648,7 @@ defineExpose({
     border: 0;
     border-radius: 0;
     align-items: center;
-    box-sizing: content-box;
+    box-sizing: border-box;
 }
 .viewer-button-bar.force-show,
 .viewer-button-bar:hover {
@@ -1682,6 +1698,7 @@ defineExpose({
 }
 .chihiro-viewer-sender {
     display: flex;
+    flex: 1 1 auto;
     align-items: center;
     gap: 10px;
     min-width: 0;
@@ -1718,6 +1735,7 @@ defineExpose({
 }
 .chihiro-viewer-actions {
     display: flex;
+    flex-shrink: 0;
     align-items: center;
     margin-left: auto;
 }
@@ -1779,7 +1797,7 @@ defineExpose({
     .viewer-button-bar {
         bottom: 0 !important;
         height: 56px !important;
-        padding: 0 40px 0 16px !important;
+        padding: 0 24px 0 72px !important;
         justify-content: space-between !important;
     }
     .viewer-button-bar > svg {
@@ -1796,6 +1814,24 @@ defineExpose({
         bottom: calc(56px + var(--safe-area-bottom, 0px)) !important;
         justify-content: flex-end;
         background: transparent !important;
+    }
+}
+
+@media (max-width: 560px) {
+    .viewer-button-bar {
+        padding: 0 16px 0 66px !important;
+    }
+    .chihiro-viewer-actions > svg,
+    .chihiro-viewer-more > svg {
+        padding: 6px !important;
+        margin: 0 !important;
+    }
+    .chihiro-viewer-sender {
+        gap: 8px;
+    }
+    .chihiro-viewer-sender img {
+        width: 28px;
+        height: 28px;
     }
 }
 </style>

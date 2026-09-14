@@ -1,5 +1,5 @@
 <!--
- * Chihiro fused composer: + / input / face / bot / send in one bar
+ * Chihiro fused composer: + / input / face / send in one bar
 -->
 
 <template>
@@ -32,17 +32,6 @@
             class="chihiro-composer-row"
             :class="{ 'has-attach': imgCache.size > 0, 'is-reply': isReply }">
             <div class="chihiro-float-actions">
-                <div class="chihiro-bot-dock">
-                    <button
-                        type="button"
-                        class="chihiro-bot-btn"
-                        :class="{ 'is-on': botOn }"
-                        :title="$t('会话助手')"
-                        :aria-label="$t('会话助手')"
-                        @click.stop="emit('toggle-bot')">
-                        <font-awesome-icon :icon="['fas', 'robot']" />
-                    </button>
-                </div>
                 <div class="new-msg chihiro-jump-bottom"
                     :class="{ 'is-on': showBottom }"
                     :title="$t('回到底部')"
@@ -161,7 +150,6 @@
         newMsgNum: number
         plusOpen: boolean
         faceOpen: boolean
-        botOn: boolean
         disabled: boolean
         placeholder: string
     }>()
@@ -182,7 +170,6 @@
         'pick-image': []
         'pick-file': []
         'toggle-face': []
-        'toggle-bot': []
         'jump-bottom': []
         'attach-edit': [key: number]
         'attach-delete': [key: number]
@@ -219,7 +206,7 @@
     }
 
     function refreshEmpty() {
-        isEmpty.value = !hasInlineFaces() && getPlainText().replace(/\n/g, '') === ''
+        isEmpty.value = !hasInlineFaces() && getPlainText() === ''
     }
 
     function setPlainText(text: string) {
@@ -285,6 +272,8 @@
             if (part) insertNodeAtCaret(document.createTextNode(part))
             if (index < parts.length - 1) insertNodeAtCaret(document.createElement('br'))
         })
+        // A trailing <br> alone does not create a caret position on the next line.
+        if (text.endsWith('\n')) insertNodeAtCaret(document.createTextNode('\u200B'))
         syncToModel()
     }
 
@@ -372,6 +361,13 @@
     }
 
     function onInput(event: Event) {
+        const el = mainInput.value
+        // Chrome leaves a caret-only <br> after deleting the final character.
+        if (el && (event as InputEvent).inputType?.startsWith('delete') &&
+            !el.textContent?.replace(/\u200B/g, '') && !hasInlineFaces()) {
+            el.replaceChildren()
+            savedRange = null
+        }
         syncToModel(event)
     }
     function onPaste(event: ClipboardEvent) {
@@ -659,41 +655,6 @@ html.bp-light .chihiro-composer .chihiro-send {
 }
 .chihiro-composer .assistant-slot:has(.assistant-panel) {
     padding-bottom: 48px;
-}
-.chihiro-composer .chihiro-bot-dock {
-    position: relative;
-    flex: 0 0 36px;
-    width: 36px;
-    height: 36px;
-    pointer-events: all;
-}
-.chihiro-composer .chihiro-bot-btn {
-    appearance: none;
-    width: 36px;
-    height: 36px;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    cursor: pointer;
-    background: #636366;
-    color: #fff;
-    box-sizing: border-box;
-}
-.chihiro-composer .chihiro-bot-btn:hover {
-    filter: brightness(1.12);
-}
-.chihiro-composer .chihiro-bot-btn.is-on {
-    color: #fff;
-    background: var(--color-main);
-}
-.chihiro-composer .chihiro-bot-btn svg {
-    width: 16px;
-    height: 16px;
-    margin: 0;
-    color: inherit;
 }
 .chihiro-composer .chihiro-bot-think {
     position: absolute;

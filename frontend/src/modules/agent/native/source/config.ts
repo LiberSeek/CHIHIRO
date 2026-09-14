@@ -1,4 +1,6 @@
-export type ThemeMode = 'light' | 'dark' | 'system';
+import { readThemeMode, resolveTheme, uiThemeFor, type ThemeMode } from '@/theme';
+
+export type { ThemeMode };
 
 export type ConfigProps = {
   Sidebar_drawer: boolean;
@@ -10,37 +12,12 @@ export type ConfigProps = {
   inputBg: boolean;
 };
 
-function checkThemeMode(): ThemeMode {
-  const mode = localStorage.getItem('themeMode') as ThemeMode | null;
-  if (mode === 'light' || mode === 'dark' || mode === 'system') return mode;
-
-  const legacyTheme = localStorage.getItem('uiTheme');
-  if (legacyTheme === 'PurpleThemeDark') {
-    localStorage.setItem('themeMode', 'dark');
-    return 'dark';
-  }
-  if (legacyTheme === 'PurpleTheme') {
-    localStorage.setItem('themeMode', 'light');
-    return 'light';
-  }
-
-  localStorage.setItem('themeMode', 'system');
-  return 'system';
-}
-
 export function resolveUiTheme(mode: ThemeMode): string {
-  if (mode === 'dark') return 'PurpleThemeDark';
-  if (mode === 'light') return 'PurpleTheme';
-  const prefersDark =
-    typeof window !== 'undefined' &&
-    window.matchMedia('(prefers-color-scheme: dark)').matches;
-  return prefersDark ? 'PurpleThemeDark' : 'PurpleTheme';
+  return uiThemeFor(resolveTheme(mode));
 }
 
-const themeMode = checkThemeMode();
+const themeMode = readThemeMode();
 const uiTheme = resolveUiTheme(themeMode);
-
-localStorage.setItem('uiTheme', uiTheme);
 
 const config: ConfigProps = {
   Sidebar_drawer: true,

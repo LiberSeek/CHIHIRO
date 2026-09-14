@@ -70,9 +70,12 @@ import { useSettingsStore } from '@renderer/state/settings'
 import { useQzoneStore } from '@renderer/state/qzone'
 import {
     getSessionId,
+    getSessionTime,
     getMissingGroupPreviewSessions,
+    mergeContactListByKind,
     mergeEarlySessionContacts,
     resolveIncomingSession,
+    shouldApplySessionPreview,
 } from './utils/sessionUtil'
 
 const popInfo = new PopInfo()
@@ -943,9 +946,19 @@ const msgFunctions = {
                     // 更新消息列表
                     const onmsg = contactStore.baseOnMsgList.get(Number(id))
                     if (onmsg && list[0]) {
-                        Object.assign(onmsg, formatMessageData(list[0], Boolean(onmsg.group_id)))
-                        contactStore.baseOnMsgList.set(id, onmsg)
-                        updateBaseOnMsgList()
+                        const preview = formatMessageData(
+                            list[0],
+                            Boolean(onmsg.group_id),
+                        )
+                        if (shouldApplySessionPreview(onmsg, preview)) {
+                            preview.time = Math.max(
+                                getSessionTime(onmsg),
+                                getSessionTime(preview),
+                            )
+                            Object.assign(onmsg, preview)
+                            contactStore.baseOnMsgList.set(id, onmsg)
+                            updateBaseOnMsgList()
+                        }
                     }
                 }
             } catch (e) {
@@ -1368,16 +1381,20 @@ const msgFunctions = {
                     }) == index
                 )
             })
+            const sessionsToHydrate: (UserFriendElem & UserGroupElem)[] = []
             back.forEach((item) => {
                 // 去消息列表里找一下它
                 const user = contactStore.userList.find((user) => {
                     return user.user_id == item.user_id || user.group_id == item.user_id
                 })
                 if (user) {
+                    user.time = Math.max(getSessionTime(user), getSessionTime(item))
                     contactStore.baseOnMsgList.set(Number(item.user_id), user)
-                    updateLastestHistory(user)
+                    sessionsToHydrate.push(user)
                 }
             })
+            updateBaseOnMsgList()
+            sessionsToHydrate.forEach(updateLastestHistory)
         }
         // “显示全部会话”会包含 recent_contact 之外的群；限流补取这些群的最后一条历史。
         groupPreviewHydrator.scheduleMissingSessions()
@@ -1603,12 +1620,18 @@ function saveUser(msg: { [key: string]: any }, type: string) {
             hydrateContactPinyinLater(list)
         }
         sortContactListByPinyin(list)
+        const mergedContacts = mergeContactListByKind(
+            contactStore.userList,
+            list,
+            type as 'friend' | 'group',
+        )
+        list = mergedContacts.incoming
         // 实时消息可能比联系人列表更早到达；用真实联系人资料接管临时会话，保留预览状态。
         const didMergeEarlySessions = mergeEarlySessionContacts(
             list,
             contactStore.baseOnMsgList,
         )
-        contactStore.userList = contactStore.userList.concat(list)
+        contactStore.userList = mergedContacts.all as (UserFriendElem & UserGroupElem)[]
         if (
             settingsStore.sysConfig.session_display_mode === 'all' ||
             didMergeEarlySessions

@@ -65,8 +65,13 @@
                                 v-for="item in sec.items"
                                 :key="'fb-' + (item.user_id ? item.user_id : item.group_id)"
                                 :data="item"
+                                :select="chatStore.chatInfo.show.id === (item.user_id || item.group_id) && chatStore.chatInfo.show.type === (item.user_id ? 'user' : 'group')"
                                 from="friend"
-                                @click="userClick(item, $event)" />
+                                role="button" tabindex="0"
+                                @keydown.enter.prevent="userClick(item, $event)"
+                                @keydown.space.prevent="inspectContact(item)"
+                                @click="inspectContact(item)"
+                                @dblclick.stop="userClick(item, $event)" />
                         </div>
                     </div>
                 </template>
@@ -75,7 +80,12 @@
                         <FriendBody v-for="item in contactStore.showList"
                             :key="'fb-' + (item.user_id ? item.user_id : item.group_id)"
                             :data="item" from="friend"
-                            @click="userClick(item, $event)" />
+                            :select="chatStore.chatInfo.show.id === (item.user_id || item.group_id) && chatStore.chatInfo.show.type === (item.user_id ? 'user' : 'group')"
+                            role="button" tabindex="0"
+                            @keydown.enter.prevent="userClick(item, $event)"
+                            @keydown.space.prevent="inspectContact(item)"
+                            @click="inspectContact(item)"
+                            @dblclick.stop="userClick(item, $event)" />
                     </div>
                 </div>
             </div>
@@ -129,6 +139,7 @@
     const emit = defineEmits<{
         userClick: [data: BaseChatInfoElem]
         loadHistory: [data: BaseChatInfoElem]
+        contactInfo: [data: BaseChatInfoElem]
     }>()
 
     const isSearch = ref(false)
@@ -287,6 +298,18 @@
         if (barMsg !== null) {
             barMsg.click()
         }
+    }
+
+    function inspectContact(data: UserFriendElem & UserGroupElem) {
+        const info = {
+            type: data.user_id ? 'user' : 'group',
+            id: data.user_id ? data.user_id : data.group_id,
+            name: getShowName(data),
+            avatar: data.user_id ? 'https://q1.qlogo.cn/g?b=qq&s=0&nk=' + data.user_id : 'https://p.qlogo.cn/gh/' +
+                data.group_id + '/' + data.group_id + '/0',
+        } as BaseChatInfoElem
+        contactStore.baseOnMsgList.set(info.id, data)
+        emit('contactInfo', info)
     }
 
     function applySearch(raw: string) {

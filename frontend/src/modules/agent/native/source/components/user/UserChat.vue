@@ -7,7 +7,8 @@
       'sidebar-collapsed': isSidebarCollapsed,
     }"
   >
-    <div class="native-chat-sidebar-root">
+    <Teleport :to="props.sidebarTarget || 'body'" :disabled="!props.sidebarTarget">
+    <div class="native-chat-sidebar-root" :class="`v-theme--${customizer.uiTheme}`">
     <v-navigation-drawer
       v-model="chatSidebarDrawer"
       class="chat-sidebar"
@@ -23,6 +24,7 @@
       <slot v-if="isChihiroHosted" name="workspace-tabs" />
       <div class="sidebar-top">
         <div
+          v-if="!isChihiroHosted"
           class="chat-sidebar-brand"
           :class="{ collapsed: isSidebarCollapsed }"
         >
@@ -174,7 +176,7 @@
         </section>
       </div>
 
-      <div class="sidebar-footer">
+      <div v-if="!isChihiroHosted" class="sidebar-footer">
         <StyledMenu
           location="top start"
           offset="10"
@@ -310,36 +312,81 @@
               </v-card>
             </v-menu>
 
-            <v-list-item
-              class="styled-menu-item settings-menu-item"
-              rounded="md"
-              @click="toggleTheme"
-            >
-              <template #prepend>
-                <Sun
-                  v-if="isDark"
-                  :size="18"
-                  class="styled-menu-lucide-icon"
-                />
-                <Moon v-else :size="18" class="styled-menu-lucide-icon" />
-              </template>
-              <v-list-item-title>{{
-                isDark ? tm("modes.lightMode") : tm("modes.darkMode")
-              }}</v-list-item-title>
-            </v-list-item>
           </div>
         </StyledMenu>
       </div>
     </v-navigation-drawer>
     </div>
 
-    <div class="native-chat-main-root">
+    </Teleport>
+    <Teleport :to="props.threadTarget || 'body'" :disabled="!props.threadTarget">
+    <div class="native-chat-main-root" :class="`v-theme--${customizer.uiTheme}`">
     <main
       class="chat-main"
       :class="{ 'empty-chat': isEmptyChat, 'chihiro-hosted-main': isChihiroHosted, 'is-dark': isDark }"
       v-on="dragEvents"
     >
-      <UserChatHeader v-if="isChihiroHosted" />
+      <UserChatHeader v-if="isChihiroHosted">
+        <template #actions>
+          <StyledMenu location="bottom end" offset="6" :close-on-content-click="false">
+            <template #activator="{ props: menuProps }">
+              <button v-bind="menuProps" type="button" class="header-settings-btn"
+                :aria-label="t('core.common.settings')" :title="t('core.common.settings')">
+                <EllipsisVertical :size="20" />
+              </button>
+            </template>
+            <div class="settings-menu-content header-settings-menu">
+              <v-menu location="start" offset="8" :open-on-hover="!isTouchDevice"
+                :open-on-click="isTouchDevice" :close-on-content-click="true">
+                <template #activator="{ props: transportMenuProps }">
+                  <v-list-item v-bind="transportMenuProps" class="styled-menu-item settings-menu-item" rounded="md">
+                    <template #prepend><Cable :size="18" class="styled-menu-lucide-icon" /></template>
+                    <v-list-item-title>{{ tm("transport.title") }}</v-list-item-title>
+                    <template #append>
+                      <span class="settings-menu-value">{{ currentTransportLabel }}</span>
+                      <ChevronRight :size="18" class="styled-menu-lucide-icon" />
+                    </template>
+                  </v-list-item>
+                </template>
+                <v-card class="styled-menu-card" elevation="8" rounded="lg">
+                  <v-list density="compact" class="styled-menu-list pa-1">
+                    <v-list-item v-for="item in transportOptions" :key="item.value"
+                      class="styled-menu-item" :class="{ 'styled-menu-item-active': transportMode === item.value }"
+                      rounded="md" @click="transportMode = item.value">
+                      <v-list-item-title>{{ tm(item.labelKey) }}</v-list-item-title>
+                      <template #append><Check v-if="transportMode === item.value" :size="18" class="styled-menu-lucide-icon" /></template>
+                    </v-list-item>
+                  </v-list>
+                </v-card>
+              </v-menu>
+              <v-menu location="start" offset="8" :open-on-hover="!isTouchDevice"
+                :open-on-click="isTouchDevice" :close-on-content-click="true">
+                <template #activator="{ props: languageMenuProps }">
+                  <v-list-item v-bind="languageMenuProps" class="styled-menu-item settings-menu-item" rounded="md">
+                    <template #prepend><Languages :size="18" class="styled-menu-lucide-icon" /></template>
+                    <v-list-item-title>{{ t("core.common.language") }}</v-list-item-title>
+                    <template #append>
+                      <span class="settings-menu-value">{{ currentLanguage?.label || locale }}</span>
+                      <ChevronRight :size="18" class="styled-menu-lucide-icon" />
+                    </template>
+                  </v-list-item>
+                </template>
+                <v-card class="styled-menu-card" elevation="8" rounded="lg">
+                  <v-list density="compact" class="styled-menu-list pa-1">
+                    <v-list-item v-for="lang in languageOptions" :key="lang.value" class="styled-menu-item"
+                      :class="{ 'styled-menu-item-active': locale === lang.value }" rounded="md"
+                      @click="switchLanguage(lang.value as Locale)">
+                      <template #prepend><span class="language-flag">{{ lang.flag }}</span></template>
+                      <v-list-item-title>{{ lang.label }}</v-list-item-title>
+                      <template #append><Check v-if="locale === lang.value" :size="18" class="styled-menu-lucide-icon" /></template>
+                    </v-list-item>
+                  </v-list>
+                </v-card>
+              </v-menu>
+            </div>
+          </StyledMenu>
+        </template>
+      </UserChatHeader>
       <transition name="drop-fade">
         <div v-if="isDragging && !isProviderWorkspace" class="chat-drop-overlay">
           <div class="chat-drop-overlay-content">
@@ -381,7 +428,7 @@
             :current-session="currentSession"
             :reply-to="chatInputReplyTarget"
             :send-shortcut="sendShortcut"
-            :show-provider-selector="false"
+            :show-provider-selector="true"
             :placeholder="tm('input.projectPlaceholder')"
             @send="sendCurrentMessage"
             @stop="stopCurrentSession"
@@ -466,7 +513,7 @@
             :current-session="currentSession"
             :reply-to="chatInputReplyTarget"
             :send-shortcut="sendShortcut"
-            :show-provider-selector="false"
+            :show-provider-selector="true"
             :placeholder="
               activeProject ? tm('input.projectPlaceholder') : undefined
             "
@@ -487,6 +534,7 @@
     </main>
     </div>
 
+    </Teleport>
     <div
       v-if="threadSelection.visible"
       class="thread-selection-action"
@@ -577,6 +625,7 @@ import {
   watch,
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useImWorkspace } from "@/modules/im/workspace";
 import { useDisplay } from "vuetify";
 import { isAxiosError } from "axios";
 import {
@@ -584,13 +633,12 @@ import {
   Cable,
   Check,
   ChevronRight,
+  EllipsisVertical,
   Languages,
-  Moon,
   PanelLeft,
   Pencil,
   Settings,
   SquarePen,
-  Sun,
   Trash2,
 } from "@lucide/vue";
 import { chatApi, providerApi } from "@/modules/agent/native/source/api/v1";
@@ -644,6 +692,8 @@ export type UserChatProps = {
   chatboxMode?: boolean;
   active?: boolean;
   chihiroHosted?: boolean;
+  sidebarTarget?: HTMLElement;
+  threadTarget?: HTMLElement;
 };
 
 const props = withDefaults(defineProps<UserChatProps>(), {
@@ -652,6 +702,7 @@ const props = withDefaults(defineProps<UserChatProps>(), {
   chihiroHosted: false,
 });
 
+const workspace = useImWorkspace();
 const route = useRoute();
 const router = useRouter();
 const isChihiroHosted = computed(() => props.chihiroHosted === true);
@@ -728,7 +779,17 @@ const projectSessions = ref<Session[]>([]);
 const projectSessionsById = ref<Record<string, Session[]>>({});
 const loadingProjectSessionIds = ref<string[]>([]);
 const loadingSessions = ref(false);
-const draft = ref("");
+watch(currSessionId, id => {
+  if (props.chihiroHosted && workspace.agentSessionId !== 'models') workspace.agentSessionId = id;
+}, { flush: 'sync' });
+const localDraft = ref("");
+const draft = computed({
+  get: () => props.chihiroHosted ? workspace.drafts[currSessionId.value] || "" : localDraft.value,
+  set: (value: string) => {
+    if (props.chihiroHosted) workspace.drafts[currSessionId.value] = value;
+    else localDraft.value = value;
+  },
+});
 const tokenProviderConfigs = ref<TokenProviderConfig[]>([]);
 const tokenModelMetadata = ref<Record<string, ProviderModelMetadata>>({});
 const selectedTokenProviderId = ref("");
@@ -1058,6 +1119,7 @@ watch(composerShell, (element, previousElement) => {
 watch(
   () => route.params.conversationId,
   async () => {
+    if (props.chihiroHosted && route.name !== 'agent') return;
     const routeSessionId = getRouteSessionId();
     if (routeSessionId === "models") {
       activeWorkspace.value = "providers";
@@ -1081,6 +1143,7 @@ watch(activeMessages, () => {
 });
 
 function getRouteSessionId() {
+  if (props.chihiroHosted && route.name !== 'agent') return workspace.agentSessionId || '';
   const raw = route.params.conversationId;
   return Array.isArray(raw) ? raw[0] : raw || "";
 }
@@ -1111,6 +1174,7 @@ function showChatWorkspace() {
 }
 
 async function openProviderWorkspace() {
+  if (props.chihiroHosted) workspace.selectAgent('models');
   closeSecondaryPanels();
   activeWorkspace.value = "providers";
   const targetPath = `${basePath()}/models`;
@@ -1159,6 +1223,7 @@ function formatUsagePercent(value: number) {
 }
 
 async function startNewChat() {
+  if (props.chihiroHosted) workspace.selectAgent('');
   showChatWorkspace();
   selectedProjectId.value = null;
   replyTarget.value = null;
@@ -1180,6 +1245,7 @@ function openEditProjectDialog(project: Project) {
 }
 
 async function selectProject(projectId: string) {
+  if (props.chihiroHosted) workspace.selectAgent('');
   showChatWorkspace();
   selectedProjectId.value = projectId;
   currSessionId.value = "";
@@ -1358,6 +1424,7 @@ async function selectSession(sessionId: string, pushRoute = true) {
   showChatWorkspace();
   selectedProjectId.value = null;
   currSessionId.value = sessionId;
+  if (props.chihiroHosted) workspace.selectAgent(sessionId);
   replyTarget.value = null;
   if (pushRoute && route.path !== `${basePath()}/${sessionId}`) {
     await router.push(`${basePath()}/${sessionId}`);
@@ -1375,6 +1442,8 @@ async function sendCurrentMessage() {
 
   sending.value = true;
   try {
+    const draftKey = currSessionId.value;
+    const text = draft.value.trim();
     let sessionId = currSessionId.value;
     const targetProjectId = selectedProjectId.value;
     const targetProject = selectedProject.value;
@@ -1396,7 +1465,6 @@ async function sendCurrentMessage() {
       await getSessions();
     }
 
-    const text = draft.value.trim();
     const messageId = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
     const outgoingParts = buildOutgoingParts(text);
     const selection = getSelectedProviderSelection();
@@ -1407,7 +1475,10 @@ async function sendCurrentMessage() {
     });
     updateTitleFromText(sessionId, text);
 
-    draft.value = "";
+    if (props.chihiroHosted) {
+      workspace.drafts[draftKey] = '';
+      workspace.selectAgent(sessionId);
+    } else draft.value = "";
     replyTarget.value = null;
     clearStaged({ revokeUrls: false });
     scrollToBottom();
@@ -1775,12 +1846,17 @@ async function stopCurrentSession() {
   }
 }
 
-function toggleTheme() {
-  customizer.SET_UI_THEME(isDark.value ? "PurpleTheme" : "PurpleThemeDark");
-}
 </script>
 
 <style scoped>
+.native-chat-sidebar-root, .native-chat-main-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  color: rgb(var(--v-theme-on-surface));
+}
 .chat-ui {
   --chat-panel-top-offset: 50px;
   --chat-sidebar-bg: rgb(var(--v-theme-surface));
@@ -1823,12 +1899,12 @@ function toggleTheme() {
   top: 0 !important;
   height: 100vh !important;
   background: var(--chat-sidebar-bg);
-  border-right: 1px solid var(--chat-border);
+  border-right: none;
 }
 
 .chat-sidebar.collapsed {
   background: var(--chat-sidebar-bg);
-  border-right: 1px solid var(--chat-border);
+  border-right: none;
 }
 
 .chat-sidebar :deep(.v-navigation-drawer__content) {
@@ -2216,6 +2292,29 @@ function toggleTheme() {
   white-space: nowrap;
 }
 
+.header-settings-btn {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: rgb(var(--v-theme-on-surface));
+  background: transparent;
+  cursor: pointer;
+}
+
+.header-settings-btn:hover,
+.header-settings-btn[aria-expanded="true"] {
+  background: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.header-settings-menu {
+  min-width: 250px;
+}
+
 .language-flag {
   display: inline-block;
   width: 20px;
@@ -2399,6 +2498,14 @@ function toggleTheme() {
   padding-top: 0;
   border-top: 0;
 }
+.chat-main :deep(.provider-trigger--input) { height: 32px; max-width: 160px; padding: 0 8px; }
+.chat-main :deep(.provider-trigger--input .provider-trigger-title) { font-size: 12px; }
+@media (max-width: 600px) {
+  .chat-main :deep(.composer-row) { grid-template-areas: "field field field" "left . right"; row-gap: 4px; }
+  .chat-main :deep(.input-container) { border-radius: 24px !important; }
+  .chat-main :deep(.input-right-actions) { gap: 6px; }
+  .chat-main :deep(.provider-trigger--input) { max-width: 120px; }
+}
 
 .conversation-stack:not(.is-empty) .composer-shell :deep(.input-area) {
   position: relative;
@@ -2440,6 +2547,7 @@ kbd {
 }
 
 .chat-sidebar.chihiro-hosted-sidebar {
+  background: var(--color-card-1, rgb(var(--v-theme-surface))) !important;
   position: absolute !important;
   inset: 0 auto 0 0 !important;
   width: 100% !important;
@@ -2453,6 +2561,9 @@ kbd {
 .chat-sidebar.chihiro-hosted-sidebar :deep(.v-navigation-drawer__content) {
   height: 100% !important;
   min-height: 0 !important;
+}
+.chat-sidebar.chihiro-hosted-sidebar .sidebar-top {
+  padding-top: 12px;
 }
 .chat-main.chihiro-hosted-main {
   position: absolute !important;

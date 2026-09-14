@@ -1,8 +1,13 @@
 import { defineStore } from 'pinia';
-import config, { type ThemeMode, resolveUiTheme } from '@/modules/agent/native/source/config';
+import config, { type ThemeMode } from '@/modules/agent/native/source/config';
+import { applyTheme, readThemeMode, resolveTheme, uiThemeFor } from '@/theme';
 
 const DARK_THEMES: ReadonlySet<string> = new Set(['PurpleThemeDark']);
 
+function themeState(mode: ThemeMode) {
+  const resolved = resolveTheme(mode);
+  return { themeMode: mode, uiTheme: uiThemeFor(resolved) };
+}
 
 export const useCustomizerStore = defineStore('customizer', {
   state: () => ({
@@ -33,19 +38,16 @@ export const useCustomizerStore = defineStore('customizer', {
     },
 
     SET_UI_THEME(payload: string) {
-      this.uiTheme = payload;
-      localStorage.setItem('uiTheme', payload);
-      const mode: ThemeMode = payload === 'PurpleThemeDark' ? 'dark' : 'light';
-      this.themeMode = mode;
-      localStorage.setItem('themeMode', mode);
+      this.SET_THEME_MODE(payload === 'PurpleThemeDark' ? 'dark' : 'light');
     },
 
     SET_THEME_MODE(mode: ThemeMode) {
-      this.themeMode = mode;
-      localStorage.setItem('themeMode', mode);
-      const uiTheme = resolveUiTheme(mode);
-      this.uiTheme = uiTheme;
-      localStorage.setItem('uiTheme', uiTheme);
+      const applied = applyTheme(mode);
+      Object.assign(this, themeState(applied.mode));
+    },
+
+    SYNC_THEME() {
+      Object.assign(this, themeState(readThemeMode()));
     },
 
     TOGGLE_CHAT_SIDEBAR() {

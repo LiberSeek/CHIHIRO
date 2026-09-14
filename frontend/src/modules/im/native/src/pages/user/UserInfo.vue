@@ -10,24 +10,24 @@
         class="chat-info-pan">
         <div class="ss-card chat-info">
             <header>
+                <button type="button" class="chat-info-back" :aria-label="$t('返回')" :title="$t('返回')" @click="closeChatInfoPan">
+                    <font-awesome-icon :icon="['fas', 'angle-left']" />
+                </button>
                 <span v-if="chat.show.type === 'group'">{{ $t('群资料') }}</span>
-                <span v-if="chat.show.type === 'user'">{{ $t('好友') }}</span>
-                <font-awesome-icon :icon="['fas', 'xmark']" @click="closeChatInfoPan" />
+                <span v-else>{{ $t('好友') }}</span>
             </header>
-            <div :class="'chat-info-base ' + chat.show.type">
-                <div>
+            <div v-if="chat.show.type === 'group'" :class="'chat-info-base ' + chat.show.type">
+                <div class="chat-info-identity">
                     <img :src="chat.show.avatar">
                     <div>
                         <a>{{ chat.show.name }}</a>
                         <span>{{ chat.show.id }}</span>
                     </div>
-                    <div style="display: flex;align-items: center;justify-content: center;cursor: pointer;"
-                        @click="copyText(chat.show.id)">
+                    <div class="chat-info-copy" @click="copyText(chat.show.id)">
                         <font-awesome-icon :icon="['fas', 'copy']" />
                     </div>
                 </div>
-                <div v-if="chat.show.type === 'group'"
-                    v-show="Object.keys(chat.info.group_info).length > 0">
+                <div v-show="Object.keys(chat.info.group_info).length > 0">
                     <header>
                         <span>{{ $t('介绍') }}</span>
                     </header>
@@ -39,60 +39,54 @@
                         </div>
                     </div>
                 </div>
-                <div v-else-if="chat.show.type === 'user'">
-                    <header v-if="chat.info.user_info.qid">
-                        <span>QID</span>
-                    </header>
-                    <span v-if="chat.info.user_info.qid">{{ chat.info.user_info.qid }}</span>
-                    <header>
-                        <span>{{ $t('等级') }}</span>
-                    </header>
-                    <span>{{ qqLevelToEmoji(chat.info.user_info.qqLevel) }}</span>
-                    <header v-if="chat.info.user_info.regTime">
-                        <span>{{ $t('注册时间') }}</span>
-                    </header>
-                    <span v-if="chat.info.user_info.regTime">{{ Intl.DateTimeFormat(trueLang, { year: 'numeric' })
-                        .format(new Date(chat.info.user_info.regTime * 1000)) }}</span>
-                    <header>
-                        <span>{{ $t('签名') }}</span>
-                    </header>
-                    <span>{{ chat.info.user_info.longNick ? chat.info.user_info.longNick : $t("这个人很懒什么都没有写～") }}</span>
-                    <header>
-                        <span>{{ $t('其他信息') }}</span>
-                    </header>
-                    <div class="outher">
-                        <span v-if="chat.info.user_info.birthday_year">{{ $t('生日') }}:
-                            <span>
-                                {{ Intl.DateTimeFormat(trueLang, {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
-                                }).format(new Date(
-                                    `${chat.info.user_info.birthday_year}-${
-                                        chat.info.user_info.birthday_month}-${
-                                        chat.info.user_info.birthday_day}`,
-                                )) }}
+            </div>
+            <div v-else class="chihiro-friend-profile">
+                    <div class="chihiro-fp-hero">
+                        <img class="chihiro-fp-avatar" :src="chat.show.avatar" alt="">
+                        <div class="chihiro-fp-identity">
+                            <div class="chihiro-fp-name">{{ displayName }}</div>
+                            <button type="button" class="chihiro-fp-qq" @click="copyText(chat.show.id)">QQ {{ chat.show.id }}</button>
+                        </div>
+                        <div class="chihiro-fp-aside">
+                            <span v-if="isOnline" class="chihiro-fp-online">
+                                <i />{{ $t('在线') }}
                             </span>
-                        </span>
-                        <span v-if="chat.info.user_info.country">{{ $t('地区') }}:
-                            <span>
-                                {{
-                                    `${chat.info.user_info.country}-${
-                                        chat.info.user_info.province}-${
-                                        chat.info.user_info.city}`
-                                }}
-                            </span>
-                        </span>
+                        </div>
                     </div>
-                    <!-- <template v-if="!chat.show.temp">
-                        <header>
-                            <span>{{ $t('设置') }}</span>
-                        </header>
-                        <OptInfo
-                            :type="'number'"
-                            :chat="chat" />
-                    </template> -->
-                </div>
+                    <div v-if="metaParts.length" class="chihiro-fp-meta">
+                        <template v-for="(part, index) in metaParts" :key="part.key">
+                            <span v-if="index > 0" class="chihiro-fp-meta-split" />
+                            <span :class="part.className">{{ part.text }}</span>
+                        </template>
+                    </div>
+                    <div v-if="levelText" class="chihiro-fp-level">{{ levelText }}</div>
+                    <div class="chihiro-fp-rows">
+                        <div class="chihiro-fp-row">
+                            <font-awesome-icon :icon="['fas', 'pen']" />
+                            <span class="chihiro-fp-label">{{ $t('备注') }}</span>
+                            <span class="chihiro-fp-value" :class="{ 'is-muted': !remarkText }">{{ remarkText || $t('设置好友备注') }}</span>
+                        </div>
+                        <div class="chihiro-fp-row">
+                            <font-awesome-icon :icon="['fas', 'user-group']" />
+                            <span class="chihiro-fp-label">{{ $t('好友分组') }}</span>
+                            <span class="chihiro-fp-value">{{ categoryText }}</span>
+                        </div>
+                        <div class="chihiro-fp-row">
+                            <font-awesome-icon :icon="['fas', 'signature']" />
+                            <span class="chihiro-fp-label">{{ $t('签名') }}</span>
+                            <span class="chihiro-fp-value">{{ signText }}</span>
+                        </div>
+                    </div>
+                    <button type="button" class="chihiro-fp-link" @click="openQzone">
+                        <font-awesome-icon :icon="['fas', 'star']" />
+                        <span class="chihiro-fp-label">{{ $t('QQ空间') }}</span>
+                        <font-awesome-icon class="chihiro-fp-chevron" :icon="['fas', 'angle-right']" />
+                    </button>
+                    <div class="chihiro-fp-actions">
+                        <button type="button" class="chihiro-fp-btn" @click="shareUser">{{ $t('分享') }}</button>
+                        <button type="button" class="chihiro-fp-btn" @click="callUser">{{ $t('音视频通话') }}</button>
+                        <button type="button" class="chihiro-fp-btn is-primary" @click="startFriendChat">{{ $t('发消息') }}</button>
+                    </div>
             </div>
             <BcTab v-if="chat.show.type === 'group'"
                 class="chat-info-tab">
@@ -239,9 +233,9 @@ import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 
 import { Connector } from '@renderer/function/connect'
 import { PopInfo, PopType } from '@renderer/function/base'
-import { toRaw, ref, nextTick } from 'vue'
-import { delay, getTrueLang } from '@renderer/function/utils/systemUtil'
-import { vEsc } from '@renderer/function/utils/appUtil'
+import { computed, toRaw, ref, nextTick } from 'vue'
+import { delay } from '@renderer/function/utils/systemUtil'
+import { openLink, vEsc } from '@renderer/function/utils/appUtil'
 import { useAuthStore } from '@renderer/state/auth'
 import { useContactStore } from '@renderer/state/contact'
 import { useChatStore } from '@renderer/state/chat'
@@ -267,12 +261,10 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     close: []
+    startChat: []
 }>()
 
 const { t: $t } = i18n.global
-
-// Constants
-const trueLang = getTrueLang()
 
 // Reactive state
 const number_cache = ref<any[]>([])
@@ -284,6 +276,83 @@ const mumberInfo = ref({
 
 function asGroupMember(item: unknown): GroupMemberInfoElem {
     return item as GroupMemberInfoElem
+}
+
+const friend = computed(() =>
+    contactStore.userList.find((item: UserFriendElem & UserGroupElem) => item.user_id == props.chat.show.id),
+)
+const userInfo = computed(() => (props.chat.info?.user_info ?? {}) as Record<string, any>)
+const displayName = computed(() => {
+    const remark = String(friend.value?.remark || userInfo.value.remark || '').trim()
+    if (remark && remark !== String(props.chat.show.id)) return remark
+    return String(props.chat.show.name || userInfo.value.nickname || props.chat.show.id)
+})
+const remarkText = computed(() => {
+    const remark = String(friend.value?.remark || userInfo.value.remark || '').trim()
+    if (!remark || remark === String(props.chat.show.name) || remark === String(props.chat.show.id)) return ''
+    return remark
+})
+const categoryText = computed(() => String(friend.value?.class_name || '').trim() || $t('我的好友'))
+const signText = computed(() =>
+    String(userInfo.value.longNick || userInfo.value.long_nick || '').trim() || $t('这个人很懒什么都没有写～'),
+)
+const isOnline = computed(() => {
+    const status = Number(userInfo.value.status)
+    return status === 10 || status === 1 || status === 11
+})
+const levelText = computed(() => {
+    const raw = qqLevelToEmoji(Number(userInfo.value.qqLevel) || 0)
+    if (typeof raw !== 'string') return ''
+    return raw.replace(/（\d+）$/, '')
+})
+const metaParts = computed(() => {
+    const info = userInfo.value
+    const parts: { key: string, text: string, className?: string }[] = []
+    const sex = String(info.sex || '').toLowerCase()
+    if (sex === 'male' || sex === '男') parts.push({ key: 'sex', text: '♂ 男', className: 'is-male' })
+    else if (sex === 'female' || sex === '女') parts.push({ key: 'sex', text: '♀ 女', className: 'is-female' })
+    const age = Number(info.age)
+    if (age > 0) parts.push({ key: 'age', text: `${age}${$t('岁')}` })
+    const month = Number(info.birthday_month)
+    const day = Number(info.birthday_day)
+    if (month > 0 && day > 0) {
+        const zodiac = zodiacFromDate(month, day)
+        parts.push({ key: 'birth', text: zodiac ? `${month}月${day}日 ${zodiac}` : `${month}月${day}日` })
+    }
+    const place = [info.city, info.province, info.country].map((item) => String(item || '').trim()).filter(Boolean)
+    if (place.length) parts.push({ key: 'place', text: `${$t('现居')} ${place[0]}` })
+    return parts
+})
+
+function zodiacFromDate(month: number, day: number) {
+    const table: [number, number, string][] = [
+        [1, 20, '水瓶座'], [2, 19, '双鱼座'], [3, 21, '白羊座'], [4, 20, '金牛座'],
+        [5, 21, '双子座'], [6, 22, '巨蟹座'], [7, 23, '狮子座'], [8, 23, '处女座'],
+        [9, 23, '天秤座'], [10, 24, '天蝎座'], [11, 23, '射手座'], [12, 22, '摩羯座'],
+    ]
+    for (let i = 0; i < table.length; i++) {
+        const [m, d, name] = table[i]
+        const prev = table[i === 0 ? table.length - 1 : i - 1]
+        if (month === m && day < d) return prev[2]
+        if (month === m) return name
+    }
+    return ''
+}
+
+function openQzone() {
+    openLink('https://user.qzone.qq.com/' + props.chat.show.id)
+}
+
+function shareUser() {
+    copyText('QQ ' + props.chat.show.id)
+}
+
+function callUser() {
+    new PopInfo().add(PopType.INFO, $t('暂不支持音视频通话'), true)
+}
+
+function startFriendChat() {
+    emit('startChat')
 }
 
 /**
@@ -751,47 +820,66 @@ function canEditMember(role: string) {
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32) !important;
 }
 .chat-info > header {
-    height: 48px;
-    min-height: 48px;
+    height: 52px;
+    min-height: 52px;
+    box-sizing: border-box;
     margin: 0 !important;
-    padding: 0 16px !important;
+    padding: 0 16px 0 8px !important;
+    display: flex;
+    justify-content: flex-start;
     align-items: center;
+    gap: 4px;
     border-bottom: 1px solid rgba(127, 127, 127, 0.12);
     letter-spacing: 0 !important;
     font-weight: 650;
 }
 .chat-info > header > span {
+    flex: 0 1 auto !important;
     font-size: 15px !important;
     font-weight: 650;
     letter-spacing: 0;
 }
-.chat-info > header > svg {
-    width: 14px !important;
-    height: 14px !important;
-    padding: 7px;
-    border-radius: 50%;
-    box-sizing: content-box;
+.chat-info-back {
+    display: grid;
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    color: var(--color-font);
+    background: transparent;
+    cursor: pointer;
 }
-.chat-info > header > svg:hover {
-    background: rgba(127, 127, 127, 0.16);
+.chat-info-back svg {
+    width: 16px !important;
+    height: 16px !important;
+    padding: 0 !important;
+    margin: 0 !important;
 }
-.chat-info-base,
-.chat-info-base.user {
+.chat-info-back:hover {
+    background: rgba(127, 127, 127, 0.12);
+}
+.chat-info-base {
     background: transparent !important;
     margin: 0 !important;
     padding: 16px 16px 8px !important;
     border-radius: 0 !important;
 }
-.chat-info-base > div:first-child,
-.chat-info-base.user > div:first-child {
+.chat-info-identity,
+.chat-info-base.group > div.chat-info-identity {
     background: transparent !important;
     border-radius: 0 !important;
     width: auto !important;
     margin: 0 0 8px !important;
     padding: 0 !important;
     gap: 12px;
+    display: flex;
+    align-items: center;
 }
-.chat-info-base > div:first-child > img {
+.chat-info-identity > img {
     width: 48px !important;
     height: 48px !important;
     margin: 0 !important;
@@ -799,20 +887,20 @@ function canEditMember(role: string) {
     outline: none !important;
     border-radius: 50% !important;
 }
-.chat-info-base > div:first-child > div:nth-child(2) {
+.chat-info-identity > div:nth-child(2) {
     margin-left: 0 !important;
 }
-.chat-info-base > div:first-child > div:nth-child(2) > a {
+.chat-info-identity > div:nth-child(2) > a {
     font-size: 16px !important;
     font-weight: 650;
     line-height: 1.3;
 }
-.chat-info-base > div:first-child > div:nth-child(2) > span {
+.chat-info-identity > div:nth-child(2) > span {
     font-size: 12px !important;
     color: var(--color-font-2) !important;
     margin-top: 2px;
 }
-.chat-info-base > div:first-child > div:nth-child(3) {
+.chat-info-copy {
     width: 32px !important;
     height: 32px !important;
     padding: 0 !important;
@@ -821,8 +909,9 @@ function canEditMember(role: string) {
     display: flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
 }
-.chat-info-base > div:first-child > div:nth-child(3) > svg {
+.chat-info-copy > svg {
     width: 13px;
     height: 13px;
 }
@@ -943,6 +1032,181 @@ function canEditMember(role: string) {
 }
 .group-files {
     padding: 8px 12px;
+}
+
+.chihiro-friend-profile {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: 100%;
+    padding: 12px 36px 24px;
+    color: var(--color-font);
+}
+.chihiro-fp-hero {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(127, 127, 127, 0.14);
+}
+.chihiro-fp-avatar {
+    width: 88px;
+    height: 88px;
+    flex: 0 0 88px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--color-card-1);
+}
+.chihiro-fp-identity {
+    min-width: 0;
+    flex: 1;
+}
+.chihiro-fp-name {
+    font-size: 22px;
+    font-weight: 650;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.chihiro-fp-qq {
+    margin: 6px 0 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-font-2);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+.chihiro-fp-aside {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+.chihiro-fp-online {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-font);
+    font-size: 13px;
+}
+.chihiro-fp-online > i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #30d158;
+}
+.chihiro-fp-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 16px 0 8px;
+    color: var(--color-font-1);
+    font-size: 13px;
+}
+.chihiro-fp-meta-split {
+    width: 1px;
+    height: 12px;
+    background: rgba(127, 127, 127, 0.28);
+}
+.chihiro-fp-meta .is-male { color: #6cb6ff; }
+.chihiro-fp-meta .is-female { color: #ff8fab; }
+.chihiro-fp-level {
+    margin: 10px 0 4px;
+    font-size: 16px;
+    letter-spacing: 2px;
+}
+.chihiro-fp-rows {
+    display: flex;
+    flex-direction: column;
+    margin-top: 6px;
+}
+.chihiro-fp-row,
+.chihiro-fp-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+}
+.chihiro-fp-row > svg,
+.chihiro-fp-link > svg:first-child {
+    width: 14px;
+    height: 14px;
+    color: var(--color-font-2);
+    flex: 0 0 14px;
+}
+.chihiro-fp-label {
+    flex: 0 0 auto;
+    color: var(--color-font-1);
+    font-size: 14px;
+}
+.chihiro-fp-value {
+    min-width: 0;
+    margin-left: auto;
+    color: var(--color-font);
+    font-size: 14px;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.chihiro-fp-value.is-muted {
+    color: var(--color-font-2);
+}
+.chihiro-fp-link {
+    width: 100%;
+    margin-top: 8px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(127, 127, 127, 0.14);
+    cursor: pointer;
+}
+.chihiro-fp-chevron {
+    margin-left: auto;
+    width: 12px !important;
+    height: 12px !important;
+    color: var(--color-font-2);
+}
+.chihiro-fp-actions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: auto;
+    padding-top: 36px;
+}
+.chihiro-fp-btn {
+    min-width: 108px;
+    height: 36px;
+    padding: 0 18px;
+    border: 1px solid rgba(127, 127, 127, 0.28);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--color-font);
+    cursor: pointer;
+    font-size: 14px;
+}
+.chihiro-fp-btn:hover {
+    background: rgba(127, 127, 127, 0.1);
+}
+.chihiro-fp-btn.is-primary {
+    border-color: transparent;
+    background: var(--color-main);
+    color: var(--color-font-r, #fff);
+}
+.chihiro-fp-btn.is-primary:hover {
+    filter: brightness(1.06);
 }
 
 @media (max-width: 700px) {

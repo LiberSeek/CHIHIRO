@@ -7,11 +7,20 @@ import prefixSelector from 'postcss-prefix-selector'
 
 export default defineConfig({
   base: '/next/',
+  define: { 'import.meta.env.VITE_CHIHIRO': true },
   plugins: [vue(), yaml()],
   css: {
     postcss: { plugins: [prefixSelector({
       prefix: ':where(.chihiro-native-im, #chihiro-im-overlays)',
       includeFiles: ['/modules/im/native/'],
+      transform(prefix, selector, prefixedSelector) {
+        // Theme classes belong to the document, while their tokens stay inside IM.
+        if (selector === ':root' || selector === 'html' || selector === 'body') return prefix
+        if (/^(html|:root)(\.bp-(dark|light)|\[data-theme=(["'])?(dark|light)\4\])$/.test(selector)) {
+          return `${selector} ${prefix}`
+        }
+        return prefixedSelector
+      },
     })] },
   },
   resolve: {

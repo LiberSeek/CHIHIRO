@@ -31,6 +31,7 @@ import {
 import { updateBaseOnMsgList } from './utils/msgUtil'
 import { backend } from '@renderer/runtime/backend'
 import { refreshFavicon } from './favicon'
+import { applyTheme } from '@/theme'
 
 let cacheConfigs: { [key: string]: any }
 const nativeOptionsKey = 'chihiro:im:options'
@@ -504,8 +505,12 @@ function changeColorMode(mode: string) {
     }
     // 记录
     settingsStore.darkMode = mode === 'dark'
-    document.documentElement.classList.toggle('bp-dark', mode === 'dark')
-    document.documentElement.classList.toggle('bp-light', mode !== 'dark')
+    if (import.meta.env.VITE_CHIHIRO) {
+        applyTheme(mode === 'dark' ? 'dark' : 'light')
+    } else {
+        document.documentElement.classList.toggle('bp-dark', mode === 'dark')
+        document.documentElement.classList.toggle('bp-light', mode !== 'dark')
+    }
     // Capacitor: 状态栏颜色（Android）
     if(backend.isMobile()) {
         backend.call('StatusBar', 'setStyle', false, { style: mode.toUpperCase() })

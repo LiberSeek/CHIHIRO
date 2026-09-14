@@ -2,6 +2,7 @@
 import { inject, onBeforeUnmount, onMounted, ref, shallowRef, type Component } from 'vue'
 import { agentLoaderKey } from './loader'
 
+const props = defineProps<{ sidebarTarget: HTMLElement; threadTarget: HTMLElement }>()
 const loadAgent = inject(agentLoaderKey)
 const component = shallowRef<Component>()
 const loading = ref(false)
@@ -25,11 +26,11 @@ onBeforeUnmount(() => { active = false })
 </script>
 
 <template>
-  <component :is="component" v-if="component" />
-  <section v-else class="agent-loading" role="status">
+  <component :is="component" v-if="component" v-bind="props" />
+  <Teleport v-else :to="sidebarTarget"><section class="agent-loading" role="status">
     <p>{{ loading ? '正在加载工作台…' : error }}</p>
     <button v-if="!loading" type="button" @click="load">重新加载</button>
-  </section>
+  </section></Teleport>
 </template>
 
 <style scoped>

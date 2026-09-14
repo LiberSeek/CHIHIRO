@@ -19,8 +19,12 @@ export interface AccountContext {
   id: AccountId
   label: string
   avatar?: string
+  instanceId?: string
   platform: 'qq'
   status: 'offline' | 'connecting' | 'online' | 'error'
+  botEnabled?: boolean
+  botWired?: boolean
+  unread?: number
 }
 
 export interface AgentSessionRef {

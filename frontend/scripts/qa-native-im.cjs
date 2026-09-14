@@ -5,6 +5,7 @@ const root = path.resolve(__dirname, "../..");
 const { WebSocketServer } = require(root + "/node_modules/ws");
 const { chromium } = require("playwright-core");
 const actions = [];
+const interactionChecks = process.argv.includes('--interactions');
 const assistantRequests = [];
 let assistantHosted = false;
 let assistantDraftStatus = 'pending';
@@ -115,7 +116,10 @@ wss.on("connection", (socket, req) => {
       time: Math.floor(Date.now() / 1000),
       sender: friend,
       raw_message: "请问这款产品如何购买？",
-      message: [{ type: "text", data: { text: "请问这款产品如何购买？" } }],
+      message: [
+        { type: "text", data: { text: "请问这款产品如何购买？" } },
+        ...(interactionChecks ? [{ type: 'image', data: { url: 'https://example.test/fixture.svg' } }] : []),
+      ],
     };
     switch (f.action) {
       case "get_version_info":
@@ -202,6 +206,95 @@ wss.on("connection", (socket, req) => {
         }),
   );
   await page.goto(`http://127.0.0.1:${port}/next/im`);
+  if (interactionChecks) {
+    const assert = require('node:assert/strict');
+    await page.getByText('客户小林 10001', { exact: true }).first().click();
+    const input = page.locator('#main-input-ex');
+    await input.waitFor();
+    const height = () => input.evaluate(el => el.clientHeight);
+    const compactHeight = await height();
+    await input.fill('待删除文字');
+    await input.press('ControlOrMeta+a');
+    await input.press('Backspace');
+    await page.waitForTimeout(150);
+    assert.equal(await height(), compactHeight, 'Deleting all text must restore compact height');
+    await input.press('Backspace');
+    await input.press('Enter');
+    await page.waitForTimeout(150);
+    assert.equal(await height(), compactHeight, 'Empty Backspace/Enter must not grow the composer');
+    assert.equal(actions.filter(a => /^(send_msg|send_private_msg)$/.test(a.action)).length, 0);
+    await input.fill('第一行');
+    await input.press('End');
+    await input.press('Shift+Enter');
+    await input.press('a');
+    await page.waitForTimeout(150);
+    assert.ok(await height() > compactHeight, 'Explicit newlines must still expand the composer');
+    assert.equal(await input.evaluate(el => el.innerText.replace(/\u200B/g, '')), '第一行\na');
+    await input.fill('');
+
+    await page.locator('#chat-701 img.msg-img').first().click();
+    const viewer = page.locator('#chihiro-im-overlays .mask-background');
+    await viewer.waitFor();
+    const box = await viewer.boundingBox();
+    assert.deepEqual(box, { x: 0, y: 0, width: 1440, height: 960 }, 'Viewer must cover the viewport');
+    const toolbar = page.locator('.chihiro-viewer-bar');
+    const toolbarBox = await toolbar.boundingBox();
+    assert.ok(toolbarBox && toolbarBox.y >= 0 && toolbarBox.y + toolbarBox.height <= 960);
+    const viewerImage = viewer.locator('.viewer-img > img');
+    await page.waitForFunction(() => {
+      const img = document.querySelector('#chihiro-im-overlays .viewer-img > img');
+      return img?.complete && img.naturalWidth > 0;
+    });
+    const beforeZoom = await viewerImage.getAttribute('style');
+    await toolbar.locator('[data-icon="magnifying-glass-plus"]').click();
+    assert.notEqual(await viewerImage.getAttribute('style'), beforeZoom, 'Zoom control must operate');
+    async function checkToolbarBounds(width) {
+      const avatar = toolbar.locator('.chihiro-viewer-sender img');
+      const avatarBox = await avatar.boundingBox();
+      const railBox = await page.locator('.account-rail').boundingBox();
+      const actionsBox = await toolbar.locator('.chihiro-viewer-actions').boundingBox();
+      assert.ok(avatarBox && railBox && avatarBox.x >= railBox.x + railBox.width + 16,
+        'Sender avatar must clear the account rail');
+      assert.ok(await avatar.evaluate(img => img.complete && img.naturalWidth > 0), 'Sender avatar must load');
+      assert.ok(actionsBox && actionsBox.x + actionsBox.width <= width - 16,
+        'Viewer controls must retain a right gutter');
+      const senderBox = await toolbar.locator('.chihiro-viewer-sender').boundingBox();
+      assert.ok(senderBox.x + senderBox.width <= actionsBox.x, 'Sender must not overlap viewer controls');
+    }
+    await checkToolbarBounds(1440);
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.deepEqual(await viewer.boundingBox(), { x: 0, y: 0, width: 390, height: 844 });
+    await checkToolbarBounds(390);
+    await page.setViewportSize({ width: 320, height: 844 });
+    await checkToolbarBounds(320);
+    await page.setViewportSize({ width: 1440, height: 960 });
+    await page.keyboard.press('Escape');
+    await viewer.waitFor({ state: 'detached' });
+
+    for (const theme of ['dark', 'light']) {
+      await page.evaluate(theme => {
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.classList.remove('bp-dark', 'bp-light');
+        document.documentElement.classList.add(`bp-${theme}`);
+      }, theme);
+      await page.locator('#chat-701').click({ button: 'right' });
+      await page.locator('#msgMenu').getByText('转发', { exact: true }).click();
+      const card = page.locator('.forward-pan > .card');
+      await card.waitFor();
+      assert.equal(await card.evaluate(el => getComputedStyle(el).backgroundColor),
+        theme === 'dark' ? 'rgb(44, 44, 46)' : 'rgb(255, 255, 255)', 'Forward card must have a solid themed background');
+      await card.locator('header [data-icon="xmark"]').click();
+      await card.waitFor({ state: 'detached' });
+    }
+    assert.equal(actions.filter(a => /^(send_msg|send_private_msg)$/.test(a.action)).length, 0);
+    assert.deepEqual(errors, [], 'Interaction checks must not produce browser errors');
+    console.log(JSON.stringify({ status: 'passed', checks: ['empty composer', 'explicit newline', 'image viewer bounds', 'zoom and close', 'forward card in both themes'], errors }));
+    await browser.close();
+    for (const client of wss.clients) client.terminate();
+    wss.close();
+    server.close();
+    return;
+  }
   await page.waitForTimeout(1800);
   console.log(
     JSON.stringify({

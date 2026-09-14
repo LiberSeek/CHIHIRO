@@ -240,8 +240,8 @@
     {
       "path": "src/components/user/UserComposer.vue",
       "upstreamPath": "components/user/UserComposer.vue",
-      "sha256": "05b7cbc44a6bad1200282ea4fc1524a939467ac0e99274f03152f3575da172cb",
-      "extractedSha256": "bcba655d8676d6a06022b4a33a131a9f63297a8fd54b7ecff5f6d19056016650"
+      "sha256": "a804b24a9d5bdb4072204fee20be6a6bdd4c3b5d55dd51700dbdaa97aba7ced1",
+      "extractedSha256": "5a72399947ada83841f94339b6d2f03fcf576921e53f47ae3f8baa70bfd05268"
     },
     {
       "path": "src/components/user/UserDepPan.vue",
@@ -305,7 +305,7 @@
     {
       "path": "src/components/user/UserMsgBody.vue",
       "upstreamPath": "components/user/UserMsgBody.vue",
-      "sha256": "219eec2bf82ac95aeab37abd7bcbbcaa136948e69e79b51c746a9dd0f55f3ef7",
+      "sha256": "cce9f80ced07d63c0d561a5659e016a22b0d140e15eb11a6b43f987b01822522",
       "extractedSha256": "52387ba4ff41a58814518999375b8b318c05cb43b3a965fb21edac86ff7b0338"
     },
     {
@@ -357,8 +357,8 @@
     {
       "path": "src/components/user/UserViewerCom.vue",
       "upstreamPath": "components/user/UserViewerCom.vue",
-      "sha256": "8d203690608f52fd9ec3569a4da6be0591a7c0a0440cdac9cb9ca35f3bb302dd",
-      "extractedSha256": "afc8ebbadf1a557789e677af4522aa54f3380bd86dc8e36f0448c6a2c1c75205"
+      "sha256": "63262cdd18bfd223bc6cb5804d22de41e43ada53f4b3d5fd71c041f07d57a20d",
+      "extractedSha256": "901ded7ac2157466493933014e5210ca991f05b3b99aef8107a6c49803a4d04e"
     },
     {
       "path": "src/components/user/UserVoiceMsg.vue",
@@ -430,7 +430,7 @@
     {
       "path": "src/function/msg.ts",
       "upstreamPath": "function/msg.ts",
-      "sha256": "dc431d84dc4fd8b2011449533e9c03a4a24dc5ea9e49224dfc9dd79e44cafc81",
+      "sha256": "839b1f76f945a6c28f4e35a81d09c3911eb71f456ea5efd670caa57b9a40a1a8",
       "extractedSha256": "6a2cefefc07e90c244c3458f68f4b823cdab46928c804d7641c32c1af28003fe"
     },
     {
@@ -441,7 +441,7 @@
     {
       "path": "src/function/option.ts",
       "upstreamPath": "function/option.ts",
-      "sha256": "f2c91b5dce3217a533a5d9eb8592c653e6103a12b77367aac993721a5806ff52",
+      "sha256": "0d9ecf4aaf01c27f55f826226623ae0f6a0b67cbe58fea1d990ad74126c00821",
       "extractedSha256": "8af2a9ab9b4c7cbfe2473cfbac3a863c68354e5c959c4ef706a04ded57f1c25c"
     },
     {
@@ -457,8 +457,8 @@
     {
       "path": "src/function/utils/appUtil.ts",
       "upstreamPath": "function/utils/appUtil.ts",
-      "sha256": "1e377ae0add3b8f6d5fb1404e16369ec15390ba018c684b0647fe01361ec3f22",
-      "extractedSha256": "f365cd0bffbcf023d7a76ffcd0fb4058ddfaed48b4360cffebfa54504c56d694"
+      "sha256": "1f116ffd9dce9775e3ffc7589b7ff7b13647fdcd9daa5ebda5660c71cd1057e3",
+      "extractedSha256": "1f116ffd9dce9775e3ffc7589b7ff7b13647fdcd9daa5ebda5660c71cd1057e3"
     },
     {
       "path": "src/function/utils/backgroundUtil.ts",
@@ -478,7 +478,7 @@
     {
       "path": "src/function/utils/msgUtil.ts",
       "upstreamPath": "function/utils/msgUtil.ts",
-      "sha256": "cbf6c674cbb9fadb97e87b977625cdaad71d5357441ff6f8409f0120425a8fe1",
+      "sha256": "17947644f4cdbb2149ec7877dd7932636b5f6cc0af98f14d3168ef548ee44685",
       "extractedSha256": "674b1680694e122125be16cf7d78a9895fa94d9d203679c09301d57aa7fb3038"
     },
     {
@@ -495,7 +495,8 @@
     {
       "path": "src/function/utils/sessionUtil.ts",
       "upstreamPath": "function/utils/sessionUtil.ts",
-      "sha256": "6d418abe625aa3aa56d49985f2dcdc6ecff60caa316db6278030809d4750e37a"
+      "sha256": "4fc2c1c7797d6bb09213a229f118034384dbbf03070bdf820123171b0f0712e3",
+      "extractedSha256": "6d418abe625aa3aa56d49985f2dcdc6ecff60caa316db6278030809d4750e37a"
     },
     {
       "path": "src/function/utils/systemUtil.ts",
@@ -511,13 +512,14 @@
     {
       "path": "src/pages/user/UserChat.vue",
       "upstreamPath": "pages/user/UserChat.vue",
-      "sha256": "79d1cf262743c0634009bea0812bdc41fd23981cbd2510acf2f2386357f8d48e",
-      "extractedSha256": "45204dcd1251b456692c72023973b9e5ac755bb3df5a3b057512e055ebbe388a"
+      "sha256": "a4f779b55313f65426613dd5729811ad1388b9b1c684e50651ab3a49695d222b",
+      "extractedSha256": "a4f779b55313f65426613dd5729811ad1388b9b1c684e50651ab3a49695d222b"
     },
     {
       "path": "src/pages/user/UserFriends.vue",
       "upstreamPath": "pages/user/UserFriends.vue",
-      "sha256": "ef0cc9abd3db62e3fefc7f437e8cb948de196b09d3017b26d20de5876cb22082"
+      "sha256": "ec549efdc6c883d910a08ee50a7756c331e45fc5c8831a2711286ebd64fdf5dc",
+      "extractedSha256": "ec549efdc6c883d910a08ee50a7756c331e45fc5c8831a2711286ebd64fdf5dc"
     },
     {
       "path": "src/pages/user/UserInfo.vue",
@@ -528,7 +530,7 @@
     {
       "path": "src/pages/user/UserMessages.vue",
       "upstreamPath": "pages/user/UserMessages.vue",
-      "sha256": "81d9eed1cfad1fe6c32f1e1c9aaaa5c9c1ce5baa03a038d31b1c8629030d7ae9",
+      "sha256": "fe90ae680f3838673d5d6a9a0232dfcb1081c002123236d7d719945153ad0617",
       "extractedSha256": "c31c9d735b0c0d416ddbb068cc4b4c756f6436733291e041631c84406e8b7985"
     },
     {
@@ -559,7 +561,7 @@
     {
       "path": "src/pages/user/UserOptions.vue",
       "upstreamPath": "pages/user/UserOptions.vue",
-      "sha256": "255487512283e3a099ffc77c32907d6d5c1542361ec2da1eeea57fb9b80ad54e"
+      "sha256": "cb58e12e3e9b1f7ea46f9f2a1b1aac21787149e2b02be7ff9c798cf17c61a2f1"
     },
     {
       "path": "src/pages/user/UserOptView.vue",
@@ -579,7 +581,8 @@
     {
       "path": "src/runtime/backend.ts",
       "upstreamPath": "runtime/backend.ts",
-      "sha256": "e0e629e7df3c397b066b35f38ee24ae374d36c26981411f8fd90659f9c4df50f"
+      "sha256": "c5ade8deb30d047b3c0774081a86ee5d2f7e8f20acedb6e873c25b6d1a713a68",
+      "extractedSha256": "e0e629e7df3c397b066b35f38ee24ae374d36c26981411f8fd90659f9c4df50f"
     },
     {
       "path": "src/state/auth.ts",
@@ -720,7 +723,7 @@
     {
       "path": "src/assets/css/options.css",
       "upstreamPath": "assets/css/options.css",
-      "sha256": "7d66a20f34b41c8ba2f689f1c185488fbc79ae8c76434212ef98661550d39e1e",
+      "sha256": "fec4f34ca6655a102deb68d38880bcd51cf8811e9ae190f20ad65742802352d0",
       "extractedSha256": "7d66a20f34b41c8ba2f689f1c185488fbc79ae8c76434212ef98661550d39e1e",
       "sourceTreeCommit": "0686935276ac8c471068958893467f835e3905f4"
     },
@@ -735,7 +738,7 @@
       "path": "src/assets/css/user.css",
       "upstreamPath": "assets/css/user.css",
       "sha256": "315ebd78e25b81f0e379943266235e685193a2c963576b362a4fb700641d7fe0",
-      "extractedSha256": "315ebd78e25b81f0e379943266235e685193a2c963576b362a4fb700641d7fe0",
+      "extractedSha256": "e45eb50b0d21c0ac8647dd8ea013347fdceb2726c660271c9ed40b1af9e78e04",
       "sourceTreeCommit": "0686935276ac8c471068958893467f835e3905f4"
     },
     {

@@ -259,7 +259,7 @@ export const useAssistantStore = defineStore('conversation-assistant', () => {
     }
   }
 
-  watch(() => [shell.activeAccountId, shell.activeAccount?.status], clear, { flush: 'sync' })
+  watch(() => `${shell.activeAccountId ?? ''}:${shell.activeAccount?.status ?? ''}`, clear, { flush: 'sync' })
   return { context, sessions, currentDrafts, session, enabled, open, quote, instruction, error, busy, connected,
     uncertainDrafts, deliveryActions, thinkingText, select, clear, start, setHosting, setMode, ask, resolveDraft, resolveDelivery }
 })

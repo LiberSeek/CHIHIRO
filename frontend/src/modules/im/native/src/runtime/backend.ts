@@ -1,4 +1,5 @@
 import { i18n } from '@chihiro/im-native/host'
+import { rewriteWebMediaUrl, unwrapMediaUrl } from '@chihiro/im-native/media-url'
 import VConsole from 'vconsole'
 
 import { IpcRenderer } from '@electron-toolkit/preload'
@@ -47,9 +48,8 @@ export const backend = {
     proxyUrl(url: string) {
         if (this.proxy && url && url.startsWith('http')) {
             return `http://localhost:${this.proxy}/proxy?url=${encodeURIComponent(url)}`
-        } else {
-            return url
         }
+        return rewriteWebMediaUrl(url)
     },
 
     /**
@@ -84,7 +84,7 @@ export const backend = {
                 }
             }
         }
-        return url
+        return unwrapMediaUrl(url)
     },
 
     /**

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { accountId } from '../contracts'
-import { parseRuntimeAccounts, useShellStore } from './shell'
+import { parseRuntimeAccounts, parseRuntimeClients, useShellStore } from './shell'
 
 const a = accountId('qq:123'), b = accountId('qq:456')
 const state = (activeId: string | null = a, ids = [a, b]) => ({ accounts: { activeId, accounts: ids.map(id => ({ id, nickname: `Name ${id}`, online: id === a, obToken: 'should-not-be-stored' })) } })
@@ -15,6 +15,16 @@ beforeEach(() => setActivePinia(createPinia()))
 afterEach(() => vi.unstubAllGlobals())
 
 describe('runtime account shell', () => {
+  it('maps runtime clients for the empty launcher', () => {
+    expect(parseRuntimeClients({ clients: [
+      { id: 'qq', name: 'QQ', badge: 'QQ', enabled: true, hint: '扫码登录', token: 'ignored' },
+      { id: 'telegram', name: 'Telegram', enabled: false },
+    ] })).toEqual([
+      { id: 'qq', name: 'QQ', badge: 'QQ', enabled: true, hint: '扫码登录' },
+      { id: 'telegram', name: 'Telegram', badge: 'Te', enabled: false },
+    ])
+  })
+
   it('maps the real online field, omits secrets, and rejects invalid identities', () => {
     const parsed = parseRuntimeAccounts(state())
     expect(parsed.accounts[0]).toEqual({ id: a, label: `Name ${a}`, platform: 'qq', status: 'online' })
@@ -34,6 +44,19 @@ describe('runtime account shell', () => {
     expect(shell.activeAccount?.id).toBe(b)
     shell.selectAccount(accountId('qq:999'))
     expect(shell.activeAccountId).toBe(b)
+  })
+
+  it('keeps stable account objects when runtime polling returns unchanged state', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(state())))
+    const shell = useShellStore()
+    await shell.refreshAccounts()
+    const firstAccounts = shell.accounts
+    const firstActive = shell.activeAccount
+
+    await shell.refreshAccounts()
+
+    expect(shell.accounts).toBe(firstAccounts)
+    expect(shell.activeAccount).toBe(firstActive)
   })
 
   it('does not overwrite a choice made while refreshing and replaces removed accounts', async () => {

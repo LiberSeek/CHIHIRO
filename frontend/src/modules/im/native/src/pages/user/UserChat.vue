@@ -13,6 +13,7 @@
     <div id="chat-pan"
         v-move="chatMoveOptions"
         :class="'chat-pan user-skin' +
+            (profileOnly ? ' contact-profile-view' : '') +
             (uiStore.openSideBar ? ' open' : '') +
             (multipleSelectList.length > 0 ? ' is-multiselect' : '') +
             (['linux', 'win32'].includes(backend.platform ?? '') ? ' withBar' : '')"
@@ -59,8 +60,8 @@
             </div>
             <div class="space" />
             <div class="chihiro-head-actions">
-                <div class="chihiro-feature-btn" :class="{ active: chihiroFeatureOpen }" title="AI 功能区" @click.stop="toggleChihiroFeature">
-                    <font-awesome-icon :icon="['fas', 'wand-magic-sparkles']" />
+                <div class="chihiro-feature-btn" :class="{ active: chihiroFeatureOpen }" :title="$t('会话助手')" @click.stop="toggleChihiroFeature">
+                    <font-awesome-icon :icon="['fas', 'robot']" />
                 </div>
                 <div class="chihiro-history-btn" :class="{ active: chihiroHistory.open }" :title="$t('搜索消息')" @click.stop="toggleChihiroHistory">
                     <font-awesome-icon :icon="['fas', 'clock-rotate-left']" />
@@ -342,7 +343,6 @@
                 :new-msg-num="NewMsgNum"
                 :plus-open="chihiroPlusOpen"
                 :face-open="details[1].open"
-                :bot-on="assistant.enabled"
                 :disabled="uiStore.openSideBar || chat.info.me_info.shut_up_timestamp > 0"
                 :placeholder="
                     chat.info.me_info.shut_up_timestamp > 0
@@ -367,7 +367,6 @@
                 @pick-image="pickChihiroImage"
                 @pick-file="pickChihiroFile"
                 @toggle-face="toggleChihiroFace"
-                @toggle-bot="toggleChihiroFeature"
                 @jump-bottom="scrollBottom(true)"
                 @attach-edit="editImg"
                 @attach-delete="deleteImg"
@@ -390,10 +389,11 @@
         <MergePan ref="mergePan" />
         <!-- 消息右击菜单 -->
         <Teleport to="#chihiro-im-overlays">
-            <div :class="'msg-menu' + (['linux', 'win32'].includes(backend.platform ?? '') ? ' withBar' : '')">
+            <div :class="'msg-menu' + (['linux', 'win32'].includes(backend.platform ?? '') ? ' withBar' : '') + (tags.showMsgMenu ? ' is-open' : '')">
                 <div v-show="tags.showMsgMenu" class="msg-menu-bg" @click="closeMsgMenu" />
                 <div id="msgMenu" :class="tags.showMsgMenu ?
-                    'ss-card msg-menu-body show' : 'ss-card msg-menu-body'">
+                    'ss-card msg-menu-body show' : 'ss-card msg-menu-body'"
+                    @click.stop>
                     <div v-if="chatStore.chatInfo.show.type == 'group'"
                         v-show="tags.menuDisplay.showRespond"
                         :class="'ss-card respond' + (tags.menuDisplay.respond ? ' open' : '')">
@@ -483,8 +483,12 @@
         <!-- 群 / 好友信息弹窗 -->
         <Transition name="chat-info-float" :duration="{ enter: 220, leave: 180 }">
             <Info v-if="tags.openChatInfo" ref="infoRef" :chat="chat" :tags="tags"
-                @close="openChatInfoPan" />
+                @close="profileOnly ? emit('closeProfile') : openChatInfoPan()"
+                @start-chat="onProfileStartChat" />
         </Transition>
+        <div v-if="profileOnly && chat.show.type === 'group'" class="contact-profile-actions">
+            <button type="button" class="ss-button" @click="emit('startChat')">{{ $t('发送消息') }}</button>
+        </div>
         <!-- 转发面板 -->
         <Transition name="forward-float" :duration="{ enter: 220, leave: 180 }">
             <div v-if="tags.showForwardPan" class="forward-pan">
@@ -619,11 +623,13 @@ defineOptions({ name: 'UserChat' })
 const $t = i18n.global.t
 const { viewer: viewerRef } = inject<{ viewer: any }>('viewer', { viewer: null })
 
-const { chat, list } = defineProps<{
+const { chat, list, profileOnly = false } = defineProps<{
     chat: any
     list: any[]
     imgView?: any
+    profileOnly?: boolean
 }>()
+const emit = defineEmits<{ startChat: []; closeProfile: [] }>()
 let viewGeneration = 0
 function currentConversationKey() {
     return `${String(chat.show?.id ?? '')}:${(chat.show as any)?.temp ?? ''}`
@@ -916,6 +922,10 @@ const chihiroHistory = reactive({
 const chihiroPlusOpen = ref(false)
 function onChihiroDocClick(e: Event) {
     const t = e.target as HTMLElement | null
+    if (tags.value.showMsgMenu && !(e instanceof MouseEvent && e.button !== 0)) {
+        if (t && typeof t.closest === 'function' && t.closest('#msgMenu')) return
+        closeMsgMenu()
+    }
     if (t && typeof t.closest === 'function' && (
         t.closest('.face-pan') ||
         t.closest('.chihiro-face-btn') ||
@@ -928,6 +938,11 @@ function onChihiroDocClick(e: Event) {
 function onChihiroDocKey(e: KeyboardEvent) {
     if (e.key !== 'Escape') return
     if (tags.value.openChatInfo) return
+    if (tags.value.showMsgMenu) {
+        closeMsgMenu()
+        e.preventDefault()
+        return
+    }
     if (profilePop.value) {
         profilePop.value = null
         e.preventDefault()
@@ -1096,7 +1111,7 @@ watch(currentConversationKey, () => {
     const history = useSessionHistoryStore()
     const sessionId = chat.show.id
     const session = [...contactStore.userList].find(i => (i.user_id ?? i.group_id) === sessionId)
-    if (session) history.add(session)
+    if (session && !profileOnly) history.add(session)
 })
 
 watch(() => msg.value, (_newMsg, oldMsgVal) => {
@@ -1104,11 +1119,21 @@ watch(() => msg.value, (_newMsg, oldMsgVal) => {
     scheduleResizeMainInput()
 })
 
+watch(() => profileOnly, (value) => {
+    if (value && !tags.value.openChatInfo) openChatInfoPan()
+    if (!value) {
+        tags.value.openChatInfo = false
+        const session = contactStore.baseOnMsgList.get(chat.show.id)
+        if (session) useSessionHistoryStore().add(session)
+    }
+})
+
 onMounted(() => {
     const history = useSessionHistoryStore()
     const sessionId = chat.show.id
     const session = [...contactStore.userList].find(i => (i.user_id ?? i.group_id) === sessionId)
-    if (session) history.add(session)
+    if (session && !profileOnly) history.add(session)
+    if (profileOnly) openChatInfoPan()
 
     updateList(list.length, 0)
     watch(() => list.map((item) => item.message_id + '_' + item.fake_msg),
@@ -2402,6 +2427,11 @@ function closeMsgMenu() {
     }, 300)
 }
 
+function onProfileStartChat() {
+    if (profileOnly) emit('startChat')
+    else if (tags.value.openChatInfo) openChatInfoPan()
+}
+
 function openChatInfoPan() {
     tags.value.openChatInfo = !tags.value.openChatInfo
     if (tags.value.openChatInfo) {
@@ -2969,6 +2999,7 @@ function sendMsg(echo = 'sendMsgBack', scope?: NativeAsyncScope) {
 }
 
 function updateList(newLength: number, oldLength: number) {
+    if (profileOnly) return
     if (oldLength == 0 && newLength > 0) {
         const name =
             authStore.jsonMap.set_message_read?.name ?? undefined
@@ -3380,6 +3411,7 @@ function getTargetWin(): HTMLDivElement | undefined {
 }
 
 function exitWin() {
+    if (profileOnly) { emit('closeProfile'); return }
     if(tags.value.openChatInfo) {
         openChatInfoPan()
     } else if(mergePan.value?.isMergeOpen()) {
@@ -3400,6 +3432,47 @@ function exitWin() {
 </script>
 
 <style scoped>
+    .contact-profile-view > :not(.chat-info-pan):not(.contact-profile-actions) { display: none !important; }
+    .contact-profile-view :deep(.chat-info-pan) {
+        position: absolute !important;
+        inset: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        margin: 0 !important;
+        background: var(--color-bg) !important;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    .contact-profile-view:has(.contact-profile-actions) :deep(.chat-info-pan) {
+        inset: 0 0 68px !important;
+    }
+    .contact-profile-view :deep(.chat-info) {
+        position: relative !important;
+        inset: auto !important;
+        width: 100% !important;
+        height: 100% !important;
+        max-width: none !important;
+        max-height: none !important;
+        margin: 0 !important;
+        transform: none !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        background: var(--color-bg) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden;
+    }
+    .contact-profile-view :deep(.chat-info-tab) {
+        flex: 1;
+        min-height: 0;
+    }
+    .contact-profile-view :deep(.chihiro-friend-profile) {
+        overflow: auto;
+    }
+    .contact-profile-actions { position: absolute; inset: auto 0 0; height: 68px; display: flex; align-items: center; justify-content: center; background: var(--color-bg); }
+    .contact-profile-actions button { min-width: 140px; background: var(--color-main); color: var(--color-font-r); }
     /* 消息动画 */
     .msglist-move {
         transition: all 0.3s;
@@ -3443,6 +3516,24 @@ function exitWin() {
 /* chihiro-moved-from-user-css */
 .msg-menu {
     overflow: visible !important;
+    pointer-events: none !important;
+}
+.msg-menu.is-open {
+    position: fixed !important;
+    inset: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 1000 !important;
+}
+.msg-menu-bg {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    pointer-events: auto !important;
+    z-index: 0;
 }
 .msg-menu-body {
     width: max-content !important;
@@ -3450,6 +3541,8 @@ function exitWin() {
     max-width: none !important;
     padding: 6px !important;
     position: relative;
+    z-index: 1;
+    pointer-events: auto;
 }
 .msg-menu-body > .respond {
     position: absolute !important;
@@ -3697,8 +3790,8 @@ function exitWin() {
 .user-skin.chat-pan > div.info {
     margin: 0 !important;
     width: 100% !important;
-    height: 48px !important;
-    min-height: 48px;
+    height: 52px !important;
+    min-height: 52px;
     padding: 0 20px 0 16px !important;
     box-sizing: border-box !important;
     border-radius: 0 !important;
@@ -3706,6 +3799,11 @@ function exitWin() {
     box-shadow: none !important;
     backdrop-filter: none !important;
     border-bottom: 1px solid rgba(127, 127, 127, 0.12);
+}
+.user-skin.chat-pan .face-pan,
+.user-skin.chat-pan .jin-pan {
+    background: var(--color-card) !important;
+    backdrop-filter: none !important;
 }
 .user-skin.chat-pan > div.info > img {
     width: 28px !important;

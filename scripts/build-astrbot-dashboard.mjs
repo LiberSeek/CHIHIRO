@@ -37,11 +37,18 @@ if (!fs.existsSync(path.join(dashboard, 'node_modules'))) {
   run('npm', ['install'], { cwd: dashboard })
 }
 
-run('npm', ['run', 'build'], { cwd: dashboard })
+run('npm', ['run', 'build', '--', '--base=/astrbot/'], { cwd: dashboard })
 run('npm', ['run', 'build:chihiro'], { cwd: dashboard })
 
-if (!fs.existsSync(path.join(distSrc, 'index.html'))) {
+const dashboardIndex = path.join(distSrc, 'index.html')
+if (!fs.existsSync(dashboardIndex)) {
   console.error('dashboard build did not produce dist/index.html')
+  process.exit(1)
+}
+
+const dashboardHtml = fs.readFileSync(dashboardIndex, 'utf8')
+if (!dashboardHtml.includes('/astrbot/assets/') || /["'(]\/assets\//.test(dashboardHtml)) {
+  console.error('dashboard build contains assets outside the /astrbot/ gateway prefix')
   process.exit(1)
 }
 

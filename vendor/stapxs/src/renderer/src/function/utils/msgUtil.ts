@@ -20,6 +20,7 @@ import { useUIStore } from '@renderer/state/ui'
 import { useAuthStore } from '@renderer/state/auth'
 import { useChatStore } from '@renderer/state/chat'
 import {
+    compareSessionsByRecency,
     findSessionContact,
     getSessionId,
 } from './sessionUtil'
@@ -585,15 +586,6 @@ export function updateLastestHistory(item: UserFriendElem & UserGroupElem) {
     )
 }
 
-function getSessionTime(item: UserFriendElem & UserGroupElem) {
-    const time = Number(item.time ?? 0)
-    return Number.isFinite(time) ? time : 0
-}
-
-function getSessionSortName(item: UserFriendElem & UserGroupElem) {
-    return item.py_start ?? getShowName(item.group_name ?? item.nickname ?? '', item.remark ?? '')
-}
-
 function getSessionList() {
     const contactStore = useContactStore()
     const settingsStore = useSettingsStore()
@@ -662,17 +654,6 @@ export function updateBaseOnMsgList() {
     const contactStore = useContactStore()
     const settingsStore = useSettingsStore()
     const allList = getSessionList()
-    const sortFun = (
-        a: UserFriendElem & UserGroupElem,
-        b: UserFriendElem & UserGroupElem,
-    ) => {
-        const timeA = getSessionTime(a)
-        const timeB = getSessionTime(b)
-        if (timeA !== timeB) return timeB - timeA
-
-        return getSessionSortName(b).localeCompare(getSessionSortName(a))
-    }
-
     const topList: (UserFriendElem & UserGroupElem)[] = []
     const normalList: (UserFriendElem & UserGroupElem)[] = []
     const groupAssistList: (UserFriendElem & UserGroupElem)[] = []
@@ -703,9 +684,9 @@ export function updateBaseOnMsgList() {
         normalList.push(item)
     })
 
-    topList.sort(sortFun)
-    normalList.sort(sortFun)
-    groupAssistList.sort(sortFun)
+    topList.sort(compareSessionsByRecency)
+    normalList.sort(compareSessionsByRecency)
+    groupAssistList.sort(compareSessionsByRecency)
 
     contactStore.onMsgList = topList.concat(normalList)
     contactStore.groupAssistList = groupAssistList

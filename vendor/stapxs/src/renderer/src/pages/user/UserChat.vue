@@ -991,6 +991,10 @@ function discardBotDraft() {
 watch(() => chat.show?.id, syncBotFromStore, { immediate: true })
 function onChihiroDocClick(e: Event) {
     const t = e.target as HTMLElement | null
+    if (tags.value.showMsgMenu && !(e instanceof MouseEvent && e.button !== 0)) {
+        if (t && typeof t.closest === 'function' && t.closest('#msgMenu')) return
+        closeMsgMenu()
+    }
     if (t && typeof t.closest === 'function' && (
         t.closest('.face-pan') ||
         t.closest('.chihiro-face-btn') ||
@@ -1003,6 +1007,11 @@ function onChihiroDocClick(e: Event) {
 function onChihiroDocKey(e: KeyboardEvent) {
     if (e.key !== 'Escape') return
     if (tags.value.openChatInfo) return
+    if (tags.value.showMsgMenu) {
+        closeMsgMenu()
+        e.preventDefault()
+        return
+    }
     if (profilePop.value) {
         profilePop.value = null
         e.preventDefault()
@@ -1023,7 +1032,7 @@ function onChihiroDocKey(e: KeyboardEvent) {
     }
     if (details.value[1].open) details.value[1].open = false
 }
-document.addEventListener('click', onChihiroDocClick)
+document.addEventListener('mousedown', onChihiroDocClick)
 document.addEventListener('keydown', onChihiroDocKey)
 const msgMenus = ref<any[]>([])
 const NewMsgNum = ref(0)
@@ -1206,7 +1215,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     try { window.parent.postMessage({ source: 'chihiro-im', kind: 'chat', chat: null }, '*') } catch (e) {}
-    document.removeEventListener('click', onChihiroDocClick)
+    document.removeEventListener('mousedown', onChihiroDocClick)
     document.removeEventListener('keydown', onChihiroDocKey)
     window.removeEventListener('message', onChihiroFeatureStatus)
     window.removeEventListener('chihiro-viewer-forward', onViewerForward as EventListener)
@@ -3449,6 +3458,20 @@ function exitWin() {
 /* chihiro-moved-from-user-css */
 .msg-menu {
     overflow: visible !important;
+    position: fixed !important;
+    inset: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 1000 !important;
+}
+.msg-menu-bg {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    pointer-events: auto !important;
 }
 .msg-menu-body {
     width: max-content !important;
@@ -3703,8 +3726,8 @@ function exitWin() {
 .user-skin.chat-pan > div.info {
     margin: 0 !important;
     width: 100% !important;
-    height: 48px !important;
-    min-height: 48px;
+    height: 52px !important;
+    min-height: 52px;
     padding: 0 20px 0 16px !important;
     box-sizing: border-box !important;
     border-radius: 0 !important;
@@ -3712,6 +3735,11 @@ function exitWin() {
     box-shadow: none !important;
     backdrop-filter: none !important;
     border-bottom: 1px solid rgba(127, 127, 127, 0.12);
+}
+.user-skin.chat-pan .face-pan,
+.user-skin.chat-pan .jin-pan {
+    background: var(--color-card) !important;
+    backdrop-filter: none !important;
 }
 .user-skin.chat-pan > div.info > img {
     width: 28px !important;

@@ -168,8 +168,6 @@ export function reloadUsers() {
     // 加载用户列表
     if (login.status) {
         const authStore = useAuthStore()
-        const contactStore = useContactStore()
-        contactStore.userList = []
         let friendName = 'get_friend_list'
         let groupName = 'get_group_list'
         if (authStore.jsonMap.user_list?.name) {
@@ -716,7 +714,7 @@ export async function loadAppendStyle() {
         })
     }
 
-    if (option.get('chat_more_blur')) {
+    if (option.get('chat_more_blur') && !import.meta.env.VITE_CHIHIRO) {
         import('@renderer/assets/css/append/append_full_vibrancy.css').then(() => {
             logger.info('完全透明 UI 附加样式加载完成')
         })
