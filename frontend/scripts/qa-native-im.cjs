@@ -10,6 +10,7 @@ const assistantRequests = [];
 let assistantHosted = false;
 let assistantDraftStatus = 'pending';
 const assistantStreams = new Map();
+const runtimeStreams = new Set();
 function assistantSnapshot(accountId) {
   const context = { accountId, type: 'private', peerId: '20001' };
   const key = `${accountId}:private:20001`;
@@ -27,6 +28,17 @@ function runtimeState() {
 }
 let qaBrowser;
 const server = http.createServer((req, res) => {
+  if (req.url.startsWith('/api/runtime/stream')) {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    });
+    res.write(`data: ${JSON.stringify(runtimeState())}\n\n`);
+    runtimeStreams.add(res);
+    res.on('close', () => runtimeStreams.delete(res));
+    return;
+  }
   if (req.url.startsWith('/api/runtime/agent/stream')) {
     const accountId = new URL(req.url, 'http://localhost').searchParams.get('accountId');
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
@@ -44,7 +56,9 @@ const server = http.createServer((req, res) => {
       res.setHeader('Content-Type', 'application/json');
       if (req.url === '/api/runtime/bot/session') {
         assistantHosted = body.enabled;
-        res.end(JSON.stringify(runtimeState()));
+        const state = runtimeState();
+        res.end(JSON.stringify(state));
+        for (const stream of runtimeStreams) stream.write(`data: ${JSON.stringify(state)}\n\n`);
       } else if (req.url.includes('/draft/')) {
         assistantDraftStatus = req.url.endsWith('approve') ? 'sent' : 'discarded';
         res.end(JSON.stringify({ draft: assistantSnapshot(body.accountId).recentDrafts[0] }));
@@ -271,6 +285,20 @@ wss.on("connection", (socket, req) => {
     await page.keyboard.press('Escape');
     await viewer.waitFor({ state: 'detached' });
 
+    await page.locator('.chihiro-input-face').click();
+    const facePan = page.locator('.face-pan');
+    await facePan.waitFor();
+    const faceBox = await facePan.boundingBox();
+    const chatBox = await page.locator('.native-chat, .chat-pan').first().boundingBox();
+    assert.ok(faceBox && faceBox.width > 240 && faceBox.height > 180, 'Emoji panel must be visible and usable');
+    assert.ok(chatBox && faceBox.x >= chatBox.x && faceBox.x + faceBox.width <= chatBox.x + chatBox.width + 1,
+      'Emoji panel must stay inside the chat area');
+    const faceBackground = await facePan.evaluate(el => getComputedStyle(el).backgroundColor);
+    assert.notEqual(faceBackground, 'rgba(0, 0, 0, 0)', 'Emoji panel must have a solid background');
+    assert.ok(await facePan.locator('.emoji-face').first().count() > 0, 'Emoji panel must render emoji choices');
+    await page.locator('.chihiro-input-face').click();
+    await facePan.waitFor({ state: 'detached' });
+
     for (const theme of ['dark', 'light']) {
       await page.evaluate(theme => {
         document.documentElement.dataset.theme = theme;
@@ -288,8 +316,9 @@ wss.on("connection", (socket, req) => {
     }
     assert.equal(actions.filter(a => /^(send_msg|send_private_msg)$/.test(a.action)).length, 0);
     assert.deepEqual(errors, [], 'Interaction checks must not produce browser errors');
-    console.log(JSON.stringify({ status: 'passed', checks: ['empty composer', 'explicit newline', 'image viewer bounds', 'zoom and close', 'forward card in both themes'], errors }));
+    console.log(JSON.stringify({ status: 'passed', checks: ['empty composer', 'explicit newline', 'image viewer bounds', 'zoom and close', 'emoji panel', 'forward card in both themes'], errors }));
     await browser.close();
+    for (const stream of runtimeStreams) stream.end();
     for (const client of wss.clients) client.terminate();
     wss.close();
     server.close();
@@ -429,6 +458,7 @@ wss.on("connection", (socket, req) => {
 })().catch(async (e) => {
   console.error(e);
   await qaBrowser?.close();
+  for (const stream of runtimeStreams) stream.end();
   for (const client of wss.clients) client.terminate();
   wss.close();
   server.close();
