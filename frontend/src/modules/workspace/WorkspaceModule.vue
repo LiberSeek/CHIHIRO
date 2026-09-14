@@ -374,6 +374,23 @@ onBeforeUnmount(() => {
 .chihiro-global-toast.app-msg button { display:grid; width:22px; height:22px; flex:0 0 22px; place-items:center; padding:0; border:0; border-radius:6px; color:inherit; background:rgba(255,255,255,.16); cursor:pointer; font-size:16px; line-height:1; }
 .chihiro-global-toast.app-msg button:hover { background:rgba(255,255,255,.24); }
 .chihiro-native-im .pop-box-body header { display:flex; justify-content:space-between; }
+.chihiro-native-im .pop-box-body,
+.chihiro-native-im .ss-card.window {
+  background: var(--color-card) !important;
+  color: var(--color-font);
+  backdrop-filter: none !important;
+}
+.chihiro-native-im .pop-box-body > div.button {
+  background: var(--color-card-1) !important;
+}
+.chihiro-native-im .forward-pan > div.card,
+.chihiro-native-im .user-skin.chat-pan .face-pan,
+.chihiro-native-im .user-skin.chat-pan .jin-pan,
+.chihiro-native-im .chat-info {
+  background: var(--color-card) !important;
+  color: var(--color-font);
+  backdrop-filter: none !important;
+}
 @media(max-width:680px) {
   .chihiro-native-im #base-app { grid-template-columns:minmax(0,1fr); }
   .chihiro-native-im .native-options-close { flex-basis:32px; width:32px; height:32px; }

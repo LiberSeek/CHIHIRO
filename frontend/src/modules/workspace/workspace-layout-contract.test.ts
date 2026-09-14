@@ -28,4 +28,14 @@ describe('workspace layout contract', () => {
     expect(source).toContain('height:52px;')
     expect(source).toContain('.chihiro-native-im .native-list-content { position:relative; flex:1; min-height:0; overflow:hidden; background:var(--color-card-1); }')
   })
+
+  it('keeps IM modal and popup content on solid host surfaces', () => {
+    expect(source).toContain('.chihiro-native-im .pop-box-body,')
+    expect(source).toContain('.chihiro-native-im .forward-pan > div.card,')
+    expect(source).toContain('.chihiro-native-im .user-skin.chat-pan .face-pan,')
+    expect(source).toContain('.chihiro-native-im .chat-info {')
+    expect(source).toContain('background: var(--color-card) !important;')
+    expect(source).toContain('backdrop-filter: none !important;')
+  })
+
 })
