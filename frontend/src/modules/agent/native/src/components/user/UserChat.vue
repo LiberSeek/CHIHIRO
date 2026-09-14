@@ -629,7 +629,7 @@ import {
   ref,
   watch,
 } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 import { useWorkspace } from "@/modules/workspace/workspace";
 import { useDisplay } from "vuetify";
 import { isAxiosError } from "axios";
@@ -692,6 +692,7 @@ import {
 } from "@/modules/agent/native/src/utils/providerMetadata";
 import { useToast } from "@/modules/agent/native/src/utils/toast";
 import UserChatHeader from "./UserChatHeader.vue";
+import { useAgentNavigation } from "@/modules/agent/native/src/navigation";
 
 export type UserChatProps = {
   chatboxMode?: boolean;
@@ -709,7 +710,7 @@ const props = withDefaults(defineProps<UserChatProps>(), {
 
 const workspace = useWorkspace();
 const route = useRoute();
-const router = useRouter();
+const navigation = useAgentNavigation({ chatboxMode: props.chatboxMode });
 const isChihiroHosted = computed(() => props.chihiroHosted === true);
 const { lgAndUp } = useDisplay();
 const chatHeader = useChatHeaderStore();
@@ -723,9 +724,7 @@ const { languageOptions, currentLanguage, switchLanguage, locale } =
   useLanguageSwitcher();
 function openAstrBotSettings() {
   headerSettingsMenuOpen.value = false;
-  window.dispatchEvent(new CustomEvent('chihiro-open-external-settings', {
-    detail: { title: 'AstrBot 设置', src: '/astrbot/#/settings' },
-  }));
+  navigation.openAstrBotSettings();
 }
 const {
   sessions,
@@ -1129,9 +1128,8 @@ watch(composerShell, (element, previousElement) => {
 });
 
 watch(
-  () => route.params.conversationId,
+  () => [route.name, route.params.conversationId, route.query.agent, workspace.agentSessionId] as const,
   async () => {
-    if (props.chihiroHosted && route.name !== 'agent') return;
     const routeSessionId = getRouteSessionId();
     if (routeSessionId === "models") {
       activeWorkspace.value = "providers";
@@ -1155,13 +1153,18 @@ watch(activeMessages, () => {
 });
 
 function getRouteSessionId() {
-  if (props.chihiroHosted && route.name !== 'agent') return workspace.agentSessionId || '';
+  if (props.chihiroHosted) {
+    if (route.name === 'agent') {
+      const raw = route.params.conversationId;
+      return Array.isArray(raw) ? raw[0] : raw || "";
+    }
+    const agent = route.query.agent;
+    if (Array.isArray(agent)) return agent[0] || "";
+    if (typeof agent === "string") return agent;
+    return workspace.activePane === "agent" ? workspace.agentSessionId || "" : "";
+  }
   const raw = route.params.conversationId;
   return Array.isArray(raw) ? raw[0] : raw || "";
-}
-
-function basePath() {
-  return props.chihiroHosted ? "/agent" : props.chatboxMode ? "/chatbox" : "/chat";
 }
 
 function closeMobileSidebar() {
@@ -1189,10 +1192,7 @@ async function openProviderWorkspace() {
   if (props.chihiroHosted) workspace.selectAgent('models');
   closeSecondaryPanels();
   activeWorkspace.value = "providers";
-  const targetPath = `${basePath()}/models`;
-  if (route.path !== targetPath) {
-    await router.push(targetPath);
-  }
+  await navigation.openProviderWorkspace();
   closeMobileSidebar();
 }
 
@@ -1262,7 +1262,7 @@ async function selectProject(projectId: string) {
   selectedProjectId.value = projectId;
   currSessionId.value = "";
   replyTarget.value = null;
-  await router.push(basePath());
+  await navigation.openSessionList();
   await loadProjectSessions(projectId);
   closeMobileSidebar();
 }
@@ -1368,7 +1368,7 @@ async function deleteSidebarSession(session: Session) {
   await deleteSession(session.session_id);
   if (wasCurrent) {
     selectedProjectId.value = null;
-    await router.push(basePath());
+    await navigation.openSessionList();
   }
 }
 
@@ -1438,8 +1438,8 @@ async function selectSession(sessionId: string, pushRoute = true) {
   currSessionId.value = sessionId;
   if (props.chihiroHosted) workspace.selectAgent(sessionId);
   replyTarget.value = null;
-  if (pushRoute && route.path !== `${basePath()}/${sessionId}`) {
-    await router.push(`${basePath()}/${sessionId}`);
+  if (pushRoute) {
+    await navigation.openSession(sessionId);
   }
   if (!loadedSessions[sessionId]) {
     await loadSessionMessages(sessionId);

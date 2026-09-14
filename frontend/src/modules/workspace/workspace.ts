@@ -5,7 +5,7 @@ import type { BaseChatInfoElem } from '../im/native/src/function/elements/inform
 
 export type ListTab = 'messages' | 'friends' | 'workbench'
 
-export type WorkspaceRoute = { path: '/im'; query?: { tab?: 'friends' | 'workbench'; chat?: string } }
+export type WorkspaceRoute = { path: '/im'; query?: { tab?: 'friends' | 'workbench'; chat?: string; agent?: string } }
 
 export function routeForWorkspaceList(tab: ListTab): WorkspaceRoute {
   if (tab === 'friends') return { path: '/im', query: { tab: 'friends' } }
@@ -57,6 +57,7 @@ export const useWorkspace = defineStore('workspace', () => {
     mobilePane.value = 'chat'
   }
   function closeAgent() {
+    agentSessionId.value = null
     activePane.value = 'empty'
     mobilePane.value = 'list'
   }

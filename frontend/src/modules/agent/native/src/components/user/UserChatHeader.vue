@@ -12,9 +12,11 @@
 <script setup lang="ts">
 import { useChatHeaderStore } from '@/modules/agent/native/src/stores/chatHeader';
 import { useModuleI18n } from '@/modules/agent/native/src/i18n/composables';
+import { useAgentNavigation } from '@/modules/agent/native/src/navigation';
 const chatHeader = useChatHeaderStore();
 const { tm } = useModuleI18n('features/chat');
-function goBack() { window.dispatchEvent(new CustomEvent('chihiro-agent-back')); }
+const navigation = useAgentNavigation();
+function goBack() { navigation.backToWorkspace(); }
 </script>
 <style scoped>
 .user-chat-header { display: flex; align-items: center; gap: 12px; height: 52px; min-height: 52px; box-sizing: border-box; padding: 0 16px; flex-shrink: 0; border-bottom: 1px solid var(--chat-border); }

@@ -96,8 +96,8 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { knowledgeApi } from '@/modules/agent/native/src/api/v1'
-import { useRouter } from 'vue-router'
 import { useModuleI18n } from '@/modules/agent/native/src/i18n/composables'
+import { useAgentNavigation } from '@/modules/agent/native/src/navigation'
 
 const props = defineProps({
   modelValue: {
@@ -111,7 +111,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue'])
-const router = useRouter()
+const navigation = useAgentNavigation()
 const { tm } = useModuleI18n('core.shared')
 
 const dialog = ref(false)
@@ -195,7 +195,7 @@ function cancelSelection() {
 
 function goToKnowledgeBasePage() {
   dialog.value = false
-  router.push('/knowledge-base')
+  navigation.openKnowledgeBase()
 }
 </script>
 

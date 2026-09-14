@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, provide, ref } from 'vue'
 import { onThemeChange } from '@/theme'
 import { UserChat } from './native'
 import { useCustomizerStore } from './native/src/stores/customizer'
 import { useToastStore } from './native/src/stores/toast.js'
+import { createHostedAgentNavigation, agentNavigationKey } from './native/src/navigation'
+import { useWorkspace } from '@/modules/workspace/workspace'
+import { useRouter } from 'vue-router'
 
 const customizer = useCustomizerStore()
+const workspace = useWorkspace()
+const router = useRouter()
+provide(agentNavigationKey, createHostedAgentNavigation(router, workspace))
 defineProps<{ sidebarTarget: HTMLElement; threadTarget: HTMLElement }>()
 const ready = ref(false)
 const starting = ref(false)

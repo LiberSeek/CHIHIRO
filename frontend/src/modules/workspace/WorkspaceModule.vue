@@ -27,6 +27,7 @@ import UserViewer from '../im/native/src/components/user/UserViewerCom.vue'
 import UserTooltips from '../im/native/src/components/user/tooltip/UserTooltips.vue'
 import UserFileManager, { panelVisible } from '../im/native/src/components/user/UserFileManager.vue'
 import AgentEntry from '../agent/AgentEntry.vue'
+import { routeForHostedAgent } from '../agent/native/src/navigation'
 import { routeForImConversation, routeForWorkspaceList, useWorkspace, type ListTab, type WorkspaceRoute } from './workspace'
 import { contactToChatInfo, findNativeConversationForRoute } from './nativeConversation'
 
@@ -60,16 +61,25 @@ const nativeAccountConnecting = computed(() => {
   return Boolean(account && account.status === 'online' && !error.value
     && (!login.status || readyNativeAccountId.value !== account.id))
 })
-function onAgentBack() { workspace.closeAgent() }
-onMounted(() => window.addEventListener('chihiro-agent-back', onAgentBack))
 watch(() => route.fullPath, () => {
   if (route.name === 'agent') {
     workspace.selectList('workbench')
     const id = route.params.conversationId
-    workspace.selectAgent(typeof id === 'string' ? id : '')
-  } else if (route.name === 'im' && route.query.settings !== '1') {
-    if (route.query.tab) workspace.selectList(route.query.tab === 'workbench' ? 'workbench' : 'friends')
-    else workspace.selectList('messages')
+    const sessionId = typeof id === 'string' ? id : ''
+    workspace.selectAgent(sessionId)
+    void router.replace(routeForHostedAgent(sessionId || undefined))
+    return
+  }
+  if (route.name === 'im' && route.query.settings !== '1') {
+    const agentId = queryText(route.query.agent)
+    if (agentId) {
+      workspace.selectList('workbench')
+      workspace.selectAgent(agentId)
+    } else if (route.query.tab) {
+      workspace.selectList(route.query.tab === 'workbench' ? 'workbench' : 'friends')
+    } else {
+      workspace.selectList('messages')
+    }
   }
 }, { immediate: true })
 const modal = computed(() => ui.popBoxList[0])
@@ -136,6 +146,7 @@ function currentRouteMatches(target: WorkspaceRoute) {
   return route.path === target.path
     && queryText(route.query.tab) === target.query?.tab
     && queryText(route.query.chat) === target.query?.chat
+    && queryText(route.query.agent) === target.query?.agent
     && queryText(route.query.settings) === undefined
 }
 
@@ -241,7 +252,6 @@ watch(() => `${shell.activeAccountId ?? ''}:${chat.chatInfo.show.id}:${chat.chat
   })
 }, { flush: 'sync' })
 onBeforeUnmount(() => {
-  window.removeEventListener('chihiro-agent-back', onAgentBack)
   ++generation
   detach?.()
   clearNativePopups()

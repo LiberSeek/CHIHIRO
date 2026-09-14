@@ -32,7 +32,7 @@ describe('shared IM and Agent workspace', () => {
     expect(workspace.listTab).toBe('messages')
     expect(workspace.mobilePane).toBe('list')
     expect(workspace.agentOpened).toBe(true)
-    expect(workspace.agentSessionId).toBe('research')
+    expect(workspace.agentSessionId).toBeNull()
     expect(workspace.drafts.research).toBe('整理今天的信息')
     workspace.selectList('messages')
     expect(workspace.activePane).toBe('empty')

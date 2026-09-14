@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue';
 import { isHosted } from '../api/http';
-import { useRouter } from 'vue-router';
+import { useAgentNavigation } from '../navigation';
 import { chatApi, configRouteApi } from '@/modules/agent/native/src/api/v1';
 import { buildWebchatUmoDetails, getStoredSelectedChatConfigId } from '@/modules/agent/native/src/utils/chatConfigBinding';
 
@@ -15,7 +15,7 @@ export interface Session {
 }
 
 export function useSessions(chatboxMode: boolean = false) {
-    const router = useRouter();
+    const navigation = useAgentNavigation({ chatboxMode });
     const sessions = ref<Session[]>([]);
     const selectedSessions = ref<string[]>([]);
     const currSessionId = ref('');
@@ -42,7 +42,7 @@ export function useSessions(chatboxMode: boolean = false) {
     
         } catch (err: any) {
             if (!isHosted() && err.response?.status === 401) {
-                router.push('/auth/login?redirect=/chatbox');
+                navigation.openLogin();
             }
             console.error(err);
         }
@@ -66,9 +66,8 @@ export function useSessions(chatboxMode: boolean = false) {
                 }
             }
 
-            // 更新 URL
-            const basePath = isHosted() ? '/agent' : chatboxMode ? '/chatbox' : '/chat';
-            router.push(`${basePath}/${sessionId}`);
+            // 更新宿主导航
+            navigation.openSession(sessionId);
 
             // 确保新创建的会话被选中高亮
             selectedSessions.value = [sessionId];
@@ -195,8 +194,7 @@ export function useSessions(chatboxMode: boolean = false) {
         currSessionId.value = '';
         selectedSessions.value = [];
         
-        const basePath = isHosted() ? '/agent' : chatboxMode ? '/chatbox' : '/chat';
-        router.push(basePath);
+        navigation.openSessionList();
         
         if (closeMobileSidebar) {
             closeMobileSidebar();
