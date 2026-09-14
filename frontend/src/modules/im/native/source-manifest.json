@@ -512,7 +512,7 @@
     {
       "path": "src/pages/user/UserChat.vue",
       "upstreamPath": "pages/user/UserChat.vue",
-      "sha256": "10f765030a95f8012464fa228d330c8b81306f5c2ee12a7db434a1515ce68b34",
+      "sha256": "6c45b5dfd40648ec581fdd6d3c5cfcfdc96d2ffd41dcbcbbb357e83dd565060b",
       "extractedSha256": "a4f779b55313f65426613dd5729811ad1388b9b1c684e50651ab3a49695d222b"
     },
     {

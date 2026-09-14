@@ -354,7 +354,7 @@
                             ).format(new Date(chat.info.me_info.shut_up_timestamp * 1000)),
                         }) : $t('发送消息')"
                 @submit="mainSubmit"
-                @send="sendMsg()"
+                @send="mainSubmit"
                 @paste="addImg"
                 @keydown="mainKey"
                 @keyup="mainKeyUp"
@@ -501,7 +501,7 @@
                     <input id="chat-forward-search" :placeholder="$t('搜索 ……')" @input="searchForward">
                     <div>
                         <div v-for="data in forwardList"
-                            :key=" 'forwardList-' + data.user_id ? data.user_id : data.group_id"
+                            :key="forwardContactKey(data)"
                             @click="forwardMsg(data)">
                             <img loading="lazy"
                                 :title="getShowName(data.group_name || data.nickname, data.remark)"
@@ -534,6 +534,11 @@ import app from '@chihiro/im-native/host'
 import { i18n } from '@chihiro/im-native/host'
 import { useAssistantStore } from '@/modules/assistant/session'
 import AssistantPanel from '@/modules/assistant/AssistantPanel.vue'
+import {
+    forwardContactKey,
+    hasOutgoingContent as hasComposerContent,
+    prioritizeForwardContacts,
+} from '@chihiro/im-native/chat-interaction'
 import SendUtil from '@renderer/function/sender'
 import Option, { get } from '@renderer/function/option'
 import Info from '@renderer/pages/user/UserInfo.vue'
@@ -2024,14 +2029,10 @@ function dataUrlToFile(dataurl: string, name = 'image.png') {
 function showForWard(action: ForwardAction = 'single-message') {
     selectedForwardAction.value = action
     tags.value.showForwardPan = true
-    const showList = [...contactStore.onMsgList].reverse()
-    showList.forEach((item: any) => {
-        const index = forwardList.value.indexOf(item)
-        if (index > -1) {
-            forwardList.value.splice(index, 1)
-            forwardList.value.unshift(item)
-        }
-    })
+    forwardList.value = prioritizeForwardContacts(
+        contactStore.userList,
+        [...contactStore.onMsgList].reverse(),
+    )
     closeMsgMenu()
 }
 
@@ -2552,9 +2553,12 @@ function insertAtAtCursor(qq: number | string, name?: string) {
 }
 
 function hasOutgoingContent() {
-    return msg.value !== '' || imgCache.value.size > 0 ||
-        !!composer.value?.hasInlineFaces?.() ||
-        !!composer.value?.hasInlineAts?.()
+    return hasComposerContent({
+        text: msg.value,
+        attachmentCount: imgCache.value.size,
+        hasInlineFaces: !!composer.value?.hasInlineFaces?.(),
+        hasInlineAts: !!composer.value?.hasInlineAts?.(),
+    })
 }
 
 function imageSegFromSrc(src: string) {
