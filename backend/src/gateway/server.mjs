@@ -8,6 +8,7 @@ import { mime, serveLegacyStatic, serveNextPreviewStatic } from './static-previe
 import { createRuntime } from '../runtime/api.mjs'
 import { liveNapcatSecrets } from '../runtime/napcat-secrets.mjs'
 import { log, logError } from '../runtime/log.mjs'
+import { resolveNapcatProxy, resolveOnebotWsTarget } from './napcat-routing.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '../../..')
@@ -138,19 +139,13 @@ function stripInstancePrefix(pathname) {
 }
 
 function resolveNapcat(instanceId, { preferReady = false } = {}) {
-  const named = instanceId ? runtime.qq.getInstanceProxy(instanceId) : null
-  if (named) return named
-  if (preferReady) {
-    const ready = runtime.qq.getReadyProxy?.()
-    if (ready) return ready
-  }
-  return {
+  return resolveNapcatProxy(runtime.qq, instanceId, () => ({
     id: null,
     webui: liveWebuiTarget(),
     token: liveWebuiToken(),
     obToken: liveWsToken(),
     wsPort: Number(String(runtime.qq.snapshot().obAddress || '').split(':')[1]) || null
-  }
+  }), { preferReady })
 }
 
 function attachWsAuth(req, napcat) {
@@ -270,8 +265,8 @@ const server = http.createServer(async (req, res) => {
     (INST_PREFIX.test(url.pathname) && isWebuiSpaRoute(routedPath))
   ) {
     const napcat = resolveNapcat(instanceId)
-    const token = napcat.token || (instanceId ? '' : liveWebuiToken())
-    if (!token || !napcat.webui) {
+    const token = napcat?.token || (instanceId ? '' : liveWebuiToken())
+    if (!token || !napcat?.webui) {
       emptyWebuiPage(res)
       return
     }
@@ -300,6 +295,11 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname.startsWith('/files/') || routedPath.startsWith('/files/')) {
     const napcat = resolveNapcat(instanceId, { preferReady: true })
+    if (!napcat?.webui) {
+      res.writeHead(503, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'napcat_instance_missing' }))
+      return
+    }
     req.url = (url.pathname.startsWith('/files/') ? url.pathname : routedPath) + url.search
     proxy.web(req, res, { target: napcat.webui })
     return
@@ -312,7 +312,7 @@ const server = http.createServer(async (req, res) => {
     const napcat = resolveNapcat(instanceId, {
       preferReady: routedPath.startsWith('/plugin') && !instanceId
     })
-    if (routedPath.startsWith('/webui') && !napcat?.webui) {
+    if (!napcat?.webui) {
       emptyWebuiPage(res)
       return
     }
@@ -377,12 +377,15 @@ server.on('upgrade', (req, socket, head) => {
     routedPath === '/onebot-ws'
   ) {
     const napcat = resolveNapcat(instanceId)
-    const wsPort = napcat.wsPort
-      || Number(String(runtime.qq.snapshot().obAddress || '').split(':')[1])
-    const target = wsPort
-      ? `http://127.0.0.1:${wsPort}`
-      : cfg.napcat.onebotWs.replace(/^ws/, 'http')
-    attachWsAuth(req, napcat)
+    const target = resolveOnebotWsTarget(napcat, instanceId, cfg.napcat.onebotWs)
+    if (!target) { socket.destroy(); return }
+    if (instanceId) {
+      delete req.headers.authorization
+      url.searchParams.delete('access_token')
+      if (napcat.obToken) req.headers.authorization = `Bearer ${napcat.obToken}`
+    } else {
+      attachWsAuth(req, napcat)
+    }
     req.url = `/${url.search || ''}`
     proxy.ws(req, socket, head, { target })
     return
@@ -403,6 +406,7 @@ server.on('upgrade', (req, socket, head) => {
     const napcat = resolveNapcat(instanceId, {
       preferReady: routedPath.startsWith('/plugin') && !instanceId
     })
+    if (!napcat?.webui) { socket.destroy(); return }
     req.url = routedPath + url.search
     proxy.ws(req, socket, head, { target: napcat.webui })
     return
