@@ -36,6 +36,13 @@ function changeMode(event: Event) {
             <button type="button" :disabled="assistant.busy || !assistant.connected" @click="assistant.resolveDraft(draft.id, 'approve')"><Check :size="14" />确认发送</button>
             <button type="button" title="丢弃草稿" aria-label="丢弃草稿" :disabled="assistant.busy || !assistant.connected" @click="assistant.resolveDraft(draft.id, 'discard')"><X :size="14" /></button>
           </template>
+          <template v-else-if="draft.status === 'unknown'">
+            <button type="button" :disabled="!assistant.connected || Boolean(assistant.deliveryActions[draft.id])" @click="assistant.resolveDelivery(draft.id, 'reconcile-sent')"><Check :size="14" />确认已发送</button>
+            <button type="button" :disabled="!assistant.connected || Boolean(assistant.deliveryActions[draft.id])" @click="assistant.resolveDelivery(draft.id, 'retry')"><RefreshCw :size="14" />重新发送</button>
+          </template>
+          <template v-else-if="draft.status === 'failed'">
+            <button type="button" :disabled="!assistant.connected || Boolean(assistant.deliveryActions[draft.id])" @click="assistant.resolveDelivery(draft.id, 'retry')"><RefreshCw :size="14" />重新发送</button>
+          </template>
         </footer>
       </article>
     </div>

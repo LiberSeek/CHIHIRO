@@ -26,6 +26,21 @@ const draftSchema = z.object({
 })
 const snapshotSchema = z.object({ sessions: z.array(sessionSchema), drafts: z.array(draftSchema), recentDrafts: z.array(draftSchema).optional() })
 export type AssistantDraft = z.infer<typeof draftSchema>
+export interface AssistantDraftTarget {
+  id: string
+  accountId: string
+  sessionKey: string
+  type: AssistantContext['type']
+  peerId: string
+}
+export interface AssistantDraftReconcileRequest extends AssistantDraftTarget {
+  resolution: 'sent'
+}
+export type AssistantDraftRetryRequest = AssistantDraftTarget
+export interface AssistantDraftMutationResponse {
+  draft: AssistantDraft
+}
+export type AssistantDraftDeliveryAction = 'reconcile-sent' | 'retry'
 export function assistantKey(context: AssistantContext): string {
   return `${context.accountId}:${context.type}:${context.peerId}`
 }
@@ -43,6 +58,7 @@ export const useAssistantStore = defineStore('conversation-assistant', () => {
   const busy = ref(false)
   const connected = ref(false)
   const uncertainDrafts = ref<string[]>([])
+  const deliveryActions = ref<Record<string, AssistantDraftDeliveryAction | undefined>>({})
   let generation = 0
   let stream: EventSource | undefined
   let controller: AbortController | undefined
@@ -88,6 +104,7 @@ export const useAssistantStore = defineStore('conversation-assistant', () => {
     drafts.value = []
     hosted.value = {}
     uncertainDrafts.value = []
+    deliveryActions.value = {}
     error.value = ''
     busy.value = false
     connected.value = false
@@ -125,6 +142,7 @@ export const useAssistantStore = defineStore('conversation-assistant', () => {
     controller?.abort(); controller = undefined
     context.value = null; sessions.value = []; drafts.value = []; hosted.value = {}
     uncertainDrafts.value = []
+    deliveryActions.value = {}
     open.value = false; quote.value = ''; instruction.value = ''; busy.value = false
     error.value = ''; connected.value = false
   }
@@ -184,7 +202,64 @@ export const useAssistantStore = defineStore('conversation-assistant', () => {
     })
   }
 
+  function targetForDraft(draft: AssistantDraft): AssistantDraftTarget {
+    return {
+      id: draft.id,
+      accountId: draft.accountId,
+      sessionKey: draft.sessionKey,
+      type: draft.type,
+      peerId: draft.peerId,
+    }
+  }
+
+  function isCurrentDraftTarget(draft: AssistantDraft, target: AssistantDraftTarget): boolean {
+    return draft.id === target.id
+      && draft.accountId === target.accountId
+      && draft.sessionKey === target.sessionKey
+      && draft.type === target.type
+      && draft.peerId === target.peerId
+      && draft.sessionKey === assistantKey({ ...draft, title: '' })
+  }
+
+  async function resolveDelivery(id: string, action: AssistantDraftDeliveryAction) {
+    const draft = currentDrafts.value.find(item => item.id === id)
+    if (!draft || deliveryActions.value[id]) return
+    if (action === 'reconcile-sent' && draft.status !== 'unknown') return
+    if (action === 'retry' && !['unknown', 'failed'].includes(draft.status)) return
+    if (!controller) return
+
+    const target = targetForDraft(draft)
+    const version = generation
+    const signal = controller.signal
+    deliveryActions.value = { ...deliveryActions.value, [id]: action }
+    error.value = ''
+    try {
+      const body: AssistantDraftReconcileRequest | AssistantDraftRetryRequest = action === 'reconcile-sent'
+        ? { ...target, resolution: 'sent' }
+        : target
+      const result = await request(
+        action === 'reconcile-sent' ? '/api/runtime/agent/draft/reconcile' : '/api/runtime/agent/draft/retry',
+        body,
+        signal,
+      )
+      if (version !== generation || signal.aborted) return
+      const resolved = z.object({ draft: draftSchema }).parse(result) as AssistantDraftMutationResponse
+      if (!isCurrentDraftTarget(resolved.draft, target)) throw new Error('草稿归属不一致')
+      const current = drafts.value.find(item => item.id === id)
+      if (!current || !isCurrentDraftTarget(current, target) || current.status !== draft.status) return
+      drafts.value = drafts.value.map(item => isCurrentDraftTarget(item, target) ? resolved.draft : item)
+      uncertainDrafts.value = uncertainDrafts.value.filter(draftId => draftId !== id)
+    } catch (cause) {
+      if (version === generation && !signal.aborted) error.value = cause instanceof Error ? cause.message : String(cause)
+    } finally {
+      if (version === generation) {
+        const { [id]: _, ...remaining } = deliveryActions.value
+        deliveryActions.value = remaining
+      }
+    }
+  }
+
   watch(() => [shell.activeAccountId, shell.activeAccount?.status], clear, { flush: 'sync' })
   return { context, sessions, currentDrafts, session, enabled, open, quote, instruction, error, busy, connected,
-    uncertainDrafts, thinkingText, select, clear, start, setHosting, setMode, ask, resolveDraft }
+    uncertainDrafts, deliveryActions, thinkingText, select, clear, start, setHosting, setMode, ask, resolveDraft, resolveDelivery }
 })

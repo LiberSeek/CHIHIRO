@@ -86,6 +86,73 @@ it('does not apply a late approval result to a newly selected conversation', asy
   expect(store.busy).toBe(false)
 })
 
+it('reconciles an unknown delivery using its immutable account and conversation target', async () => {
+  const store = useAssistantStore()
+  store.select(a); await flush()
+  Stream.instances[0].emit({ ...snapshot(), recentDrafts: [{ ...snapshot().drafts[0], status: 'unknown' }] })
+  vi.mocked(fetch).mockResolvedValueOnce(reply({ draft: { ...snapshot().drafts[0], status: 'sent' } }) as Response)
+  await store.resolveDelivery('draft-private', 'reconcile-sent')
+  const [url, options] = vi.mocked(fetch).mock.calls[1]
+  expect(url).toBe('/api/runtime/agent/draft/reconcile')
+  expect(JSON.parse(String(options?.body))).toEqual({
+    id: 'draft-private', accountId: a.accountId, sessionKey: assistantKey(a), type: 'private', peerId: a.peerId, resolution: 'sent',
+  })
+  expect(store.currentDrafts[0].status).toBe('sent')
+})
+
+it('deduplicates an in-flight retry and only applies the server draft transition', async () => {
+  const store = useAssistantStore()
+  store.select(a); await flush()
+  Stream.instances[0].emit({ ...snapshot(), recentDrafts: [{ ...snapshot().drafts[0], status: 'failed' }] })
+  let finish!: (value: unknown) => void
+  const pending = new Promise(resolve => { finish = resolve })
+  const fetcher = vi.mocked(fetch).mockReturnValueOnce(pending as Promise<Response>)
+  const first = store.resolveDelivery('draft-private', 'retry')
+  await store.resolveDelivery('draft-private', 'retry')
+  expect(fetcher).toHaveBeenCalledTimes(2)
+  expect(store.currentDrafts[0].status).toBe('failed')
+  finish(reply({ draft: { ...snapshot().drafts[0], status: 'sending' } })); await first
+  expect(store.currentDrafts[0].status).toBe('sending')
+})
+
+it('aborts a delivery reconciliation on account switch and ignores its stale response', async () => {
+  const store = useAssistantStore()
+  store.select(a); await flush()
+  Stream.instances[0].emit({ ...snapshot(), recentDrafts: [{ ...snapshot().drafts[0], status: 'unknown' }] })
+  let finish!: (value: unknown) => void
+  const pending = new Promise(resolve => { finish = resolve })
+  const fetcher = vi.mocked(fetch).mockReturnValueOnce(pending as Promise<Response>)
+  const reconciling = store.resolveDelivery('draft-private', 'reconcile-sent')
+  const options = fetcher.mock.calls[1][1]
+  useShellStore().selectAccount(accountId(b.accountId))
+  expect((options?.signal as AbortSignal).aborted).toBe(true)
+  finish(reply({ draft: { ...snapshot().drafts[0], status: 'sent' } })); await reconciling
+  expect(store.context).toBeNull()
+  expect(store.currentDrafts).toEqual([])
+})
+
+it('rejects stale delivery actions after a stream snapshot changes their status', async () => {
+  const store = useAssistantStore()
+  store.select(a); await flush()
+  Stream.instances[0].emit({ ...snapshot(), recentDrafts: [{ ...snapshot().drafts[0], status: 'unknown' }] })
+  Stream.instances[0].emit({ ...snapshot(), recentDrafts: [{ ...snapshot().drafts[0], status: 'sent' }] })
+  await store.resolveDelivery('draft-private', 'retry')
+  expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1)
+  expect(store.currentDrafts[0].status).toBe('sent')
+})
+
+it('does not overwrite a newer stream delivery status with an older retry response', async () => {
+  const store = useAssistantStore()
+  store.select(a); await flush()
+  Stream.instances[0].emit({ ...snapshot(), recentDrafts: [{ ...snapshot().drafts[0], status: 'failed' }] })
+  let finish!: (value: Response) => void
+  vi.mocked(fetch).mockReturnValueOnce(new Promise<Response>(resolve => { finish = resolve }) as Promise<Response>)
+  const retrying = store.resolveDelivery('draft-private', 'retry')
+  Stream.instances[0].emit({ ...snapshot(), recentDrafts: [{ ...snapshot().drafts[0], status: 'sent' }] })
+  finish(reply({ draft: { ...snapshot().drafts[0], status: 'sending' } }) as Response); await retrying
+  expect(store.currentDrafts[0].status).toBe('sent')
+})
+
 it('never enables hosting when account changes during mode setup', async () => {
   const store = useAssistantStore()
   store.select(a); await flush()
