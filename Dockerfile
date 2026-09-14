@@ -15,6 +15,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 FROM ${NODE_IMAGE} AS frontend-build
 WORKDIR /app
+ENV NODE_OPTIONS=--max-old-space-size=3072
 COPY package.json package-lock.json ./
 COPY frontend/package.json ./frontend/package.json
 COPY backend/package.json ./backend/package.json
