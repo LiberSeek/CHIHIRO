@@ -35,6 +35,7 @@ export interface OneBotAccountConnectorOptions {
   socketFactory?: OneBotSocketFactory
   /** Used by tests and non-browser hosts. Browser callers always default to the current origin. */
   baseUrl?: string
+  connectTimeoutMs?: number
   requestTimeoutMs?: number
 }
 
@@ -113,6 +114,7 @@ export function createOneBotAccountConnector(
   options: OneBotAccountConnectorOptions = {},
 ): AccountSessionConnector {
   const socketFactory = options.socketFactory ?? defaultSocketFactory
+  const connectTimeoutMs = options.connectTimeoutMs ?? 10_000
   const requestTimeoutMs = options.requestTimeoutMs ?? 50_000
 
   return (context, connectSignal) => new Promise<AccountSessionConnection>((resolve, reject) => {
@@ -129,6 +131,7 @@ export function createOneBotAccountConnector(
     let settled = false
     let terminal = false
     let closedEmitted = false
+    let terminalEvent: AccountSessionEvent | undefined
 
     const emit = (event: AccountSessionEvent) => {
       for (const listener of [...listeners]) listener(event)
@@ -145,6 +148,7 @@ export function createOneBotAccountConnector(
     const failConnect = (error: Error) => {
       if (settled) return
       settled = true
+      clearTimeout(connectTimer)
       removeConnectAbort()
       reject(error)
     }
@@ -158,10 +162,17 @@ export function createOneBotAccountConnector(
       type: 'session.error',
       payload: new OneBotProtocolError(message),
     })
+    const emitClosed = (payload: { code: number; reason: string; wasClean: boolean }) => {
+      if (closedEmitted) return
+      closedEmitted = true
+      terminalEvent = { type: 'session.closed', payload }
+      emit(terminalEvent)
+    }
 
     const onOpen = () => {
       if (settled || connectSignal.aborted) return
       settled = true
+      clearTimeout(connectTimer)
       removeConnectAbort()
       resolve(connection)
     }
@@ -226,23 +237,21 @@ export function createOneBotAccountConnector(
         protocolError(`OneBot event account mismatch: expected ${uin}`)
         return
       }
-      emit({ type: value.post_type, payload: value })
+      emit({ type: 'onebot.event', payload: value })
     }
     const onError = () => {
       const error = new Error(`OneBot WebSocket failed for ${context.id}`)
       emit({ type: 'session.error', payload: error })
       terminate(error)
+      emitClosed({ code: 1011, reason: 'websocket error', wasClean: false })
+      if (socket.readyState === CONNECTING || socket.readyState === OPEN) {
+        socket.close(1011, 'websocket error')
+      }
     }
     const onClose = (event: CloseEvent) => {
       const error = new Error(`OneBot WebSocket closed for ${context.id} (${event.code})`)
       terminate(error)
-      if (!closedEmitted) {
-        closedEmitted = true
-        emit({
-          type: 'session.closed',
-          payload: { code: event.code, reason: event.reason, wasClean: event.wasClean },
-        })
-      }
+      emitClosed({ code: event.code, reason: event.reason, wasClean: event.wasClean })
     }
     function onConnectAbort(): void {
       const error = asError(connectSignal.reason, 'Account connection aborted')
@@ -296,6 +305,7 @@ export function createOneBotAccountConnector(
       },
       subscribe: (listener): Unsubscribe => {
         listeners.add(listener)
+        if (terminalEvent) listener(terminalEvent)
         return () => listeners.delete(listener)
       },
       close: () => {
@@ -311,6 +321,13 @@ export function createOneBotAccountConnector(
     socket.addEventListener('error', onError)
     socket.addEventListener('close', onClose)
     connectSignal.addEventListener('abort', onConnectAbort, { once: true })
+    const connectTimer = setTimeout(() => {
+      const error = new Error(`OneBot WebSocket connection timed out for ${context.id}`)
+      terminate(error)
+      if (socket.readyState === CONNECTING || socket.readyState === OPEN) {
+        socket.close(1000, 'connection timed out')
+      }
+    }, connectTimeoutMs)
   })
 }
 

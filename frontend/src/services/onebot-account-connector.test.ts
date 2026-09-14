@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { accountId, type AccountContext } from '../contracts'
+import { AccountSessionManager, AccountSessionSupersededError } from './account-session-manager'
 
 import {
   createOneBotAccountConnector,
@@ -68,12 +69,13 @@ const context: AccountContext = {
   status: 'online',
 }
 
-function setup(timeout = 1000) {
+function setup(requestTimeout = 1000, connectTimeout = 1000) {
   const socket = new FakeSocket()
   const urls: string[] = []
   const connector = createOneBotAccountConnector({
     baseUrl: 'https://chihiro.test/workbench?token=never-copy',
-    requestTimeoutMs: timeout,
+    requestTimeoutMs: requestTimeout,
+    connectTimeoutMs: connectTimeout,
     socketFactory: (url) => {
       urls.push(url)
       return socket
@@ -147,7 +149,7 @@ describe('OneBot account connector', () => {
 
     expect(events.filter((event) => event.type === 'session.error')).toHaveLength(2)
     expect(events.at(-1)).toEqual({
-      type: 'message',
+      type: 'onebot.event',
       payload: { post_type: 'message', self_id: 12345, message: 'hello' },
     })
   })
@@ -195,6 +197,7 @@ describe('OneBot account connector', () => {
     const errored = setup()
     errored.socket.error()
     await expect(errored.connecting).rejects.toThrow('failed')
+    expect(errored.socket.closeCalls).toEqual([[1011, 'websocket error']])
 
     const { socket, connection } = await connected()
     const events: string[] = []
@@ -205,5 +208,43 @@ describe('OneBot account connector', () => {
     await expect(pending).rejects.toThrow('closed')
     expect(events).toEqual(['session.closed'])
     await expect(connection.request({ method: 'send_msg' }, new AbortController().signal)).rejects.toThrow('not open')
+  })
+
+  it('times out a handshake and closes its connecting socket', async () => {
+    vi.useFakeTimers()
+    try {
+      const state = setup(1000, 20)
+      const rejected = expect(state.connecting).rejects.toThrow('connection timed out')
+      await vi.advanceTimersByTimeAsync(20)
+      await rejected
+      expect(state.socket.closeCalls).toEqual([[1000, 'connection timed out']])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('replays a terminal close to subscribers added after the socket dies', async () => {
+    const state = setup()
+    state.socket.open()
+    const connection = await state.connecting
+    state.socket.closed(1006, 'lost')
+    const events: string[] = []
+    connection.subscribe((event) => events.push(event.type))
+    expect(events).toEqual(['session.closed'])
+  })
+
+  it('lets the manager retire a socket that closes between open and subscription', async () => {
+    const socket = new FakeSocket()
+    const connector = createOneBotAccountConnector({
+      baseUrl: 'http://chihiro.test',
+      socketFactory: () => socket,
+    })
+    const manager = new AccountSessionManager(connector)
+    const connecting = manager.connect(context)
+    await Promise.resolve()
+    socket.open()
+    socket.closed(1006, 'lost')
+    await expect(connecting).rejects.toBeInstanceOf(AccountSessionSupersededError)
+    expect(manager.status(context.id)).toBe('offline')
   })
 })
