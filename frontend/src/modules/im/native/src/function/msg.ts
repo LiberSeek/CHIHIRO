@@ -734,7 +734,7 @@ const msgFunctions = {
             })
             const title = `${data.nickname} `
             if (backend.platform == 'web') {
-                document.title = '千寻IM - 千人千面, 千与千寻'
+                document.title = '千寻IM - 千人千面, 千域千寻'
             } else {
                 document.title = title
                 backend.call(undefined, 'win:setTitle', false, title)

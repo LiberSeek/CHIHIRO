@@ -7,7 +7,7 @@ const router = createRouter({
   routes: [
     { path: '/', redirect: '/im' },
     { path: '/im', name: 'im', component: () => import('@/modules/im/ImEntry.vue'), meta: { title: '消息' } },
-    { path: '/agent/:conversationId?', name: 'agent', component: () => import('@/modules/agent/AgentEntry.vue'), meta: { title: '工作台' } },
+    { path: '/agent/:conversationId?', name: 'agent', component: () => import('@/modules/im/ImEntry.vue'), meta: { title: '工作台' } },
     { path: '/customers', name: 'customers', component: () => import('@/modules/customers/CustomerModule.vue'), meta: { title: '客户资料' } },
     {
       path: '/assistant',

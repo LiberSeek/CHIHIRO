@@ -55,8 +55,29 @@ button { color:inherit; }
 .settings-menu a,.settings-menu button { display:flex; width:100%; align-items:center; gap:9px; padding:9px 10px; border:0; border-radius:8px; color:var(--shell-text); background:transparent; text-align:left; cursor:pointer; font-size:13px; }
 .settings-menu a:hover,.settings-menu button:hover { background:var(--shell-line); }
 .settings-menu span { width:17px; color:var(--shell-muted); text-align:center; }
+.account-context-menu { position:fixed; z-index:1200; display:grid; width:180px; gap:3px; padding:6px; border:1px solid var(--shell-line); border-radius:12px; background:color-mix(in srgb,var(--shell-rail) 96%,transparent); box-shadow:0 14px 38px rgb(0 0 0 / 30%); backdrop-filter:blur(18px); }
+.account-context-menu button { width:100%; padding:9px 10px; border:0; border-radius:8px; color:var(--shell-text); background:transparent; text-align:left; cursor:pointer; font-size:13px; }
+.account-context-menu button:hover { background:var(--shell-line); }
+.account-context-menu button.danger { color:#ff453a; }
 .app-content { min-width:0; min-height:0; flex:1; overflow:hidden; background:var(--shell-bg); }
 .app-content>*,.app-content>*>* { min-height:0; }
+.login-panel { position:fixed; z-index:900; inset:0 0 0 336px; display:grid; place-items:center; padding:24px; color:var(--shell-text); background:var(--shell-bg); }
+.login-card { display:flex; width:min(420px,100%); flex-direction:column; align-items:center; gap:14px; text-align:center; }
+.login-card h1 { margin:0; font-size:28px; }
+.login-brand,.login-message { margin:0; color:var(--shell-muted); line-height:1.5; }
+.login-brand { font-size:14px; }
+.login-qr { width:220px; height:220px; padding:10px; border-radius:16px; background:#fff; object-fit:contain; }
+.login-spinner { width:38px; height:38px; margin:34px 0; border:3px solid var(--shell-line); border-top-color:var(--shell-accent); border-radius:50%; animation:rail-spin .8s linear infinite; }
+.login-actions { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-top:4px; }
+.login-actions button,.shell-dialog-card button { min-width:96px; padding:9px 16px; border:1px solid var(--shell-line); border-radius:9px; color:var(--shell-text); background:var(--shell-rail); cursor:pointer; }
+.login-actions button.primary { border-color:var(--shell-accent); color:#fff; background:var(--shell-accent); }
+.login-actions button.danger,.shell-dialog-card button.danger { border-color:#ff453a66; color:#ff453a; }
+.shell-dialog { position:fixed; z-index:1300; inset:0; display:grid; place-items:center; padding:24px; background:#0008; backdrop-filter:blur(8px); }
+.shell-dialog-card { width:min(400px,100%); padding:22px; border:1px solid var(--shell-line); border-radius:16px; color:var(--shell-text); background:var(--shell-rail); box-shadow:0 22px 60px #0008; }
+.shell-dialog-card h2 { margin:0 0 10px; font-size:20px; }
+.shell-dialog-card p { margin:0 0 20px; color:var(--shell-muted); line-height:1.6; }
+.shell-dialog-card>div { display:flex; justify-content:flex-end; gap:10px; }
+.shell-dialog-card button:disabled { cursor:wait; opacity:.55; }
 .shell-error { position:fixed; z-index:1001; top:12px; left:50%; max-width:min(520px,calc(100vw - 92px)); margin:0; padding:9px 12px; transform:translateX(-50%); border:1px solid #ff453a55; border-radius:9px; color:#fff; background:#8f2928e8; box-shadow:0 8px 25px #0005; font-size:13px; }
 .shell-error button { margin-left:8px; border:0; color:#fff; background:transparent; text-decoration:underline; cursor:pointer; }
 .module-card { max-width:720px; margin:48px auto; padding:40px; border:1px solid var(--shell-line); border-radius:16px; background:var(--shell-rail); }
@@ -68,4 +89,5 @@ button { color:inherit; }
   .account-rail { width:50px; min-width:50px; padding-top:8px; }
   .account-avatar,.rail-button { width:36px; height:36px; flex-basis:36px; }
   .settings-menu { left:42px; }
+  .login-panel { left:50px; padding:18px; }
 }

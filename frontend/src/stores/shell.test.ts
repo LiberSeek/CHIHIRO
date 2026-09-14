@@ -89,4 +89,36 @@ describe('runtime account shell', () => {
     expect(shell.activeAccountId).toBe(b)
     expect(shell.adding).toBe(false)
   })
+
+  it('relogs and removes an account through runtime lifecycle endpoints', async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(response(state()))
+      .mockResolvedValueOnce(response(state(b)))
+    vi.stubGlobal('fetch', fetcher)
+    const shell = useShellStore()
+    await shell.reloginAccount(a, true)
+    expect(fetcher).toHaveBeenNthCalledWith(1, '/api/runtime/start', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ client: 'qq', uin: '123', refreshQr: true }),
+    }))
+    expect(await shell.removeAccount(a)).toBe(true)
+    expect(fetcher).toHaveBeenNthCalledWith(2, '/api/runtime/accounts/remove', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ id: a }),
+    }))
+    expect(shell.activeAccountId).toBe(b)
+  })
+
+  it('cancels login and ignores the late start response', async () => {
+    const start = deferred<Response>()
+    const fetcher = vi.fn()
+      .mockReturnValueOnce(start.promise)
+      .mockResolvedValueOnce(response({ ...state(), phase: 'idle', pendingAdd: false }))
+    vi.stubGlobal('fetch', fetcher)
+    const shell = useShellStore()
+    const pending = shell.addAccount()
+    await shell.cancelLogin()
+    start.resolve(response({ ...state(b), phase: 'ready', pendingAdd: false })); await pending
+    expect(fetcher).toHaveBeenNthCalledWith(2, '/api/runtime/login/cancel', { method: 'POST' })
+    expect(shell.activeAccountId).toBe(a)
+    expect(shell.adding).toBe(false)
+  })
 })

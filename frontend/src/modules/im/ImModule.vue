@@ -24,6 +24,7 @@ import UserOptions from './native/src/pages/user/UserOptions.vue'
 import UserViewer from './native/src/components/user/UserViewerCom.vue'
 import UserTooltips from './native/src/components/user/tooltip/UserTooltips.vue'
 import UserFileManager, { panelVisible } from './native/src/components/user/UserFileManager.vue'
+import AgentEntry from '../agent/AgentEntry.vue'
 
 const sessions = inject(accountSessionManagerKey)!
 const shell = useShellStore()
@@ -42,6 +43,7 @@ let generation = 0
 let detach: (() => void) | undefined
 const hasChat = computed(() => chat.chatInfo.show.id !== 0)
 const showSettings = computed(() => route.query.settings === '1')
+const showWorkbench = computed(() => route.name === 'agent' || route.query.tab === 'workbench')
 const modal = computed(() => ui.popBoxList[0])
 const safeModalHtml = computed(() => DOMPurify.sanitize(modal.value?.html ?? ''))
 const popInfo = new PopInfo()
@@ -113,6 +115,7 @@ onBeforeUnmount(() => {
       <button type="button" class="native-options-close" aria-label="返回消息" title="返回消息" @click="router.push('/im')">×</button>
       <UserOptions show class="active" :config="settings.sysConfig" />
     </div>
+    <AgentEntry v-else-if="showWorkbench" class="native-workbench" />
     <div v-else id="base-app" :class="{ 'native-has-chat': hasChat }">
       <aside class="native-list">
         <UserFriends v-if="route.query.tab === 'contacts'" :key="shell.activeAccountId ?? 'none'" :list="contacts.userList" @user-click="changeChat" @load-history="loadHistory" />
@@ -151,6 +154,7 @@ onBeforeUnmount(() => {
 .chihiro-native-im .native-options>.opt-main { width:100%; height:100%!important; }
 .chihiro-native-im .native-options-close { position:absolute; z-index:20; top:16px; right:18px; display:grid; width:32px; height:32px; place-items:center; padding:0; border:0; border-radius:50%; color:var(--color-font-1); background:var(--color-card-1); cursor:pointer; font-size:22px; line-height:1; }
 .chihiro-native-im .native-options-close:hover { color:var(--color-font); background:var(--color-card-2); }
+.chihiro-native-im .native-workbench { width:100%; height:100%; min-height:0; }
 .chihiro-native-im .native-list { min-height:0; border-right:1px solid #e5e5e5; }
 .chihiro-native-im .native-chat { min-width:0; min-height:0; position:relative; }
 .chihiro-native-im #base-app .friend-view, .chihiro-native-im #base-app .friend-list-container, .chihiro-native-im #base-app .friend-list { width:100% !important; height:100%; min-width:0 !important; }
