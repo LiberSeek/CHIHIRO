@@ -17,7 +17,7 @@ import { useUIStore } from '../im/native/src/state/ui'
 import { useSettingsStore } from '../im/native/src/state/settings'
 import { loadHistory } from '../im/native/src/function/utils/appUtil'
 import { PopInfo, popList } from '../im/native/src/function/base'
-import type { BaseChatInfoElem, UserFriendElem, UserGroupElem } from '../im/native/src/function/elements/information'
+import type { BaseChatInfoElem } from '../im/native/src/function/elements/information'
 import UserMessages from '../im/native/src/pages/user/UserMessages.vue'
 import UserFriends from '../im/native/src/pages/user/UserFriends.vue'
 import UserChat from '../im/native/src/pages/user/UserChat.vue'
@@ -27,7 +27,8 @@ import UserViewer from '../im/native/src/components/user/UserViewerCom.vue'
 import UserTooltips from '../im/native/src/components/user/tooltip/UserTooltips.vue'
 import UserFileManager, { panelVisible } from '../im/native/src/components/user/UserFileManager.vue'
 import AgentEntry from '../agent/AgentEntry.vue'
-import { parseImConversationRouteKey, routeForImConversation, routeForWorkspaceList, useWorkspace, type ListTab, type WorkspaceRoute } from './workspace'
+import { routeForImConversation, routeForWorkspaceList, useWorkspace, type ListTab, type WorkspaceRoute } from './workspace'
+import { contactToChatInfo, findNativeConversationForRoute } from './nativeConversation'
 
 const workspace = useWorkspace()
 const imListTab = ref<'messages' | 'friends'>('messages')
@@ -168,36 +169,13 @@ function selectList(tab: ListTab) {
   replaceWorkspaceRoute(routeForWorkspaceList(tab))
 }
 
-function contactToChatInfo(item: UserFriendElem & UserGroupElem): BaseChatInfoElem | null {
-  const id = item.user_id ? item.user_id : item.group_id
-  if (!id) return null
-  const isUser = Boolean(item.user_id)
-  const name = isUser
-    ? (item.remark || item.nickname || String(id))
-    : (item.group_name || String(id))
-  return {
-    type: isUser ? 'user' : 'group',
-    id,
-    name,
-    avatar: isUser
-      ? `https://q1.qlogo.cn/g?b=qq&s=0&nk=${id}`
-      : `https://p.qlogo.cn/gh/${id}/${id}/0`,
-  }
-}
-
 function findRoutedConversation(): BaseChatInfoElem | null {
-  const parsed = parseImConversationRouteKey(route.query.chat)
-  if (!parsed) return null
-  if (parsed.id === -10000) return { type: 'user', id: -10000, name: '系统消息', avatar: '' }
-  const fromCache = contacts.baseOnMsgList.get(parsed.id)
-  const lists = [fromCache, ...contacts.onMsgList, ...contacts.groupAssistList, ...contacts.userList]
-  for (const item of lists) {
-    if (!item) continue
-    const itemType = item.user_id ? 'user' : 'group'
-    const itemId = item.user_id ? item.user_id : item.group_id
-    if (itemType === parsed.type && itemId === parsed.id) return contactToChatInfo(item)
-  }
-  return null
+  return findNativeConversationForRoute(route.query.chat, {
+    baseOnMsgList: contacts.baseOnMsgList,
+    onMsgList: contacts.onMsgList,
+    groupAssistList: contacts.groupAssistList,
+    userList: contacts.userList,
+  })
 }
 
 function restoreRoutedConversation() {
