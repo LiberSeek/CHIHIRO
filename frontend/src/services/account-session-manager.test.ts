@@ -171,6 +171,31 @@ describe('AccountSessionManager', () => {
     await fresh.promise
   })
 
+
+  it('removing one account keeps other account sessions, events, and requests alive', async () => {
+    const connections = new Map<string, FakeConnection>()
+    const manager = new AccountSessionManager(async (context) => {
+      const connection = fakeConnection()
+      connections.set(context.id, connection)
+      return connection
+    })
+    const [a, b] = await Promise.all([manager.connect(account('a')), manager.connect(account('b'))])
+    const bEvents: AccountSessionEvent[] = []
+    b.subscribe(event => bEvents.push(event))
+    const bRequest = b.requestWithSequence({ method: 'get_msg' })
+
+    await manager.remove(accountId('a'))
+    connections.get('b')?.events({ type: 'onebot.event', payload: { post_type: 'message', self_id: 'b' } })
+    await bRequest.promise
+
+    expect(manager.status(accountId('a'))).toBe('offline')
+    expect(manager.status(accountId('b'))).toBe('online')
+    expect(connections.get('a')?.closeCount).toBe(1)
+    expect(connections.get('b')?.closeCount).toBe(0)
+    expect(connections.get('b')?.requestSignals).toHaveLength(1)
+    expect(bEvents).toEqual([{ type: 'onebot.event', payload: { post_type: 'message', self_id: 'b' }, accountId: accountId('b') }])
+  })
+
   it('invalidates a remotely closed connection before notifying views and allows reconnect', async () => {
     const first = fakeConnection()
     const second = fakeConnection()

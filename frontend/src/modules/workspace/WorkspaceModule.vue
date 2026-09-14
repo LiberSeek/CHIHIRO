@@ -31,6 +31,7 @@ import AgentEntry from '../agent/AgentEntry.vue'
 import { routeForImConversation, routeForWorkspaceList, useWorkspace, type ListTab, type WorkspaceRoute } from './workspace'
 import { queryText, syncWorkspaceFromRoute, workspaceRouteMatches } from './routeSync'
 import { canRestoreNativeConversation, contactToChatInfo, findNativeConversationForRoute } from './nativeConversation'
+import { countNativeUnreadSessions, nativeUnreadOwnerAccountId } from './nativeUnread'
 
 const workspace = useWorkspace()
 const imListTab = ref<'messages' | 'friends'>('messages')
@@ -80,27 +81,17 @@ watch(() => route.fullPath, () => {
 const modal = computed(() => ui.popBoxList[0])
 const safeModalHtml = computed(() => DOMPurify.sanitize(modal.value?.html ?? ''))
 const popInfo = new PopInfo()
-type SessionUnreadItem = { user_id?: number; group_id?: number; unread?: number; new_msg?: boolean }
-const unreadCount = computed(() => {
-  const counted = Math.max(0, Number(contacts.newMsgCount) || 0)
-  const seen = new Set<string>()
-  let sessions = 0
-  const add = (item: SessionUnreadItem) => {
-    const id = item.user_id ? `user:${item.user_id}` : item.group_id ? `group:${item.group_id}` : ''
-    if (!id || seen.has(id)) return
-    if ((Number(item.unread) || 0) <= 0 && item.new_msg !== true) return
-    seen.add(id)
-    sessions += 1
-  }
-  ;(contacts.onMsgList || []).forEach(add)
-  ;(contacts.groupAssistList || []).forEach(add)
-  return Math.max(counted, sessions)
-})
+const unreadCount = computed(() => countNativeUnreadSessions(
+  contacts.onMsgList || [],
+  contacts.groupAssistList || [],
+  Number(contacts.newMsgCount) || 0,
+))
 const unreadLabel = computed(() => unreadCount.value > 99 ? '99+' : String(unreadCount.value))
-const unreadOwnerAccountId = computed(() => {
-  const account = shell.activeAccount
-  return account?.status === 'online' && readyNativeAccountId.value === account.id ? account.id : null
-})
+const unreadOwnerAccountId = computed(() => nativeUnreadOwnerAccountId({
+  activeAccountId: shell.activeAccountId,
+  activeAccountOnline: shell.activeAccount?.status === 'online',
+  readyAccountId: readyNativeAccountId.value,
+}))
 
 async function connect() {
   profileOnly.value = false

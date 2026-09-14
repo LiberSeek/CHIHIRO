@@ -123,6 +123,23 @@ describe('runtime account shell', () => {
     expect(shell.accounts.find(account => account.id === b)?.unread).toBe(12)
   })
 
+
+  it('does not recreate removed accounts when unread is updated for an unknown id', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(response({ accounts: { activeId: b, accounts: [
+        { id: b, nickname: 'B', online: true, unread: 2 },
+      ] } })))
+    const shell = useShellStore()
+
+    await shell.refreshAccounts()
+    shell.setAccountUnread(a, 99)
+    shell.setAccountUnread(b, 7)
+
+    expect(shell.accounts).toEqual([
+      { id: b, label: 'B', platform: 'qq', status: 'online', unread: 7 },
+    ])
+  })
+
   it('starts a new QQ account and adopts the returned selection', async () => {
     const fetcher = vi.fn().mockResolvedValue(response(state(b)))
     vi.stubGlobal('fetch', fetcher)
