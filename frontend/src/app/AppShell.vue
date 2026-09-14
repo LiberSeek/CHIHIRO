@@ -8,6 +8,7 @@ import { useAssistantStore } from '@/modules/assistant/session'
 import { useShellStore } from '@/stores/shell'
 import type { AccountContext, AccountId } from '@/contracts'
 import { applyTheme as applyShellTheme, cycleTheme as cycleShellTheme, onThemeChange, readThemeMode, watchSystemTheme, type ThemeMode } from '@/theme'
+import { resolveShellViewState } from '@/app/shell-view-state'
 
 const labels = { light: '浅色', dark: '深色', system: '跟随系统' }
 const shell = useShellStore()
@@ -24,26 +25,24 @@ const selectedClientId = ref('qq')
 const themeMode = ref<ThemeMode>('dark')
 const themeLabel = computed(() => labels[themeMode.value])
 const runtimeBootstrapped = ref(false)
-const accountRouteActive = computed(() => (route.name === 'im' || route.name === 'agent') && route.query.settings !== '1')
-const showRuntimeBootLoading = computed(() => accountRouteActive.value && !runtimeBootstrapped.value)
-const loginInProgress = computed(() => shell.adding || shell.pendingAdd || ['starting', 'logging_in', 'qr', 'qr_expired', 'cancelling'].includes(shell.runtimePhase))
-const loginNeedsRestart = computed(() => Boolean(shell.activeAccount) && !shell.qrReady
-  && /(失效|过期|重新登录|请刷新|错误|超时)/.test(shell.runtimeMessage))
-const showLoginPanel = computed(() => accountRouteActive.value && !showRuntimeBootLoading.value
-  && (loginInProgress.value || !shell.activeAccount || shell.activeAccount.status !== 'online'))
-const loginMessage = computed(() => {
-  if (shell.cancelingLogin) return '正在取消登录…'
-  if (shell.pendingAdd) {
-    if (shell.qrReady) return shell.runtimeMessage || '请使用 QQ 扫描二维码。约两分钟有效。'
-    return shell.runtimeMessage && !shell.runtimeMessage.startsWith('已登录') ? shell.runtimeMessage : '正在启动 QQ 登录'
-  }
-  return shell.runtimeMessage || (loginInProgress.value
-    ? '正在准备登录…'
-    : shell.activeAccount
-      ? '重新登录后即可继续使用此账号'
-      : '点击左侧 + 添加并登录 QQ 账号')
-})
-const showEmptyLauncher = computed(() => !showRuntimeBootLoading.value && !loginInProgress.value && !shell.activeAccount)
+const shellView = computed(() => resolveShellViewState({
+  routeName: route.name,
+  routeSettings: route.query.settings,
+  runtimeBootstrapped: runtimeBootstrapped.value,
+  adding: shell.adding,
+  pendingAdd: shell.pendingAdd,
+  runtimePhase: shell.runtimePhase,
+  runtimeMessage: shell.runtimeMessage,
+  qrReady: shell.qrReady,
+  cancelingLogin: shell.cancelingLogin,
+  activeAccount: shell.activeAccount,
+}))
+const showRuntimeBootLoading = computed(() => shellView.value.showRuntimeBootLoading)
+const loginInProgress = computed(() => shellView.value.loginInProgress)
+const loginNeedsRestart = computed(() => shellView.value.loginNeedsRestart)
+const showLoginPanel = computed(() => shellView.value.showLoginPanel)
+const loginMessage = computed(() => shellView.value.loginMessage)
+const showEmptyLauncher = computed(() => shellView.value.showEmptyLauncher)
 const exitBusy = computed(() => Boolean(exitAccount.value && shell.removingAccountId === exitAccount.value.id))
 const selectedClient = computed(() => shell.clients.find(client => client.id === selectedClientId.value)
   ?? shell.clients.find(client => client.enabled)
