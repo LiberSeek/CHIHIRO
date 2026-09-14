@@ -86,6 +86,7 @@ let msgPath = {} as { [key: string]: any }
 if (msgPathAt != undefined) {
     msgPath = (msgPaths[msgPathAt] as any).default
 }
+const defaultMsgPath = msgPath
 // 其他 tag
 let listLoadTimes = 0
 const logger = new Logger()
@@ -108,6 +109,16 @@ export function clearLoginWaveTimer() {
         clearInterval(loginWaveTimer)
         loginWaveTimer = null
     }
+}
+
+export function resetNativeMessageRuntimeState() {
+    firstHeartbeatTime = -1
+    heartbeatTime = -1
+    listLoadTimes = 0
+    msgPath = defaultMsgPath
+    clearLoginWaveTimer()
+    clearMetaEventWatchdog()
+    groupPreviewHydrator.reset()
 }
 
 const groupPreviewHydrator = (() => {
@@ -2430,10 +2441,7 @@ function formatMessageData(data: any, isGroup: boolean) {
 
 // 重置 Runtime，但是保留应用设置之类已经加载好的应用内容
 export function resetRimtime(resetAll = false) {
-    firstHeartbeatTime = -1
-    heartbeatTime = -1
-    clearMetaEventWatchdog()
-    groupPreviewHydrator.reset()
+    resetNativeMessageRuntimeState()
     if (resetAll) {
         // Reset auth store
         const authStore = useAuthStore()

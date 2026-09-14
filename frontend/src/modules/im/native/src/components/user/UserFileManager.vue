@@ -87,6 +87,7 @@
     const downloadCancelCallbacks = new Map<string, () => void>()
 
     let taskCounter = 0
+    let taskGeneration = 0
     const generateTaskId = () => {
         taskCounter++
         return `task_${Date.now()}_${taskCounter}`
@@ -120,6 +121,7 @@
         onComplete?: () => void,
         onError?: (error: string) => void
     }) => {
+        const generation = taskGeneration
         const task: TransferTask = {
             id: generateTaskId(),
             fileName: info.fileName,
@@ -138,6 +140,7 @@
 
         // 处理进度回调
         const onprocess = (event: ProgressEvent & { [key: string]: any }) => {
+            if (generation !== taskGeneration) return undefined
             const index = downloadTasksState.value.findIndex(t => t.id === task.id)
             // 忽略已取消、已完成或不存在的任务
             if (index === -1 ||
@@ -183,6 +186,7 @@
 
         // 处理取消回调
         const oncancel = (_: ProgressEvent & { [key: string]: any }) => {
+            if (generation !== taskGeneration) return undefined
             const currentTask = downloadTasksState.value.find(t => t.id === task.id)
             // 忽略已完成或已取消的任务
             if (currentTask && currentTask.status !== 'completed' && currentTask.status !== 'cancelled') {
@@ -231,6 +235,7 @@
         // 执行上传的函数，接收 onProgress 回调
         execute: (onProgress: (loaded: number, total: number) => void) => void
     }) => {
+        const generation = taskGeneration
         const task: TransferTask = {
             id: generateTaskId(),
             fileName: info.fileName,
@@ -252,6 +257,7 @@
 
         // 执行上传
         const onProgress = (loaded: number, total: number) => {
+            if (generation !== taskGeneration) return
             const index = uploadTasksState.value.findIndex(t => t.id === task.id)
             if (index === -1 || uploadTasksState.value[index].status === 'cancelled') {
                 return
@@ -328,6 +334,17 @@
 
     export const getDownloadTasks = () => downloadTasksState.value
     export const getUploadTasks = () => uploadTasksState.value
+
+    export const resetNativeFileTasks = () => {
+        for (const cancel of downloadCancelCallbacks.values()) cancel()
+        taskGeneration++
+        downloadCancelCallbacks.clear()
+        uploadCallbacks.clear()
+        downloadTasksState.value = []
+        uploadTasksState.value = []
+        panelVisibleState.value = false
+        taskCounter = 0
+    }
 
     export const removeDownloadTask = (taskId: string) => {
         downloadCancelCallbacks.delete(taskId)

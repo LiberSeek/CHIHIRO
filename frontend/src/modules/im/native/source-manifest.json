@@ -17,6 +17,11 @@
       "match": "@renderer/main",
       "replacement": "@chihiro/im-native/host",
       "reason": "Remove upstream createApp/i18n/Pinia bootstrap dependency; host must configure translation and clipboard."
+    },
+    {
+      "match": "native account-owned runtime state",
+      "replacement": "explicit reset hooks",
+      "reason": "Prevent timers, mapping state, hydration queues, and file tasks from crossing hosted account sessions."
     }
   ],
   "files": [
@@ -259,7 +264,8 @@
     {
       "path": "src/components/user/UserFileManager.vue",
       "upstreamPath": "components/user/UserFileManager.vue",
-      "sha256": "dab79343561e4eef4ba98ff0bf2c67132c695f26f69891ddd0aa8d4d8ff4cb72"
+      "sha256": "7f41a5dda414b9a02cb0a2278bc110916732297709bbfde35f66253fd913bfc5",
+      "extractedSha256": "dab79343561e4eef4ba98ff0bf2c67132c695f26f69891ddd0aa8d4d8ff4cb72"
     },
     {
       "path": "src/components/user/UserFriendBody.vue",
@@ -418,7 +424,7 @@
     {
       "path": "src/function/msg.ts",
       "upstreamPath": "function/msg.ts",
-      "sha256": "c1c6d661a612f6f85fbb0865e2e353fc6dc406c47a03479b0ac9c58ebca233aa",
+      "sha256": "f064342b6a46a4bbc4d4ae4b25519919cfee572c0131f32ba33445c8d49fc063",
       "extractedSha256": "6a2cefefc07e90c244c3458f68f4b823cdab46928c804d7641c32c1af28003fe"
     },
     {
