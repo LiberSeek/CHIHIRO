@@ -253,6 +253,8 @@ AI 内部沟通存 assistantStore，客户原始消息存 messagesStore。工作
 
 完整 AstrBot Dashboard/NapCat WebUI 先保留为高级维护入口，可在单独页面打开，并明确属于外部管理工具；核心消息、Agent、托管流程不依赖它们。完整管理后台的所有页面是否最终产品化，应按业务需要逐页决定，不自动成为 IM/ChatUI 统一的前置范围。
 
+Agent 日常 ChatUI 的当前边界由 `frontend/src/modules/agent/native/native-module-boundary.test.ts` 锁定：工作台侧栏和右侧 Agent 聊天区安装进既有千寻 Vue app，不允许重新引入 AstrBot Dashboard 的 `createApp`、完整 layout/router bootstrap、运行时 script mount 或完整 `/astrbot` iframe。Dashboard-only 的知识库、设置和登录页只能通过千寻的外部设置面打开。
+
 ## 12. 分阶段交付与依赖
 
 | 阶段 / 建议 PR | 主要改动 | 验收与完成门槛 |
