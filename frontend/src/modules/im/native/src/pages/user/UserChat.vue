@@ -603,7 +603,16 @@ import { useSettingsStore } from '@renderer/state/settings'
 import { useAuthStore } from '@renderer/state/auth'
 import { useChatStore } from '@renderer/state/chat'
 import { useContactStore } from '@renderer/state/contact'
-import { addUploadTask, failUploadTask } from '@renderer/components/user/UserFileManager.vue'
+import {
+    addUploadTask,
+    cancelUploadTask,
+    failUploadTask,
+} from '@renderer/components/user/UserFileManager.vue'
+import {
+    captureNativeAsyncScope,
+    isNativeAsyncScopeCurrent,
+    type NativeAsyncScope,
+} from '@renderer/function/asyncAccountScope'
 
 defineOptions({ name: 'UserChat' })
 
@@ -615,6 +624,25 @@ const { chat, list } = defineProps<{
     list: any[]
     imgView?: any
 }>()
+let viewGeneration = 0
+function currentConversationKey() {
+    return `${String(chat.show?.id ?? '')}:${(chat.show as any)?.temp ?? ''}`
+}
+function captureChatScope(): NativeAsyncScope {
+    return captureNativeAsyncScope(
+        chat.show?.type ?? '',
+        currentConversationKey(),
+        viewGeneration,
+    )
+}
+function isChatScopeCurrent(scope: NativeAsyncScope) {
+    return isNativeAsyncScopeCurrent(
+        scope,
+        chat.show?.type ?? '',
+        currentConversationKey(),
+        viewGeneration,
+    )
+}
 const assistant = useAssistantStore()
 const chihiroFeatureOpen = computed(() => assistant.open)
 function toggleChihiroFeature() {
@@ -721,6 +749,7 @@ async function runChihiroHistorySearch() {
     }
     if (settingsStore.sysConfig.enable_local_history) {
         const requestId = ++searchRequestId.value
+        const scope = captureChatScope()
         searchDebounceTimer.value = setTimeout(async () => {
             let results: any[] = []
             try {
@@ -728,7 +757,11 @@ async function runChihiroHistorySearch() {
             } catch (e) {
                 results = []
             }
-            if (requestId !== searchRequestId.value || !chihiroHistory.open) return
+            if (
+                requestId !== searchRequestId.value ||
+                !chihiroHistory.open ||
+                !isChatScopeCurrent(scope)
+            ) return
             if (!results || results.length === 0) {
                 results = chihiroSourceList().filter((item: any) => {
                     try { return getMsgRawTxt(item).indexOf(value) !== -1 } catch { return false }
@@ -773,7 +806,9 @@ function jumpChihiroHistory(item: any) {
     const id = item?.message_id || item?.fake_message_id
     closeChihiroHistory()
     if (!id) return
+    const scope = captureChatScope()
     nextTick(() => {
+        if (!isChatScopeCurrent(scope)) return
         if (!scrollToMsg(String(id), true)) {
             new PopInfo().add(PopType.INFO, $t('无法定位上下文'))
         }
@@ -1036,16 +1071,26 @@ function resetState() {
         checkNewLineFlag: false,
     }
     msgMenus.value = []
+    selectedMsg.value = null
 }
 
-watch(() => chat, () => {
+watch(currentConversationKey, () => {
+    viewGeneration++
+    searchRequestId.value++
+    if (searchDebounceTimer.value) {
+        clearTimeout(searchDebounceTimer.value)
+        searchDebounceTimer.value = null
+    }
+    uiStore.nowGetHistory = false
     resetState()
     sendCache.value = []
     imgCache.value = new Map()
     composer.value?.clear?.()
     multipleSelectList.value = []
     initMenuDisplay()
+    const nextViewGeneration = viewGeneration
     nextTick(() => {
+        if (nextViewGeneration !== viewGeneration) return
         scheduleResizeMainInput()
     })
     const history = useSessionHistoryStore()
@@ -1093,6 +1138,12 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+    viewGeneration++
+    searchRequestId.value++
+    if (searchDebounceTimer.value) {
+        clearTimeout(searchDebounceTimer.value)
+        searchDebounceTimer.value = null
+    }
     document.removeEventListener('click', onChihiroDocClick)
     document.removeEventListener('keydown', onChihiroDocKey)
     window.removeEventListener('chihiro-viewer-forward', onViewerForward as EventListener)
@@ -1222,7 +1273,9 @@ function resizeMainInput(target?: HTMLElement | null) {
 }
 function jumpSearchMsg() {
     closeSearch()
+    const scope = captureChatScope()
     setTimeout(() => {
+        if (!isChatScopeCurrent(scope)) return
         if (!selectedMsg.value) return
         scrollToMsg('chat-' + selectedMsg.value?.message_id, true)
         closeMsgMenu()
@@ -1254,6 +1307,7 @@ async function loadMoreHistory() {
         !uiStore.nowGetHistory &&
         uiStore.canLoadHistory !== false
     ) {
+        const scope = captureChatScope()
         const firstMsgId = list[0].message_id
         const firstMsgTime = Number(list[0]?.time)
         const useMixedHistory =
@@ -1284,6 +1338,7 @@ async function loadMoreHistory() {
                     20,
                 )
             }
+            if (!isChatScopeCurrent(scope)) return
             if (localMsgs.length > 0) {
                 const existingIds = new Set(chatStore.messageList.map((m) => String(m.message_id ?? '')))
                 const addList = localMsgs.filter((m) => {
@@ -1305,6 +1360,7 @@ async function loadMoreHistory() {
             authStore.jsonMap.message_list?.pagerType == 'full'
         const type = chatStore.chatInfo.show.type
         const id = chatStore.chatInfo.show.id
+        if (!isChatScopeCurrent(scope)) return
         let name
         if (authStore.jsonMap.message_list && type != 'group') {
             name = authStore.jsonMap.message_list.private_name
@@ -1897,25 +1953,33 @@ function searchForward(event: Event) {
 }
 
 function onViewerForward(event: Event) {
-    const msg = (event as CustomEvent).detail
+    const payload = (event as CustomEvent).detail
+    const msg = payload?.message ?? payload
     if (!msg) return
+    if (payload?.scope && !isChatScopeCurrent(payload.scope)) return
     selectedMsg.value = msg
     showForWard()
 }
 
 function onViewerDelete(event: Event) {
-    const msg = (event as CustomEvent).detail
+    const payload = (event as CustomEvent).detail
+    const msg = payload?.message ?? payload
     if (!msg) return
+    if (payload?.scope && !isChatScopeCurrent(payload.scope)) return
     selectedMsg.value = msg
-    revokeMsg()
+    void revokeMsg()
 }
 
 async function onViewerEditSend(event: Event) {
-    const dataurl = (event as CustomEvent).detail
+    const payload = (event as CustomEvent).detail
+    const dataurl = payload?.dataurl ?? payload
     if (!dataurl || typeof dataurl !== 'string') return
+    const scope = payload?.scope ?? captureChatScope()
+    if (!isChatScopeCurrent(scope)) return
     const file = dataUrlToFile(dataurl)
-    await setImg(file)
-    sendMsg()
+    await setImg(file, scope)
+    if (!isChatScopeCurrent(scope)) return
+    sendMsg('sendMsgBack', scope)
 }
 
 function dataUrlToFile(dataurl: string, name = 'image.png') {
@@ -1943,6 +2007,8 @@ function showForWard(action: ForwardAction = 'single-message') {
 }
 
 function forwardSelf() {
+    const scope = captureChatScope()
+    if (!isChatScopeCurrent(scope)) return
     if (selectedMsg.value) {
         const msgData = JSON.parse(JSON.stringify(selectedMsg.value))
         sendMsgRaw(
@@ -2003,6 +2069,7 @@ function cloneMessagePayload<T>(payload: T): T {
 }
 
 function forwardMsg(data: UserFriendElem & UserGroupElem) {
+    const sourceScope = captureChatScope()
     const forwardAction = selectedForwardAction.value
     const msgData = selectedMsg.value ? cloneMessagePayload(selectedMsg.value) : null
     const id = data.group_id ? data.group_id : data.user_id
@@ -2036,6 +2103,10 @@ function forwardMsg(data: UserFriendElem & UserGroupElem) {
                     text: $t('确定'),
                     master: true,
                     fun: () => {
+                        if (!isChatScopeCurrent(sourceScope)) {
+                            uiStore.popBoxList.shift()
+                            return
+                        }
                         msgList.forEach((item) => {
                             sendMsgRaw(
                                 targetId,
@@ -2099,6 +2170,10 @@ function forwardMsg(data: UserFriendElem & UserGroupElem) {
                     text: $t('确定'),
                     master: true,
                     fun: () => {
+                        if (!isChatScopeCurrent(sourceScope)) {
+                            uiStore.popBoxList.shift()
+                            return
+                        }
                         const msgBody = msgList.map((item) => {
                             return {
                                 type: 'node',
@@ -2137,6 +2212,10 @@ function forwardMsg(data: UserFriendElem & UserGroupElem) {
                     text: $t('确定'),
                     master: true,
                     fun: () => {
+                        if (!isChatScopeCurrent(sourceScope)) {
+                            uiStore.popBoxList.shift()
+                            return
+                        }
                         sendMsgRaw(
                             targetId,
                             targetType,
@@ -2246,6 +2325,7 @@ function downloadImg() {
 }
 
 async function revokeMsg() {
+    const scope = captureChatScope()
     const msgData = selectedMsg.value
     closeMsgMenu()
     if (!msgData) {
@@ -2253,10 +2333,13 @@ async function revokeMsg() {
         return
     }
     const msgId = msgData.message_id
+    if (!isChatScopeCurrent(scope)) return
     await Connector.callApi('delete_msg', { message_id: msgId })
+    if (!isChatScopeCurrent(scope)) return
 }
 
 async function reeditMsg() {
+    const scope = captureChatScope()
     const msgData = selectedMsg.value
     closeMsgMenu()
     if (!msgData) {
@@ -2264,7 +2347,9 @@ async function reeditMsg() {
         return
     }
     const msgId = msgData.message_id
+    if (!isChatScopeCurrent(scope)) return
     await Connector.callApi('delete_msg', { message_id: msgId })
+    if (!isChatScopeCurrent(scope)) return
     reedit(msgData)
 }
 
@@ -2308,9 +2393,11 @@ function removeUser() {
 }
 
 function closeMsgMenu() {
+    const scope = captureChatScope()
     tags.value.showMsgMenu = false
     tags.value.menuDisplay.menuSelectedMsgId = null
     setTimeout(() => {
+        if (!isChatScopeCurrent(scope)) return
         initMenuDisplay()
     }, 300)
 }
@@ -2591,7 +2678,9 @@ async function editImg(key: number) {
     const img = imgCache.value.get(key)
     if (!img) return
     if (!viewerRef?.value) return
-    const dataurl = await viewerRef.value.edit(img)
+    const scope = captureChatScope()
+    const dataurl = await viewerRef.value.edit(img, scope)
+    if (!isChatScopeCurrent(scope)) return
     mutateImgCache((map) => { map.set(key, dataurl) })
 }
 
@@ -2718,6 +2807,7 @@ function selectFile(event: Event) {
 }
 
 function sendFile(file: File, fileName: string | null) {
+    const scope = captureChatScope()
     const displayName = fileName ?? file.name ?? $t('未知文件')
     const taskId = addUploadTask({
         fileName: displayName,
@@ -2726,11 +2816,19 @@ function sendFile(file: File, fileName: string | null) {
             const reader = new FileReader()
             reader.onprogress = (event) => {
                 if (event.lengthComputable) {
-                    onProgress(event.loaded, event.total)
+                    if (isChatScopeCurrent(scope)) {
+                        onProgress(event.loaded, event.total)
+                    } else {
+                        cancelUploadTask(taskId)
+                    }
                 }
             }
             reader.readAsDataURL(file)
             reader.onloadend = () => {
+                if (!isChatScopeCurrent(scope)) {
+                    cancelUploadTask(taskId)
+                    return
+                }
                 let base64data = reader.result as string
                 base64data = base64data.substring(
                     base64data.indexOf('base64,') + 7,
@@ -2751,13 +2849,17 @@ function sendFile(file: File, fileName: string | null) {
                 sendMsg('sendFileBack_' + taskId)
             }
             reader.onerror = () => {
-                failUploadTask(taskId, '文件读取失败')
+                if (isChatScopeCurrent(scope)) {
+                    failUploadTask(taskId, '文件读取失败')
+                } else {
+                    cancelUploadTask(taskId)
+                }
             }
         }
     })
 }
 
-async function setImg(file: File | null) {
+async function setImg(file: File | null, scope = captureChatScope()) {
     const popInfo = new PopInfo()
     if (!file) return
     if (!file.type.includes('image/')) return
@@ -2768,6 +2870,7 @@ async function setImg(file: File | null) {
         try {
             popInfo.add(PopType.INFO, $t('正在压缩图片 ……'))
             const compressedFile = await imageCompression(file, options)
+            if (!isChatScopeCurrent(scope)) return
             new Logger().add(
                 LogType.INFO,
                 '图片压缩成功，原大小：' +
@@ -2776,7 +2879,7 @@ async function setImg(file: File | null) {
                     compressedFile.size / 1024 / 1024 +
                     ' MB',
             )
-            setImg(compressedFile)
+            await setImg(compressedFile, scope)
         } catch (error) {
             new Logger().error(error as Error, '图片压缩失败')
             popInfo.add(PopType.INFO, $t('压缩图片失败'))
@@ -2784,7 +2887,9 @@ async function setImg(file: File | null) {
         return
     }
 
-    addAttachSrc(await fileToDataURL(file))
+    const dataurl = await fileToDataURL(file)
+    if (!isChatScopeCurrent(scope)) return
+    addAttachSrc(dataurl)
 }
 
 async function fileToDataURL(file: File): Promise<string> {
@@ -2809,7 +2914,8 @@ function toMainInput() {
     }
 }
 
-function sendMsg(echo = 'sendMsgBack') {
+function sendMsg(echo = 'sendMsgBack', scope?: NativeAsyncScope) {
+    if (scope && !isChatScopeCurrent(scope)) return
     if (details.value[3].open) {
         return
     }
@@ -3046,14 +3152,15 @@ function copyMsgs() {
 }
 
 async function recallMsgs() {
+    const scope = captureChatScope()
     const msgList = list.filter((item: any) => multipleSelectList.value.includes(item.message_id))
-    const tasks: Promise<true | undefined>[] = []
     for (const msgItem of msgList) {
+        if (!isChatScopeCurrent(scope)) return
         const msgId = msgItem.message_id
-        tasks.push(Connector.callApi('delete_msg', { message_id: msgId }))
+        await Connector.callApi('delete_msg', { message_id: msgId })
+        if (!isChatScopeCurrent(scope)) return
     }
     multipleSelectList.value = []
-    await Promise.all(tasks)
 }
 
 function showJin() {
@@ -3112,13 +3219,23 @@ async function handleInput(event: Event) {
             tags.value.search.list = reactive(list)
         } else if (settingsStore.sysConfig.enable_local_history) {
             const requestId = ++searchRequestId.value
+            const scope = captureChatScope()
             searchDebounceTimer.value = setTimeout(async () => {
-                const results = await dbSearchMessages(
-                    authStore.loginInfo.uin,
-                    chatStore.chatInfo.show.id,
-                    value,
-                )
-                if (requestId !== searchRequestId.value || !details.value[3].open) return
+                let results: any[] = []
+                try {
+                    results = await dbSearchMessages(
+                        authStore.loginInfo.uin,
+                        chatStore.chatInfo.show.id,
+                        value,
+                    )
+                } catch {
+                    return
+                }
+                if (
+                    requestId !== searchRequestId.value ||
+                    !details.value[3].open ||
+                    !isChatScopeCurrent(scope)
+                ) return
                 tags.value.search.list = results
             }, 180)
         } else {

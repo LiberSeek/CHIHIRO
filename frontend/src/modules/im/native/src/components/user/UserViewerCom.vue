@@ -214,10 +214,20 @@ import { backend } from '@renderer/runtime/backend'
 import { useUIStore } from '@renderer/state/ui'
 import { useChatStore } from '@renderer/state/chat'
 import { useAuthStore } from '@renderer/state/auth'
+import {
+    captureNativeAsyncScope,
+    isNativeAsyncScopeCurrent,
+    type NativeAsyncScope,
+} from '@renderer/function/asyncAccountScope'
 
 const uiStore = useUIStore()
 const chatStore = useChatStore()
 const authStore = useAuthStore()
+let viewerGeneration = 0
+function currentConversationId() {
+    const show = chatStore.chatInfo.show as typeof chatStore.chatInfo.show & { temp?: string }
+    return `${String(show.id ?? '')}:${show.temp ?? ''}`
+}
 
 type EditToolType = 'hand' | 'pen' | 'rect'
 
@@ -271,6 +281,7 @@ const currentImgInfo = shallowRef<{
     dom: HTMLImageElement,                  // 图片原始dom
     editMode: true,                         // 是否为编辑模式
     editPromise: (data: string) => void,    // 编辑完成回调
+    scope: NativeAsyncScope,
         } | undefined>(undefined)
 const mouseMoveInfo = shallowRef<{
     x: number,
@@ -379,7 +390,14 @@ function openBySrc(img: Img, src: string) {
  * @param dataurl 图片url
  * @returns 编辑完成后的dataurl
  */
-async function editMode(dataurl: string): Promise<string> {
+async function editMode(
+    dataurl: string,
+    scope = captureNativeAsyncScope(
+        chatStore.chatInfo.show.type,
+        currentConversationId(),
+    ),
+): Promise<string> {
+    const generation = ++viewerGeneration
     let r!: (dataurl: string) => void
     const promise = new Promise<string>(resolve => {
         r = resolve
@@ -389,12 +407,17 @@ async function editMode(dataurl: string): Promise<string> {
     const img = new Image()
     img.src = dataurl
     setTimeout(()=>{
+        if (generation !== viewerGeneration) {
+            r(dataurl)
+            return
+        }
         currentImgInfo.value = {
             width: img.width,
             height: img.height,
             dom: img,
             editMode: true,
             editPromise: r,
+            scope,
         }
         mouseMoveInfo.value = undefined
         loading.value = false
@@ -456,9 +479,10 @@ function stdFit() {
  */
 function init() {
     if (!currentImg.value) return
+    const generation = ++viewerGeneration
     const img = new Image()
     const loadFinish = () => {
-        if (!currentImg.value) return
+        if (generation !== viewerGeneration || !currentImg.value) return
         loading.value = false
         currentImgInfo.value = {
             width: img.width,
@@ -478,8 +502,10 @@ function init() {
             url: currentImg.value.src,
             responseType: 'blob',
         }).then((r: any) => {
+            if (generation !== viewerGeneration || !currentImg.value) return
             img.src = 'data:image/png;base64,' + r.data
         }).catch(() => {
+            if (generation !== viewerGeneration || !currentImg.value) return
             img.src = currentImg.value?.src || ''
         })
     } else {
@@ -502,7 +528,11 @@ function escClose() {
     else close()
 }
 function close() {
+    viewerGeneration++
     if (edit.value) editExit()
+    else if (currentImgInfo.value?.editMode) {
+        currentImgInfo.value.editPromise(currentImg.value?.src ?? '')
+    }
     currentImg.value = undefined
     forceShowButton.value = false
     viewerMoreOpen.value = false
@@ -592,8 +622,17 @@ function locateInChat() {
         return
     }
     const id = msg.message_id
+    const scope = captureNativeAsyncScope(
+        chatStore.chatInfo.show.type,
+        currentConversationId(),
+    )
     close()
     setTimeout(() => {
+        if (!isNativeAsyncScopeCurrent(
+            scope,
+            chatStore.chatInfo.show.type,
+            currentConversationId(),
+        )) return
         scrollToMsg('chat-' + id, true)
     }, 50)
 }
@@ -613,7 +652,15 @@ function deleteImage() {
     const msg = sourceMsg.value
     viewerMoreOpen.value = false
     if (!msg) return
-    window.dispatchEvent(new CustomEvent('chihiro-viewer-delete', { detail: toRaw(msg) }))
+    window.dispatchEvent(new CustomEvent('chihiro-viewer-delete', {
+        detail: {
+            message: toRaw(msg),
+            scope: captureNativeAsyncScope(
+                chatStore.chatInfo.show.type,
+                currentConversationId(),
+            ),
+        },
+    }))
     close()
 }
 
@@ -623,7 +670,15 @@ function forwardImg() {
         new PopInfo().add(PopType.INFO, $t('无法转发'))
         return
     }
-    window.dispatchEvent(new CustomEvent('chihiro-viewer-forward', { detail: toRaw(msg) }))
+    window.dispatchEvent(new CustomEvent('chihiro-viewer-forward', {
+        detail: {
+            message: toRaw(msg),
+            scope: captureNativeAsyncScope(
+                chatStore.chatInfo.show.type,
+                currentConversationId(),
+            ),
+        },
+    }))
     close()
 }
 
@@ -719,7 +774,17 @@ function editFinish() {
     if (sendAfterEdit.value) {
         const dataurl = canvas.value!.toDataURL('image/png')
         sendAfterEdit.value = false
-        window.dispatchEvent(new CustomEvent('chihiro-viewer-edit-send', { detail: dataurl }))
+        window.dispatchEvent(new CustomEvent('chihiro-viewer-edit-send', {
+            detail: {
+                dataurl,
+                scope: currentImgInfo.value?.editMode
+                    ? currentImgInfo.value.scope
+                    : captureNativeAsyncScope(
+                        chatStore.chatInfo.show.type,
+                        currentConversationId(),
+                    ),
+            },
+        }))
         close()
         return
     }

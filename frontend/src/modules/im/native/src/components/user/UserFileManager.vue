@@ -88,6 +88,7 @@
 
     let taskCounter = 0
     let taskGeneration = 0
+    const uploadTaskGenerations = new Map<string, number>()
     const generateTaskId = () => {
         taskCounter++
         return `task_${Date.now()}_${taskCounter}`
@@ -254,6 +255,7 @@
 
         // 存储回调供 completeUploadTask/failUploadTask 调用
         uploadCallbacks.set(task.id, {})
+        uploadTaskGenerations.set(task.id, generation)
 
         // 执行上传
         const onProgress = (loaded: number, total: number) => {
@@ -286,6 +288,7 @@
      * @param taskId 任务ID
      */
     export const completeUploadTask = (taskId: string) => {
+        if (uploadTaskGenerations.get(taskId) !== taskGeneration) return
         const index = uploadTasksState.value.findIndex(t => t.id === taskId)
         if (index !== -1 && uploadTasksState.value[index].status !== 'cancelled') {
             const task = { ...uploadTasksState.value[index] }
@@ -295,6 +298,7 @@
             uploadTasksState.value[index] = task
             uploadTasksState.value = [...uploadTasksState.value]
             uploadCallbacks.delete(taskId)
+            uploadTaskGenerations.delete(taskId)
         }
     }
 
@@ -304,6 +308,7 @@
      * @param error 错误信息
      */
     export const failUploadTask = (taskId: string, error: string) => {
+        if (uploadTaskGenerations.get(taskId) !== taskGeneration) return
         const index = uploadTasksState.value.findIndex(t => t.id === taskId)
         if (index !== -1 && uploadTasksState.value[index].status !== 'cancelled') {
             const task = { ...uploadTasksState.value[index] }
@@ -313,6 +318,7 @@
             uploadTasksState.value[index] = task
             uploadTasksState.value = [...uploadTasksState.value]
             uploadCallbacks.delete(taskId)
+            uploadTaskGenerations.delete(taskId)
         }
     }
 
@@ -340,6 +346,7 @@
         taskGeneration++
         downloadCancelCallbacks.clear()
         uploadCallbacks.clear()
+        uploadTaskGenerations.clear()
         downloadTasksState.value = []
         uploadTasksState.value = []
         panelVisibleState.value = false
