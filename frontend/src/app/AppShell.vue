@@ -9,6 +9,16 @@ import { useShellStore } from '@/stores/shell'
 import type { AccountContext, AccountId } from '@/contracts'
 import { applyTheme as applyShellTheme, cycleTheme as cycleShellTheme, onThemeChange, readThemeMode, watchSystemTheme, type ThemeMode } from '@/theme'
 import { resolveShellViewState } from '@/app/shell-view-state'
+import {
+  accountTitle,
+  accountUnreadLabel,
+  canCloseExitDialog,
+  canOpenNapCatSettings,
+  clampAccountMenuPosition,
+  shouldCloseExitDialogForKey,
+  shouldShowAccountUnread,
+  shouldShowBotBadge,
+} from '@/app/account-ui'
 
 const labels = { light: '浅色', dark: '深色', system: '跟随系统' }
 const shell = useShellStore()
@@ -65,8 +75,7 @@ function openAccountMenu(event: MouseEvent, account: AccountContext) {
   settingsOpen.value = false
   accountMenu.value = {
     account,
-    x: Math.min(event.clientX, window.innerWidth - 196),
-    y: Math.min(event.clientY, window.innerHeight - 116),
+    ...clampAccountMenuPosition(event.clientX, event.clientY, { width: window.innerWidth, height: window.innerHeight }),
   }
 }
 function closeAccountMenu() { accountMenu.value = null }
@@ -83,7 +92,7 @@ function askExit(account: AccountContext) {
   exitAccount.value = account
 }
 function closeExitDialog() {
-  if (!exitBusy.value) exitAccount.value = null
+  if (canCloseExitDialog(exitBusy.value)) exitAccount.value = null
 }
 async function confirmExit() {
   const account = exitAccount.value
@@ -117,7 +126,7 @@ function closeMenus(event: MouseEvent) {
   if (!target.closest('.rail-add-slot')) addLauncherOpen.value = false
 }
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape' && exitAccount.value) closeExitDialog()
+  if (shouldCloseExitDialogForKey(event.key, Boolean(exitAccount.value), exitBusy.value)) closeExitDialog()
 }
 function selectClient(id: string) {
   const client = shell.clients.find(item => item.id === id)
@@ -184,14 +193,14 @@ onUnmounted(() => {
       <div class="account-list">
         <button v-for="account in shell.accounts" :key="account.id" type="button" class="account-avatar"
           :class="{ active: account.id === shell.activeAccountId, offline: account.status !== 'online' }"
-          :title="`${account.label} · QQ${account.status === 'online' ? ' · 在线' : ' · 离线'}${account.botEnabled ? ' · Bot' : ''} · 右键管理`"
+          :title="accountTitle(account)"
           @click="selectAccount(account.id)" @contextmenu.prevent.stop="openAccountMenu($event, account)">
           <span class="account-avatar-face">
             <img v-if="account.avatar" :src="account.avatar" alt="" referrerpolicy="no-referrer" />
             <span v-else>{{ account.label.slice(0, 1) }}</span>
           </span>
-          <span v-if="(account.unread ?? 0) > 0" class="account-unread-badge">{{ account.unread! > 99 ? '99+' : account.unread }}</span>
-          <span v-if="account.botEnabled" class="account-bot-badge">BOT</span>
+          <span v-if="shouldShowAccountUnread(account)" class="account-unread-badge">{{ accountUnreadLabel(account) }}</span>
+          <span v-if="shouldShowBotBadge(account)" class="account-bot-badge">BOT</span>
         </button>
       </div>
       <div class="rail-add-slot">
@@ -287,7 +296,7 @@ onUnmounted(() => {
       </div>
     </section>
     <div v-if="accountMenu" class="account-context-menu" :style="{ left: `${accountMenu.x}px`, top: `${accountMenu.y}px` }" @click.stop>
-      <button v-if="accountMenu.account.platform === 'qq'" type="button" @click="openAccountNapCatSettings(accountMenu.account)"><SlidersHorizontal :size="16" />NapCat 设置</button>
+      <button v-if="canOpenNapCatSettings(accountMenu.account)" type="button" @click="openAccountNapCatSettings(accountMenu.account)"><SlidersHorizontal :size="16" />NapCat 设置</button>
       <button type="button" @click="relogin(accountMenu.account)">{{ accountMenu.account.status === 'online' ? '重新登录' : '登录账号' }}</button>
       <button type="button" class="danger" @click="askExit(accountMenu.account)">退出账号</button>
     </div>
