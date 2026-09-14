@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1.7
 
-# P2 compatibility image. Backend services run from backend/src while the
-# default workbench shell remains apps/web during frontend unification.
+# Chihiro runtime image. Backend services run from backend/src and serve the
+# unified frontend built from frontend/. apps/web remains only as migration
+# reference material copied for compatibility with older scripts.
 
 ARG NODE_IMAGE=node:22-alpine
 

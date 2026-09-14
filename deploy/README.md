@@ -1,6 +1,6 @@
 # Docker 部署骨架
 
-P1 把当前 `backend/src/gateway`、`backend/src/runtime`、`backend/src/mcp` 和 `apps/web` 打包成一个 `chihiro` 镜像。浏览器只访问 `chihiro:3100`，AstrBot 作为内部服务由 Gateway 代理。Compose 的端口、卷和服务名保持不变。
+P1 把当前 `frontend/` 统一前端、`backend/src/gateway`、`backend/src/runtime` 和 `backend/src/mcp` 打包成一个 `chihiro` 镜像。浏览器只访问 `chihiro:3100`，AstrBot 作为内部服务由 Gateway 代理。Compose 的端口、卷和服务名保持不变。
 
 ## 快速启动
 
@@ -52,7 +52,7 @@ docker compose --env-file deploy/.env --file deploy/docker-compose.yml logs -f c
 docker compose --env-file deploy/.env --file deploy/docker-compose.yml down
 ```
 
-`release-manifest.json` 记录可发布的镜像组合和已验证范围。当前 AstrBot 仍使用浮动开发镜像、Linux NapCat 尚未验证，因此该 manifest 只代表开发组合；正式版本必须先固定镜像 digest 并将对应能力验收完成。
+`release-manifest.json` 记录可发布的镜像组合和已验证范围。当前默认前端为 `frontend/` 构建出的统一入口 `/`；旧 `apps/web` 壳只作为迁移参考，不再是发布默认前端。当前 AstrBot 仍使用浮动开发镜像、Linux NapCat 尚未验证，因此该 manifest 只代表开发组合；正式版本必须先固定镜像 digest 并将对应能力验收完成。
 
 备份会以只读方式打包 `chihiro-data` 和 `astrbot-data`，不包含 `deploy/.env` 中的密钥：
 
