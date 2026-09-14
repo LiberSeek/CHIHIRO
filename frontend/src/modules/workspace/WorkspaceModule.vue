@@ -91,6 +91,10 @@ const unreadCount = computed(() => {
   return Math.max(counted, sessions)
 })
 const unreadLabel = computed(() => unreadCount.value > 99 ? '99+' : String(unreadCount.value))
+const unreadOwnerAccountId = computed(() => {
+  const account = shell.activeAccount
+  return account?.status === 'online' && readyNativeAccountId.value === account.id ? account.id : null
+})
 
 async function connect() {
   profileOnly.value = false
@@ -241,10 +245,9 @@ watch(() => login.status, (status) => {
   else if (!status) readyNativeAccountId.value = null
 }, { immediate: true, flush: 'sync' })
 watch(() => [route.fullPath, login.status, contacts.onMsgList, contacts.groupAssistList, contacts.userList] as const, restoreRoutedConversation, { immediate: true })
-watch(unreadCount, (count) => {
-  const account = shell.activeAccount
-  if (!account) return
-  shell.setAccountUnread(account.id, Number(count) || 0)
+watch([unreadCount, unreadOwnerAccountId], ([count, accountId]) => {
+  if (!accountId) return
+  shell.setAccountUnread(accountId, Number(count) || 0)
 }, { immediate: true })
 watch(showSettings, (visible) => {
   if (visible) clearNativePopups()

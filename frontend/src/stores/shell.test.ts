@@ -100,6 +100,29 @@ describe('runtime account shell', () => {
     expect(shell.error).toBe('')
   })
 
+
+  it('keeps unread counts account-scoped and sanitizes runtime values', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(response({ accounts: { activeId: a, accounts: [
+        { id: a, nickname: 'A', online: true, unread: 3.8 },
+        { id: b, nickname: 'B', online: true, unread: -2 },
+      ] } }))
+      .mockResolvedValueOnce(response({ accounts: { activeId: a, accounts: [
+        { id: a, nickname: 'A', online: true },
+        { id: b, nickname: 'B', online: true },
+      ] } })))
+    const shell = useShellStore()
+
+    await shell.refreshAccounts()
+    expect(shell.accounts.find(account => account.id === a)?.unread).toBe(3)
+    expect(shell.accounts.find(account => account.id === b)?.unread).toBe(0)
+
+    shell.setAccountUnread(b, 12)
+    await shell.refreshAccounts()
+    expect(shell.accounts.find(account => account.id === a)?.unread).toBe(3)
+    expect(shell.accounts.find(account => account.id === b)?.unread).toBe(12)
+  })
+
   it('starts a new QQ account and adopts the returned selection', async () => {
     const fetcher = vi.fn().mockResolvedValue(response(state(b)))
     vi.stubGlobal('fetch', fetcher)
