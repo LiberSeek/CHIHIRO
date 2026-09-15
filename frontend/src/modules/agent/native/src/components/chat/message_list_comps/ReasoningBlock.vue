@@ -249,6 +249,8 @@ onBeforeUnmount(() => {
   color: rgba(var(--v-theme-on-surface), 0.72);
   animation: fadeIn 0.2s ease-in-out;
   font-style: normal;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .reasoning-preview {

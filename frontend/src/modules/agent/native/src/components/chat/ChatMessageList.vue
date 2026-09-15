@@ -141,7 +141,7 @@
                   :has-non-reasoning-content="
                     hasFollowingContentBlock(msg, blockIndex)
                   "
-                  :open-in-sidebar="variant === 'main'"
+                  :open-in-sidebar="openReasoningSidebar"
                   @open="emit('openReasoning', { message: msg, blockIndex })"
                 />
 
@@ -292,6 +292,13 @@
 
           <div v-if="showMessageMeta(msg, msgIndex)" class="message-meta">
             <span v-if="msg.created_at">{{ formatTime(msg.created_at) }}</span>
+            <v-btn
+              v-if="enableCopy && isUserMessage(msg)"
+              icon="mdi-content-copy"
+              size="x-small"
+              variant="text"
+              @click="copyMessage(msg)"
+            />
             <v-btn
               v-if="canEditMessage(msg, msgIndex)"
               icon="mdi-pencil-outline"
@@ -465,6 +472,7 @@ const props = withDefaults(
     enableThreadSelection?: boolean;
     enableCopy?: boolean;
     manageRefsSidebar?: boolean;
+    openReasoningInSidebar?: boolean;
     editingMessageId?: string | number | null;
     editDraft?: string;
     savingEdit?: boolean;
@@ -511,6 +519,9 @@ const refsSidebarOpen = ref(false);
 const selectedRefs = ref<Record<string, unknown> | null>(null);
 const listRoot = ref<HTMLElement | null>(null);
 const avatarSize = computed(() => (props.variant === "thread" ? 36 : 56));
+const openReasoningSidebar = computed(
+  () => props.openReasoningInSidebar ?? props.variant === "main",
+);
 
 function isUserMessage(message: ChatRecord) {
   return messageContent(message).type === "user";
@@ -879,6 +890,8 @@ function formatDuration(seconds: number) {
   --chat-muted: rgba(var(--v-theme-on-surface), 0.62);
   width: 100%;
   color: rgb(var(--v-theme-on-surface));
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .chat-message-list.is-dark {

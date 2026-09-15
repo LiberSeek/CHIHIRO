@@ -4,7 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import httpProxy from 'http-proxy'
 import { serveAstrbotChatui, authorizeAstrbotRequest } from './astrbot-chatui.mjs'
-import { mime, serveLegacyStatic, serveNextPreviewStatic } from './static-preview.mjs'
+import { mime, serveLegacyStatic, serveProductStatic, redirectNextPreview } from './static-preview.mjs'
 import { createRuntime } from '../runtime/api.mjs'
 import { liveNapcatSecrets } from '../runtime/napcat-secrets.mjs'
 import { log, logError } from '../runtime/log.mjs'
@@ -13,7 +13,7 @@ import { ensureAstrbotReady } from './astrbot-proxy.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '../../..')
-const nextWebDir = path.join(root, 'frontend/dist')
+const productWebDir = path.join(root, 'frontend/dist')
 const webDir = path.join(root, 'apps/web')
 const pluginStaticDir = path.join(root, 'dist/plugins/napcat-plugin-ssqq/webui/dist')
 // ChatUI is bundled with Chihiro.  Keep these assets local so opening the
@@ -251,13 +251,8 @@ const server = http.createServer(async (req, res) => {
     return
   }
 
-  if (url.pathname === '/im' || url.pathname === '/im/') {
-    res.writeHead(302, { Location: '/' })
-    res.end()
-    return
-  }
-
-  if (serveNextPreviewStatic(nextWebDir, url, res)) return
+  if (redirectNextPreview(url, res)) return
+  if (serveProductStatic(productWebDir, url, res)) return
 
   if (
     routedPath === '/webui' ||
@@ -341,7 +336,7 @@ const server = http.createServer(async (req, res) => {
     return
   }
 
-  if (url.pathname === '/agent' || url.pathname === '/agent.md') {
+  if (url.pathname === '/agent.md') {
     res.writeHead(302, { Location: '/mcp' })
     res.end()
     return

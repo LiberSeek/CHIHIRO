@@ -168,6 +168,7 @@ const muted = computed(() => isSessionMuted(props.data || {}))
     font-weight: 600;
     line-height: 16px;
     text-align: center;
+    white-space: nowrap;
     flex: none !important;
     overflow: visible !important;
     opacity: 1 !important;

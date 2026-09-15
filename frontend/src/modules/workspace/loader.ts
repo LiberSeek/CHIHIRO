@@ -1,4 +1,5 @@
 import type { App, Component, InjectionKey } from 'vue'
+import { clearStaleChunkRecovery, recoverStaleChunk } from '@/app/stale-chunk'
 import type { NativeImHost } from '../im/native/host'
 export type WorkspaceLoader = () => Promise<Component>
 export const workspaceLoaderKey: InjectionKey<WorkspaceLoader> = Symbol('workspace-loader')
@@ -8,5 +9,12 @@ export function createWorkspaceLoader(app: App, navigate: NativeImHost['navigate
     const { installNativeIm } = await import('../im/native/runtime')
     await installNativeIm(app, navigate)
     return (await import('./WorkspaceModule.vue')).default
-  })().catch(error => { pending = undefined; throw error })
+  })().then(component => {
+    clearStaleChunkRecovery()
+    return component
+  }).catch(error => {
+    pending = undefined
+    recoverStaleChunk(error)
+    throw error
+  })
 }

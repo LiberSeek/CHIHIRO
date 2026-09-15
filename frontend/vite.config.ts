@@ -6,7 +6,7 @@ import { defineConfig } from 'vite'
 import prefixSelector from 'postcss-prefix-selector'
 
 export default defineConfig({
-  base: '/next/',
+  base: '/',
   define: { 'import.meta.env.VITE_CHIHIRO': true },
   plugins: [vue(), yaml()],
   css: {
@@ -29,6 +29,11 @@ export default defineConfig({
       '@renderer': fileURLToPath(new URL('./src/modules/im/native/src', import.meta.url)),
       '@chihiro/im-native': fileURLToPath(new URL('./src/modules/im/native', import.meta.url)),
     },
+  },
+  build: {
+    // Gateway serves dist while local rebuilds happen; keep previous hashed
+    // files so an open workbench tab can still fetch lazy chunks.
+    emptyOutDir: false,
   },
   server: {
     port: 5173,

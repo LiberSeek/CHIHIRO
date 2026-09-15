@@ -56,6 +56,14 @@ if (!exists('vendor/stapxs/src/renderer/src/pages/Chat.vue')) {
 if (!exists('vendor/stapxs/UPSTREAM')) {
   fail('缺少 vendor/stapxs/UPSTREAM（上游钉住信息）')
 }
+
+const viteConfig = read('frontend/vite.config.ts') || ''
+if (/base:\s*['"]\/next\/['"]/.test(viteConfig)) {
+  fail('frontend/vite.config.ts 不应再使用 /next/；产品入口已切到 /')
+}
+if (!/base:\s*['"]\/['"]/.test(viteConfig)) {
+  fail('frontend/vite.config.ts 需要 base: "/"')
+}
 if (!exists('vendor/stapxs/src/renderer/public/bcui')) {
   fail('缺少 vendor/stapxs bcui 资源')
 }

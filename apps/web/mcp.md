@@ -1,11 +1,11 @@
 # 千寻 QQ 手
 
 本机工作台已打开：http://127.0.0.1:3100
-用 HTTP 操作，不要编造账号或对方 QQ 号。发送、批准草稿前先问我。不要加好友。不要自行生成并乱发图片。
+用 HTTP 操作，不要编造账号或对方 QQ 号。发送、加好友、入群、批准草稿前先问我。不要自行生成并乱发图片。不要批量加好友或加群。
 
 ## 看 observe
 GET http://127.0.0.1:3100/api/runtime/agent/observe?kind=KIND
-KIND：accounts | sessions | session | messages | drafts | friends | groups | members
+KIND：accounts | sessions | session | messages | drafts | friends | groups | members | requests
 
 - accounts 不必带账号
 - 其余加 &accountId=qq:QQ号
@@ -15,6 +15,7 @@ KIND：accounts | sessions | session | messages | drafts | friends | groups | me
   - `session` 返回元数据 + `messages`（QQ 正文）+ `agentMessages`（Agent 流水）
   - `messages` 只返回精简聊天正文列表
 - members 再加 &groupId=群号
+- **requests**：看别人发来的好友申请、入群邀请/申请（不是主动加）
 
 ## 发 send
 POST http://127.0.0.1:3100/api/runtime/agent/send
@@ -22,6 +23,18 @@ Content-Type: application/json
 
 {"accountId":"qq:我的QQ","peerId":"对方QQ","type":"private","text":"正文"}
 群聊 type 用 group。可选 "image": "本地路径或URL"（图由你自己生成）。
+
+## 关系 contact
+POST http://127.0.0.1:3100/api/runtime/agent/contact
+Content-Type: application/json
+
+加好友：
+{"accountId":"qq:我的QQ","action":"add_friend","userId":"对方QQ","message":"可选验证信息"}
+已是好友会返回 already=true，不会再发申请。
+
+入群：
+{"accountId":"qq:我的QQ","action":"join_group","groupId":"群号","comment":"可选验证信息"}
+已在群里会返回 already=true。群需可搜索。真正加陌生人/入新群前，需重启该 QQ 账号，让实例加载加好友/入群动作。
 
 ## 闸门 gate
 改权限：

@@ -25,15 +25,15 @@ const tools = [
   {
     name: 'observe',
     description:
-      'Look at Chihiro/QQ. kind=accounts|sessions|session|messages|drafts|friends|groups|members. ' +
+      'Look at Chihiro/QQ. kind=accounts|sessions|session|messages|drafts|friends|groups|members|requests. ' +
       'session/messages bridge live QQ history (NapCat) for a private or group peer — does not require prior agent tracking. ' +
-      'Codex loops this instead of a task queue.',
+      'requests lists inbound friend/group applications. Codex loops this instead of a task queue.',
     inputSchema: {
       type: 'object',
       properties: {
         kind: {
           type: 'string',
-          enum: ['accounts', 'sessions', 'session', 'messages', 'history', 'drafts', 'friends', 'groups', 'members']
+          enum: ['accounts', 'sessions', 'session', 'messages', 'history', 'drafts', 'friends', 'groups', 'members', 'requests']
         },
         accountId: { type: 'string', description: 'qq:<uin>, required except kind=accounts' },
         peerId: { type: 'string', description: 'friend uin or group id for session/messages' },
@@ -60,8 +60,26 @@ const tools = [
     }
   },
   {
+    name: 'contact',
+    description:
+      'Add a QQ friend or join a group as this account. Ask the user first. Do not invent userId/groupId and do not mass-add. ' +
+      'Already-friends / already-in-group return already=true without sending another request.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['add_friend', 'join_group'] },
+        accountId: { type: 'string' },
+        userId: { type: 'string', description: 'target QQ number for add_friend' },
+        groupId: { type: 'string', description: 'group number for join_group; optional source group for add_friend' },
+        message: { type: 'string', description: 'optional verification text' },
+        comment: { type: 'string', description: 'optional join-group comment' }
+      },
+      required: ['action', 'accountId']
+    }
+  },
+  {
     name: 'gate',
-    description: 'Human gate: set reply mode, approve a draft, or discard it. mode=ask|auto|always. Add-friend is not automated.',
+    description: 'Human gate: set reply mode, approve a draft, or discard it. mode=ask|auto|always.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -92,6 +110,8 @@ async function callTool(name, args = {}) {
     }
     case 'send':
       return api('POST', '/api/runtime/agent/send', { ...args, type: args.type || 'private' })
+    case 'contact':
+      return api('POST', '/api/runtime/agent/contact', args)
     case 'gate': {
       const action = args.action
       if (action === 'mode') {
@@ -156,9 +176,9 @@ async function handle(raw) {
         protocolVersion: params?.protocolVersion || '2024-11-05',
         capabilities: { tools: {} },
         instructions:
-          'Chihiro QQ hands. Tools: observe, send, gate. ' +
+          'Chihiro QQ hands. Tools: observe, send, contact, gate. ' +
           'Use observe kind=session|messages with peerId+type to read live QQ chat history (bridged). ' +
-          'Do not invent accountId/peerId. Ask the user before send or gate.approve. Do not add friends. ' +
+          'Do not invent accountId/peerId/userId/groupId. Ask the user before send, contact, or gate.approve. ' +
           'Image generation is your job; send.image only delivers a file you already have.',
         serverInfo: { name: 'chihiro', version: '0.2.0' }
       }

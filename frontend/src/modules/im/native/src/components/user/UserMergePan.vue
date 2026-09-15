@@ -27,7 +27,8 @@
                     <MsgBody
                         :data="msgIndex"
                         :type="'merge'"
-                        :image-list-header="mergeImgHead" />
+                        :image-list-header="mergeImgHead"
+                        v-bind="messageGroupFlags(nowData.messageList, index)" />
                 </template>
             </TransitionGroup>
         </div>
@@ -46,6 +47,7 @@
     import { useSettingsStore } from '@renderer/state/settings'
     import { type MergeStackData } from '@renderer/function/elements/information'
     import { isDeleteMsg, isShowTime } from '@renderer/function/utils/msgUtil'
+    import { messageGroupFlags } from '@chihiro/im-native/message-group'
     import { useChatStore } from '@renderer/state/chat'
 
     defineOptions({ name: 'UserMergePan' })

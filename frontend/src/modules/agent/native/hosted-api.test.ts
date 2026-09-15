@@ -10,7 +10,7 @@ beforeEach(() => {
   requests.length = 0
   previousAdapter = httpClient.defaults.adapter
   vi.stubGlobal('localStorage', { getItem: vi.fn(() => 'host-token'), removeItem: vi.fn() })
-  vi.stubGlobal('window', { location: { origin: 'http://localhost', hash: '#/next/agent' } })
+  vi.stubGlobal('window', { location: { origin: 'http://localhost', hash: '#/agent' } })
   configureApiBase(true)
   setupHttpClient()
   httpClient.defaults.adapter = (async config => {
@@ -48,7 +48,7 @@ describe('native hosted API with the real generated client', () => {
     }
     await expect(chatApi.listSessions()).rejects.toMatchObject({ response: { status: 401 } })
     expect(localStorage.removeItem).not.toHaveBeenCalled()
-    expect(window.location.hash).toBe('#/next/agent')
+    expect(window.location.hash).toBe('#/agent')
     expect(httpClient).not.toBe(axios)
   })
 

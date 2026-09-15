@@ -123,10 +123,125 @@ function wrapRecentContactUnread(ctx) {
   ctx.logger?.warn?.('[chihiro] get_recent_contact handle is unavailable')
 }
 
+const CONTACT_MARK = 'chihiro-contact-actions'
+
+function obOk(data, echo) {
+  return { status: 'ok', retcode: 0, data: data ?? {}, message: '', wording: '', echo, stream: 'normal-action' }
+}
+
+function obErr(message, echo) {
+  return { status: 'failed', retcode: 200, data: null, message, wording: message, echo, stream: 'normal-action' }
+}
+
+function makeAction(fn) {
+  return {
+    async handle(payload, _adapter, _config, _req, echo) {
+      try {
+        return obOk(await fn(payload || {}), echo)
+      } catch (error) {
+        return obErr(error?.message || String(error), echo)
+      }
+    },
+    async websocketHandle(payload, echo, adapter, config, req) {
+      return this.handle(payload, adapter, config, req, echo)
+    }
+  }
+}
+
+function idOf(payload, ...keys) {
+  for (const key of keys) {
+    const value = payload?.[key]
+    if (value != null && String(value).trim() !== '') return String(value).trim()
+  }
+  return ''
+}
+
+async function addFriend(core, payload) {
+  const userId = idOf(payload, 'user_id', 'userId')
+  if (!/^\d+$/.test(userId) || /^0+$/.test(userId)) throw new Error('invalid_user')
+  const uid = await core.apis.UserApi.getUidByUinV2(userId)
+  if (!uid) throw new Error('用户不存在')
+  if (await core.apis.FriendApi.isBuddy(uid)) {
+    return { already: true, user_id: userId, uid }
+  }
+  const message = String(payload.message || payload.comment || '')
+  const buddyService = core.context.session.getBuddyService()
+  if (typeof buddyService?.reqToAddFriends !== 'function') throw new Error('当前内核没有加好友接口')
+  const result = await Promise.resolve(buddyService.reqToAddFriends(uid, message))
+  return { already: false, user_id: userId, uid, submitted: true, result: result ?? null }
+}
+
+function searchInfo(found) {
+  if (!found || typeof found !== 'object') return {}
+  return found.searchGroupInfo && typeof found.searchGroupInfo === 'object' ? found.searchGroupInfo : found
+}
+
+async function joinGroup(core, payload) {
+  const groupId = idOf(payload, 'group_id', 'groupId')
+  if (!/^\d+$/.test(groupId) || /^0+$/.test(groupId)) throw new Error('invalid_group')
+  const groups = await core.apis.GroupApi.getGroups(false)
+  if (Array.isArray(groups) && groups.some((row) => String(row.groupCode ?? row.group_id ?? '') === groupId)) {
+    return { already: true, group_id: groupId }
+  }
+  let found = null
+  try {
+    found = await core.apis.GroupApi.searchGroup(groupId)
+  } catch {
+    found = null
+  }
+  const info = searchInfo(found)
+  const auth = String(info.joinGroupAuth || '')
+  const comment = String(payload.comment || payload.message || payload.msg || '')
+  const groupService = core.context.session.getGroupService()
+  if (typeof groupService?.joinGroup !== 'function') throw new Error('当前内核没有入群接口')
+  let result
+  try {
+    result = await Promise.resolve(groupService.joinGroup({
+      groupCode: groupId,
+      joinGroupAuth: auth,
+      msg: comment,
+      joinGroupAnswer: comment,
+    }))
+  } catch {
+    result = await Promise.resolve(groupService.joinGroup(groupId, auth))
+  }
+  return {
+    already: false,
+    group_id: groupId,
+    submitted: true,
+    name: info.groupName || found?.groupName || '',
+    result: result ?? null
+  }
+}
+
+function wrapContactActions(ctx) {
+  const core = ctx.core
+  if (!core || typeof ctx.actions?.get !== 'function') {
+    ctx.logger?.warn?.('[chihiro] contact actions unavailable')
+    return
+  }
+  const extras = {
+    add_friend: makeAction((payload) => addFriend(core, payload)),
+    join_group: makeAction((payload) => joinGroup(core, payload)),
+  }
+  const originalGet = ctx.actions.get.bind(ctx.actions)
+  if (originalGet[CONTACT_MARK]) return
+  const wrapped = (name) => {
+    const existing = originalGet(name)
+    if (existing) return existing
+    const key = String(name || '').replace(/_async$|_rate_limited$/, '')
+    return extras[key]
+  }
+  wrapped[CONTACT_MARK] = true
+  ctx.actions.get = wrapped
+  ctx.logger?.info?.('[chihiro] contact actions registered: add_friend, join_group')
+}
+
 export async function plugin_init(ctx) {
   const init = typeof ssqqInit === 'function' ? ssqqInit : original?.plugin_init
   if (typeof init === 'function') await init(ctx)
   wrapRecentContactUnread(ctx)
+  wrapContactActions(ctx)
 }
 
 const index = { plugin_init }

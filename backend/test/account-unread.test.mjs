@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { sumRecentContactUnread } from '../src/runtime/account-unread.mjs'
+import { collectRecentContactUnread, sumRecentContactUnread } from '../src/runtime/account-unread.mjs'
 
 test('sums unique recent-contact unread counts', () => {
   assert.equal(sumRecentContactUnread([
@@ -10,6 +10,20 @@ test('sums unique recent-contact unread counts', () => {
     { peerUin: '30001', unread: 0 },
     { peerUin: '40001' },
   ]), 52)
+})
+
+test('collects per-peer unread for mute filtering', () => {
+  assert.deepEqual(collectRecentContactUnread([
+    { peerUin: '10001', unread: 5 },
+    { peerUin: '10001', unread: 2 },
+    { group_id: '20001', unread: 47 },
+  ]), {
+    total: 52,
+    peers: [
+      { peer: '10001', unread: 5 },
+      { peer: '20001', unread: 47 },
+    ],
+  })
 })
 
 test('ignores empty or invalid recent-contact rows', () => {

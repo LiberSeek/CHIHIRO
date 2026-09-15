@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { inject, onBeforeUnmount, onMounted, ref, shallowRef, type Component } from 'vue'
+import { recoverStaleChunk } from '@/app/stale-chunk'
 import { agentLoaderKey } from './loader'
 
 const props = defineProps<{ sidebarTarget: HTMLElement; threadTarget: HTMLElement }>()
@@ -16,7 +17,10 @@ async function load() {
     const loaded = await loadAgent()
     if (active) component.value = loaded
   } catch (reason) {
-    if (active) error.value = reason instanceof Error ? reason.message : '工作台加载失败'
+    if (active) {
+      recoverStaleChunk(reason)
+      error.value = reason instanceof Error ? reason.message : '工作台加载失败'
+    }
   } finally {
     if (active) loading.value = false
   }

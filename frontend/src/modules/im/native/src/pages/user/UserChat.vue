@@ -61,7 +61,7 @@
             <div class="space" />
             <div class="chihiro-head-actions">
                 <div class="chihiro-feature-btn" :class="{ active: chihiroFeatureOpen }" :title="$t('会话助手')" @click.stop="toggleChihiroFeature">
-                    <font-awesome-icon :icon="['fas', 'robot']" />
+                    <span class="chihiro-ai-symbol" aria-hidden="true">✦</span>
                 </div>
                 <div class="chihiro-history-btn" :class="{ active: chihiroHistory.open }" :title="$t('搜索消息')" @click.stop="toggleChihiroHistory">
                     <font-awesome-icon :icon="['fas', 'clock-rotate-left']" />
@@ -118,7 +118,9 @@
         <!-- 消息显示区 -->
         <div id="msgPan" ref="msgPan" class="chat"
             style="scroll-behavior: smooth"
-            @scroll="chatScroll($event, details[3].open)">
+            @scroll="chatScroll($event, details[3].open)"
+            @scrollend="onChatScrollEnd"
+            @wheel.passive="onMsgPanWheel">
             <template v-if="!details[3].open">
                 <div v-if="!uiStore.canLoadHistory" class="note note-nomsg">
                     <hr>
@@ -128,15 +130,15 @@
                     <hr>
                     <a>{{ $t('获取历史记录失败') }}</a>
                 </div>
-                <!-- 时间戳，在下滑加载的时候会显示，方便在大段的相连消息上让用户知道消息时间 -->
+                <!-- 日期分割条，下滑加载历史时先标出当前最早一条所在的日子 -->
                 <NoticeBody v-if="uiStore.nowGetHistory && list.length > 0"
                     :data="{ sub_type: 'time', time: list[0].time }" />
                 <TransitionGroup :name="settingsStore.sysConfig.opt_fast_animation ? '' : 'msglist'" tag="div">
                     <template v-for="(msgIndex, index) in list">
-                        <!-- 时间戳 -->
+                        <!-- 日期分割条：首条或换日 -->
                         <NoticeBody
-                            v-if="isShowTime(list[Number(index) - 1] ? list[Number(index) - 1].time : undefined, msgIndex.time)"
-                            :key="'notice-time-' + (msgIndex.time / ( 4 * 60 )).toFixed(0)"
+                            v-if="isShowTime(list[Number(index) - 1] ? list[Number(index) - 1].time : undefined, msgIndex.time, Number(index) === 0)"
+                            :key="'notice-date-' + index"
                             :data="{ sub_type: 'time', time: msgIndex.time }" />
                         <!-- [已删除]消息 -->
                         <NoticeBody
@@ -152,8 +154,11 @@
                             :selecting="multipleSelectList.length > 0"
                             :data="msgIndex"
                             :image-list-header="chatImg"
+                            :show-plus-one="!profileOnly && shouldShowPlusOne(list, Number(index))"
+                            v-bind="messageGroupFlags(list, Number(index))"
                             @click="msgClick($event, msgIndex)"
                             @show-menu="showMsgMeun"
+                            @plus-one="plusOneMsg"
                             @scroll-to-msg="scrollToMsg"
                             @image-loaded="imgLoadedScroll"
                             @left-move="replyMsg"
@@ -173,10 +178,10 @@
                     :name="settingsStore.sysConfig.opt_fast_animation ? '' : 'msglist'"
                     tag="div">
                     <template v-for="(msgIndex, index) in tags.search.list">
-                        <!-- 时间戳 -->
+                        <!-- 日期分割条：首条或换日 -->
                         <NoticeBody
-                            v-if="isShowTime(list[Number(index) - 1] ? list[Number(index) - 1].time : undefined, msgIndex.time)"
-                            :key="'notice-time-' + index"
+                            v-if="isShowTime(tags.search.list[Number(index) - 1] ? tags.search.list[Number(index) - 1].time : undefined, msgIndex.time, Number(index) === 0)"
+                            :key="'notice-date-' + index"
                             :data="{ sub_type: 'time', time: msgIndex.time }" />
                         <!-- 消息体 -->
                         <MsgBody v-if=" (msgIndex.post_type === 'message' ||
@@ -186,6 +191,7 @@
                             :selected="multipleSelectList.includes(msgIndex.message_id)"
                             :selecting="multipleSelectList.length > 0"
                             :data="msgIndex"
+                            v-bind="messageGroupFlags(tags.search.list, Number(index))"
                             @scroll-to-msg="scrollToMsg"
                             @show-menu="showMsgMeun"
                             @image-loaded="imgLoadedScroll"
@@ -196,6 +202,17 @@
             </template>
             <span ref="chatPadding" class="chat-padding">&nbsp;</span>
         </div>
+        <button
+            v-if="unreadHintCount > 0"
+            type="button"
+            class="chihiro-unread-hint"
+            @click="jumpToUnread">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                <path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M4 7.4 8 3.6 12 7.4"/>
+                <path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M4 12.4 8 8.6 12 12.4"/>
+            </svg>
+            <span>{{ unreadHintCount }}条新消息</span>
+        </button>
         <!-- 底部区域 -->
         <div id="send-more" ref="sendMore" class="more">
             <!-- 功能附加 -->
@@ -340,7 +357,7 @@
                 :reply-name="selectedMsg?.sender?.card || selectedMsg?.sender?.nickname || ''"
                 :reply-text="selectedMsg ? getMsgRawTxt(selectedMsg) : ''"
                 :show-bottom="tags.showBottomButton"
-                :new-msg-num="NewMsgNum"
+                :jump-to-latest="latestBelowCount > 0"
                 :plus-open="chihiroPlusOpen"
                 :face-open="details[1].open"
                 :disabled="uiStore.openSideBar || chat.info.me_info.shut_up_timestamp > 0"
@@ -398,10 +415,14 @@
                         v-show="tags.menuDisplay.showRespond"
                         :class="'ss-card respond' + (tags.menuDisplay.respond ? ' open' : '')">
                         <template v-for="(num, index) in Emoji.responseId" :key="'respond-' + num">
-                            <EmojiFace :emoji="Emoji.get(num)!"
+                            <EmojiFace
+                                v-if="index < 5 || tags.menuDisplay.respond"
+                                :emoji="Emoji.get(num)!"
                                 @click="sendRespond(num)" />
-                            <font-awesome-icon v-if="index == 4" :icon="['fas', 'angle-up']"
-                                @click="tags.menuDisplay.respond = true" />
+                            <font-awesome-icon
+                                v-if="index == 4 && !tags.menuDisplay.respond"
+                                :icon="['fas', 'angle-up']"
+                                @click.stop="tags.menuDisplay.respond = true" />
                         </template>
                     </div>
                     <div v-show="tags.menuDisplay.relpy" @click="menuReplyMsg(true)">
@@ -617,6 +638,19 @@ import {
     cancelUploadTask,
     failUploadTask,
 } from '@renderer/components/user/UserFileManager.vue'
+import {
+    countIncomingTail,
+    firstUnreadMessage,
+    isAtChatBottom,
+    isElementAboveContainer,
+    nextJumpToBottomVisible,
+    sessionUnreadCount,
+} from '@chihiro/im-native/chat-scroll-controls'
+import {
+    plusOneSendSegments,
+    shouldShowPlusOne,
+} from '@chihiro/im-native/plus-one'
+import { messageGroupFlags } from '@chihiro/im-native/message-group'
 import {
     captureNativeAsyncScope,
     isNativeAsyncScopeCurrent,
@@ -874,7 +908,7 @@ watch(() => chat.show?.id, () => { profilePop.value = null })
 const selectedForwardAction = ref<ForwardAction>('single-message')
 const tags = ref({
     sendTag: 'REFUSE' as 'READY' | 'PASS' | 'REFUSE',
-    showBottomButton: true,
+    showBottomButton: false,
     showMoreDetail: false,
     showMsgMenu: false,
     showForwardPan: false,
@@ -974,7 +1008,15 @@ function onChihiroDocKey(e: KeyboardEvent) {
 document.addEventListener('click', onChihiroDocClick)
 document.addEventListener('keydown', onChihiroDocKey)
 const msgMenus = ref<any[]>([])
-const NewMsgNum = ref(0)
+const unreadHintCount = ref(0)
+const unreadAnchorId = ref<string | null>(null)
+const pendingEnterUnread = ref(0)
+const latestBelowCount = ref(0)
+let followingBottom = true
+let lastScrollTop = 0
+let programmaticScroll = 0
+let settlingToBottom = false
+let settleToBottomTimer: ReturnType<typeof setTimeout> | undefined
 const msg = ref('')
 const oldMsg = ref('')
 const IME_ENTER_GUARD_MS = 80
@@ -1052,7 +1094,7 @@ function resetState() {
     lastImeCompositionEndAt = 0
     tags.value = {
         sendTag: 'REFUSE',
-        showBottomButton: true,
+        showBottomButton: false,
         showMoreDetail: false,
         showMsgMenu: false,
         showForwardPan: false,
@@ -1096,6 +1138,28 @@ function resetState() {
     msgMenus.value = []
     selectedMsg.value = null
 }
+
+watch(() => chat.show?.id, (id) => {
+    const sessionId = Number(id)
+    const session = Number.isFinite(sessionId) ? contactStore.baseOnMsgList.get(sessionId) : undefined
+    const assist = Number.isFinite(sessionId)
+        ? contactStore.groupAssistList.find((item) => Number(item.group_id ?? item.user_id) === sessionId)
+        : undefined
+    pendingEnterUnread.value = profileOnly
+        ? 0
+        : Math.max(
+            sessionUnreadCount(session),
+            sessionUnreadCount(assist),
+            sessionUnreadCount({ unread: chat.show?.enterUnread }),
+        )
+    unreadHintCount.value = 0
+    unreadAnchorId.value = null
+    latestBelowCount.value = 0
+    followingBottom = true
+    lastScrollTop = 0
+    stopSettlingToBottom()
+    tags.value.showBottomButton = false
+}, { flush: 'sync', immediate: true })
 
 watch(currentConversationKey, () => {
     viewGeneration++
@@ -1173,6 +1237,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
     viewGeneration++
     searchRequestId.value++
+    stopSettlingToBottom()
     if (searchDebounceTimer.value) {
         clearTimeout(searchDebounceTimer.value)
         searchDebounceTimer.value = null
@@ -1317,6 +1382,88 @@ function jumpSearchMsg() {
     }, 100)
 }
 
+function beginProgrammaticScroll() {
+    programmaticScroll += 1
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            programmaticScroll = Math.max(0, programmaticScroll - 1)
+        })
+    })
+}
+
+function stopSettlingToBottom() {
+    settlingToBottom = false
+    if (settleToBottomTimer !== undefined) {
+        clearTimeout(settleToBottomTimer)
+        settleToBottomTimer = undefined
+    }
+}
+
+function armSettleIdleTimer() {
+    if (settleToBottomTimer !== undefined) clearTimeout(settleToBottomTimer)
+    settleToBottomTimer = setTimeout(() => {
+        settleToBottomTimer = undefined
+        settlingToBottom = false
+    }, 250)
+}
+
+function startSettlingToBottom() {
+    settlingToBottom = true
+    tags.value.showBottomButton = false
+    document.querySelector('.chihiro-jump-bottom')?.classList.remove('is-on')
+    armSettleIdleTimer()
+}
+
+function onMsgPanWheel(event: WheelEvent) {
+    if (settlingToBottom && event.deltaY < 0) stopSettlingToBottom()
+}
+
+function onChatScrollEnd(event: Event) {
+    const body = event.target as HTMLDivElement
+    if (!settlingToBottom) return
+    if (isAtChatBottom(body.scrollTop, body.clientHeight, body.scrollHeight)) {
+        stopSettlingToBottom()
+    }
+}
+
+function hideUnreadHintIfReached(container: HTMLElement) {
+    if (unreadHintCount.value <= 0 || !unreadAnchorId.value) return
+    const el = document.getElementById('chat-' + unreadAnchorId.value)
+    if (el && !isElementAboveContainer(el, container)) {
+        unreadHintCount.value = 0
+        pendingEnterUnread.value = 0
+    }
+}
+
+function refreshUnreadHint() {
+    const count = pendingEnterUnread.value
+    if (count <= 0) {
+        unreadHintCount.value = 0
+        unreadAnchorId.value = null
+        return
+    }
+    const target = firstUnreadMessage(list, count, authStore.loginInfo.uin)
+    const pan = document.getElementById('msgPan')
+    if (!target || !pan) {
+        unreadHintCount.value = 0
+        unreadAnchorId.value = null
+        return
+    }
+    unreadAnchorId.value = String(target.message_id)
+    const el = document.getElementById('chat-' + unreadAnchorId.value)
+    unreadHintCount.value = isElementAboveContainer(el, pan) ? count : 0
+}
+
+function jumpToUnread() {
+    const id = unreadAnchorId.value
+    unreadHintCount.value = 0
+    pendingEnterUnread.value = 0
+    if (id) {
+        beginProgrammaticScroll()
+        scrollToMsg('chat-' + id, true)
+    }
+}
+
 function chatScroll(event: Event, pass: boolean) {
     if(pass) return
 
@@ -1324,17 +1471,27 @@ function chatScroll(event: Event, pass: boolean) {
     if (body.scrollTop === 0 && list.length > 0) {
         loadMoreHistory()
     }
-    if ((body.scrollTop + body.clientHeight + 10) >= body.scrollHeight) {
-        NewMsgNum.value = 0
-        tags.value.showBottomButton = false
+    const atBottom = isAtChatBottom(body.scrollTop, body.clientHeight, body.scrollHeight)
+    const delta = body.scrollTop - lastScrollTop
+    lastScrollTop = body.scrollTop
+    hideUnreadHintIfReached(body)
+    if (settlingToBottom) {
+        if (atBottom) stopSettlingToBottom()
+        else armSettleIdleTimer()
     }
-    if (
-        body.scrollTop <
-            body.scrollHeight - body.clientHeight * 2 &&
-        tags.value.showBottomButton !== true
-    ) {
-        tags.value.showBottomButton = true
+    if (atBottom) {
+        followingBottom = true
+        latestBelowCount.value = 0
+    } else if (!programmaticScroll && !settlingToBottom && Math.abs(delta) > 4) {
+        followingBottom = false
     }
+    tags.value.showBottomButton = nextJumpToBottomVisible({
+        atBottom,
+        delta,
+        visible: tags.value.showBottomButton,
+        settling: settlingToBottom || programmaticScroll > 0,
+        hasLatestBelow: latestBelowCount.value > 0,
+    })
 }
 
 async function loadMoreHistory() {
@@ -1454,19 +1611,30 @@ function fillSeqGaps(anchorMsgIds: string[]) {
 function scrollTo(where: number | undefined, showAnimation = true) {
     const pan = document.getElementById('msgPan')
     if (pan !== null && where) {
+        beginProgrammaticScroll()
         if (showAnimation === false) {
             pan.style.scrollBehavior = 'unset'
         } else {
+            startSettlingToBottom()
             pan.style.scrollBehavior = 'smooth'
         }
         pan.scrollTop = where
         pan.style.scrollBehavior = 'smooth'
+        if (showAnimation === false) lastScrollTop = pan.scrollTop
     }
 }
 
 function scrollBottom(showAnimation = false) {
     const pan = document.getElementById('msgPan')
     if (pan !== null) {
+        followingBottom = true
+        latestBelowCount.value = 0
+        if (isAtChatBottom(pan.scrollTop, pan.clientHeight, pan.scrollHeight)) {
+            stopSettlingToBottom()
+            tags.value.showBottomButton = false
+            return
+        }
+        startSettlingToBottom()
         scrollTo(pan.scrollHeight, showAnimation)
     }
 }
@@ -1480,11 +1648,12 @@ function scrollToMsgLocal(message_id: string) {
 function imgLoadedScroll(height: number) {
     const pan = document.getElementById('msgPan')
     if(pan) {
-        if(list.length <= 20 && !tags.value.showBottomButton) {
+        if(list.length <= 20 && followingBottom) {
             scrollBottom()
         } else {
             scrollTo(pan.scrollTop + height, false)
         }
+        if (pendingEnterUnread.value > 0) refreshUnreadHint()
     }
 }
 
@@ -2981,6 +3150,27 @@ function toMainInput() {
     }
 }
 
+function plusOneMsg(msg: any) {
+    const segs = plusOneSendSegments(msg)
+    if (!segs?.length) return
+    if (chat.show.temp) {
+        sendMsgRaw(
+            chat.show.id + '/' + chat.show.temp,
+            chat.show.type,
+            segs,
+            true,
+        )
+    } else {
+        sendMsgRaw(
+            chat.show.id,
+            chat.show.type,
+            segs,
+            true,
+        )
+    }
+    scrollBottom()
+}
+
 function sendMsg(echo = 'sendMsgBack', scope?: NativeAsyncScope) {
     if (scope && !isChatScopeCurrent(scope)) return
     if (details.value[3].open) {
@@ -3071,21 +3261,9 @@ function updateList(newLength: number, oldLength: number) {
     }
 
     if (
-        tags.value.showBottomButton &&
-        !uiStore.nowGetHistory &&
-        oldLength > 0
-    ) {
-        if (NewMsgNum.value !== 0) {
-            NewMsgNum.value =
-                NewMsgNum.value + Math.abs(newLength - oldLength)
-        } else {
-            NewMsgNum.value = Math.abs(newLength - oldLength)
-        }
-    }
-    if (
         list.length > 200 &&
         !uiStore.nowGetHistory &&
-        !tags.value.showBottomButton
+        followingBottom
     ) {
         chatStore.messageList = []
         const info = {
@@ -3112,11 +3290,25 @@ function updateList(newLength: number, oldLength: number) {
                     )
                 }
                 if (!uiStore.nowGetHistory) {
-                    if (!tags.value.showBottomButton) {
+                    if (followingBottom) {
                         scrollTo(newPan.scrollHeight)
+                    } else if (oldLength > 0 && newLength > oldLength) {
+                        const added = countIncomingTail(
+                            list,
+                            oldLength,
+                            authStore.loginInfo.uin,
+                        )
+                        if (added > 0) {
+                            latestBelowCount.value += added
+                            if (!settlingToBottom) tags.value.showBottomButton = true
+                        }
                     }
                     if (oldLength <= 0) {
+                        followingBottom = true
+                        latestBelowCount.value = 0
+                        tags.value.showBottomButton = false
                         scrollTo(newPan.scrollHeight, false)
+                        nextTick(() => refreshUnreadHint())
                     }
                 }
                 uiStore.nowGetHistory = false
@@ -3580,7 +3772,33 @@ function exitWin() {
 
 
 <style>
-/* chihiro-moved-from-user-css */
+.chat-pan > .chihiro-unread-hint {
+    position: absolute;
+    top: 64px;
+    right: 16px;
+    z-index: 8;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 32px;
+    padding: 0 12px 0 10px;
+    border: 0;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-card-1) 82%, transparent);
+    backdrop-filter: blur(18px);
+    color: #4c9fff;
+    font-size: 13px;
+    line-height: 32px;
+    cursor: pointer;
+    pointer-events: all;
+}
+.chat-pan > .chihiro-unread-hint:hover {
+    background: color-mix(in srgb, var(--color-card-1) 92%, transparent);
+}
+.chat-pan > .chihiro-unread-hint svg {
+    display: block;
+    flex: 0 0 auto;
+}
 .note:has(.note-time).msglist-enter-from,
 .note:has(.note-time).msglist-enter-active {
     transform: none !important;
@@ -3625,6 +3843,19 @@ function exitWin() {
     width: max-content !important;
     max-width: min(360px, calc(100vw - 24px)) !important;
     margin: 0 !important;
+    overflow: hidden !important;
+    flex-wrap: nowrap !important;
+    height: 40px !important;
+}
+.msg-menu-body > .respond.open {
+    height: auto !important;
+    max-height: 132px !important;
+    flex-wrap: wrap !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+}
+.msg-menu-body > .respond.open > svg {
+    display: none !important;
 }
 .msg-menu-body > div:not(.respond) {
     flex-direction: row !important;
@@ -3687,6 +3918,15 @@ function exitWin() {
     width: 16px !important;
     margin: 0 !important;
     pointer-events: none;
+}
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-feature-btn .chihiro-ai-symbol {
+    display: grid;
+    place-items: center;
+    color: var(--color-font-1);
+    font-size: 22px;
+    line-height: 1;
+    pointer-events: none;
+    user-select: none;
 }
 .user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-feature-btn:hover,
 .user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-feature-btn.active,

@@ -1,6 +1,6 @@
 # 千寻迭代契约
 
-给产品仓用的开发约定。上游项目各自的文档仍然有效，这里只定义千寻怎么用它们。
+给产品仓用的开发约定。上游项目各自的文档仍然有效，这里只定义千寻怎么用它们。产品口径见 [product.md](product.md)，工程总纲见 [development.md](development.md)。
 
 ## 1. 四层边界
 
@@ -13,7 +13,8 @@
 
 ```text
 千寻 Gateway :3100
-  ├─ /                    apps/web
+  ├─ /                    frontend/ 统一工作台
+  ├─ /legacy              apps/web 旧壳
   ├─ /i/:instance/plugin  vendor/stapxs 构建出的 IM
   ├─ /i/:instance/api     NapCat WebUI/API
   ├─ /i/:instance/onebot-ws
@@ -45,7 +46,7 @@ vendor/stapxs
 
 ### AstrBot：按需 Bot + ChatUI
 
-产品里 Bot 是开关，不是常驻守护进程。ChatUI 是功能区里的 Agent 任务台。
+Bot 是会话接待模式，不是常驻守护进程。AstrBot 在 ChatUI、托管或计划任务需要时运行。ChatUI 是工作台里的 Agent 任务台。
 
 在 `vendor/astrbot` 的 `develop` 上改 `dashboard/src/components/user`、`layouts/user`、`views/user`。上游 `Chat.vue` / `FullLayout.vue` 只合入、不写业务。改完后 `npm run rebuild:astrbot-ui`。
 

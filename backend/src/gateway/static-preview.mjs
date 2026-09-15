@@ -21,6 +21,22 @@ export const mime = {
   '.woff2': 'font/woff2'
 }
 
+const GATEWAY_PREFIXES = [
+  '/api',
+  '/i',
+  '/webui',
+  '/plugin',
+  '/astrbot',
+  '/files',
+  '/mcp',
+  '/onebot-ws',
+  '/bot-ob',
+  '/legacy',
+  '/ws'
+]
+
+const GATEWAY_EXACT = new Set(['/agent.md', '/mcp.md'])
+
 const notFound = (res) => {
   res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' })
   res.end(JSON.stringify({ error: 'not_found' }))
@@ -56,41 +72,67 @@ function sendFile(file, res, { cacheControl, extraHeaders } = {}) {
   return true
 }
 
-export function serveLegacyStatic(webDir, url, res) {
-  const rel = url.pathname === '/' ? '/index.html' : url.pathname
-  const file = safeFilePath(webDir, rel)
-  if (!file) return false
-  const headers = {}
-  if (rel === '/sw.js' || rel === '/manifest.webmanifest') headers.cacheControl = 'no-cache'
-  if (rel === '/sw.js') headers.extraHeaders = { 'Service-Worker-Allowed': '/' }
-  return sendFile(file, res, headers)
+export function isGatewayReservedPath(pathname) {
+  if (GATEWAY_EXACT.has(pathname)) return true
+  return GATEWAY_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
 }
 
-export function serveNextPreviewStatic(nextWebDir, url, res) {
+export function redirectNextPreview(url, res) {
   if (url.pathname !== '/next' && !url.pathname.startsWith('/next/')) return false
-  if (url.pathname === '/next') {
-    res.writeHead(308, { Location: `/next/${url.search}` })
+  const rest = url.pathname === '/next' || url.pathname === '/next/'
+    ? '/'
+    : url.pathname.slice('/next'.length)
+  res.writeHead(308, { Location: `${rest}${url.search}` })
+  res.end()
+  return true
+}
+
+function sendSpaIndex(rootDir, res) {
+  const indexFile = safeFilePath(rootDir, '/index.html')
+  if (indexFile && sendFile(indexFile, res, { cacheControl: 'no-store' })) return true
+  return notFound(res)
+}
+
+export function serveProductStatic(productDir, url, res) {
+  if (isGatewayReservedPath(url.pathname)) return false
+
+  let rel = url.pathname === '/' ? '/index.html' : url.pathname
+  if (rel.endsWith('/')) rel += 'index.html'
+  const file = safeFilePath(productDir, rel)
+  if (!file) return notFound(res)
+
+  const cacheControl = path.basename(file) === 'index.html'
+    ? 'no-store'
+    : path.basename(file) === 'sw.js' || path.basename(file) === 'manifest.webmanifest'
+      ? 'no-cache'
+      : 'public, max-age=0, must-revalidate'
+  const extraHeaders = path.basename(file) === 'sw.js'
+    ? { 'Service-Worker-Allowed': '/' }
+    : undefined
+
+  if (sendFile(file, res, { cacheControl, extraHeaders })) return true
+  if (!hasFileExtension(rel)) return sendSpaIndex(productDir, res)
+  return notFound(res)
+}
+
+export function serveLegacyStatic(webDir, url, res) {
+  if (url.pathname !== '/legacy' && !url.pathname.startsWith('/legacy/')) return false
+  if (url.pathname === '/legacy') {
+    res.writeHead(308, { Location: `/legacy/${url.search}` })
     res.end()
     return true
   }
 
-  let rel = url.pathname.slice('/next'.length) || '/'
+  let rel = url.pathname.slice('/legacy'.length) || '/'
+  if (rel === '/') rel = '/index.html'
   if (rel.endsWith('/')) rel += 'index.html'
-  const file = safeFilePath(nextWebDir, rel)
+  const file = safeFilePath(webDir, rel)
   if (!file) return notFound(res)
-
-  if (sendFile(file, res, {
-    cacheControl: path.basename(file) === 'index.html'
-      ? 'no-store'
-      : 'public, max-age=0, must-revalidate'
-  })) {
-    return true
-  }
-
-  if (!hasFileExtension(rel)) {
-    const indexFile = safeFilePath(nextWebDir, '/index.html')
-    if (indexFile && sendFile(indexFile, res, { cacheControl: 'no-store' })) return true
-  }
-
+  const headers = {}
+  if (rel === '/sw.js' || rel === '/manifest.webmanifest') headers.cacheControl = 'no-cache'
+  if (rel === '/sw.js') headers.extraHeaders = { 'Service-Worker-Allowed': '/legacy/' }
+  if (sendFile(file, res, headers)) return true
   return notFound(res)
 }
+
+

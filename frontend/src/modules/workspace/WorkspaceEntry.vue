@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { inject, onMounted, ref, shallowRef, type Component } from 'vue'
+import { recoverStaleChunk } from '@/app/stale-chunk'
 import { workspaceLoaderKey } from './loader'
 const loader = inject(workspaceLoaderKey)!
 const component = shallowRef<Component>()
@@ -7,7 +8,10 @@ const error = ref('')
 async function load() {
   error.value = ''
   try { component.value = await loader() }
-  catch (cause) { error.value = cause instanceof Error ? cause.message : String(cause) }
+  catch (cause) {
+    recoverStaleChunk(cause)
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  }
 }
 onMounted(load)
 </script>

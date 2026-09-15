@@ -1,6 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import { log, logError } from './log.mjs'
 import { createAgentStore, sessionKey, MODES } from './agent-store.mjs'
+import { createContactApi } from './agent-contact.mjs'
 import { astrbotReversePort } from './qq-ports.mjs'
 import path from 'node:path'
 
@@ -147,6 +148,8 @@ function describeAction(msg) {
     set_group_kick: { kind: 'act', title: '移出群成员' },
     set_friend_add_request: { kind: 'act', title: '处理好友申请' },
     set_group_add_request: { kind: 'act', title: '处理加群申请' },
+    add_friend: { kind: 'act', title: '添加好友' },
+    join_group: { kind: 'act', title: '加入群聊' },
     send_private_msg: { kind: 'reply', title: '起草私聊回复' },
     send_group_msg: { kind: 'reply', title: '起草群聊回复' },
     send_msg: { kind: 'reply', title: '起草回复' }
@@ -428,6 +431,8 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     return []
   }
 
+  const { contact, observeRequests } = createContactApi({ napcatAction, asList, requireAccount })
+
   function capList(list, n = 400) {
     const total = list.length
     const items = list.slice(0, n)
@@ -653,6 +658,9 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
       if (!gid) throw new Error('missing_group')
       const { items, total, truncated } = capList(asList(await napcatAction(accountId, 'get_group_member_list', { group_id: Number(gid) })).map(slimMember).filter((x) => x.user_id))
       return { kind: k, accountId, groupId: String(gid), total, truncated, members: items }
+    }
+    if (k === 'requests') {
+      return observeRequests(accountId)
     }
     throw new Error('unknown_kind')
   }
@@ -1210,6 +1218,14 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
         return json({ error: e.message, message: e.message }, 400)
       }
     }
+    if (p === '/api/runtime/agent/contact' && method === 'POST') {
+      const body = await readBody()
+      try {
+        return json(await contact(body))
+      } catch (e) {
+        return json({ error: e.message, message: e.message }, 400)
+      }
+    }
     if (p === '/api/runtime/agent/stream' && method === 'GET') {
       res.writeHead(200, {
         'Content-Type': 'text/event-stream; charset=utf-8',
@@ -1250,6 +1266,7 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     subscribe,
     view,
     observe,
+    contact,
     sendToPeer,
     sendToConversation,
     approveDraft,

@@ -32,6 +32,7 @@ export interface BaseChatInfoElem {
     avatar: string
     appendInfo?: string
     jump?: string
+    enterUnread?: number
 }
 
 export type SessionNoticeMode = 'notify' | 'silent' | 'assist' | 'block'

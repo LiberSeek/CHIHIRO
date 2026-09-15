@@ -240,11 +240,12 @@ export function createQqRuntime({ store, logDir, root }) {
     inst.unreadJob = fetchRecentContactUnread({
       httpPort: inst.ports.http,
       httpToken: inst.tokens?.http,
-    }).then((count) => {
+    }).then((result) => {
       inst.lastUnreadAt = Date.now()
+      const next = result && typeof result === 'object' ? result : { total: Number(result) || 0, peers: [] }
       const prev = unreadByAccount.get(accountId)
-      unreadByAccount.set(accountId, count)
-      if (prev !== count) emit()
+      unreadByAccount.set(accountId, next)
+      if (JSON.stringify(prev ?? null) !== JSON.stringify(next)) emit()
     }).catch(() => {}).finally(() => {
       inst.unreadInflight = false
       inst.unreadJob = null
@@ -338,8 +339,11 @@ export function createQqRuntime({ store, logDir, root }) {
         obAddress: ports?.ws ? `127.0.0.1:${ports.ws}` : '',
         obToken: tokens?.ws || ''
       }
-      if (typeof unread === 'number') row.unread = unread
+      const total = unread && typeof unread === 'object' ? unread.total : unread
+      if (typeof total === 'number') row.unread = total
       else delete row.unread
+      if (unread && typeof unread === 'object' && Array.isArray(unread.peers)) row.unreadPeers = unread.peers
+      else delete row.unreadPeers
       return row
     })
     return {

@@ -485,6 +485,7 @@
               enable-regenerate
               enable-thread-selection
               :manage-refs-sidebar="false"
+              :open-reasoning-in-sidebar="!isChihiroHosted"
               :editing-message-id="editingMessage?.id || null"
               :saving-edit="savingMessageEdit"
               @open-edit="openMessageEdit"
@@ -2421,6 +2422,8 @@ async function stopCurrentSession() {
   overflow-y: auto;
   padding: 24px 0 calc(var(--chat-composer-height, 82px) + 34px);
   scroll-padding-bottom: calc(var(--chat-composer-height, 82px) + 34px);
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .conversation-stack.is-empty .messages-panel {

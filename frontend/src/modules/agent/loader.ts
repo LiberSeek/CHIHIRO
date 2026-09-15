@@ -1,4 +1,5 @@
 import type { App, Component, InjectionKey } from 'vue'
+import { clearStaleChunkRecovery, recoverStaleChunk } from '@/app/stale-chunk'
 
 export type AgentLoader = () => Promise<Component>
 export const agentLoaderKey: InjectionKey<AgentLoader> = Symbol('agent-loader')
@@ -12,8 +13,12 @@ export function createAgentLoader(app: App): AgentLoader {
       await installAgentNative(app, { hosted: true, gatewayBase: '/astrbot' })
       const { default: component } = await import('./AgentModule.vue')
       return component
-    })().catch(error => {
+    })().then(component => {
+      clearStaleChunkRecovery()
+      return component
+    }).catch(error => {
       pending = undefined
+      recoverStaleChunk(error)
       throw error
     })
     return pending

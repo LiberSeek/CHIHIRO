@@ -33,15 +33,15 @@
             :class="{ 'has-attach': imgCache.size > 0, 'is-reply': isReply }">
             <div class="chihiro-float-actions">
                 <div class="new-msg chihiro-jump-bottom"
-                    :class="{ 'is-on': showBottom }"
-                    :title="$t('回到底部')"
+                    :class="{ 'is-on': showBottom, 'is-latest': jumpToLatest }"
+                    :title="jumpToLatest ? $t('跳转到最新消息') : $t('回到底部')"
                     @click="emit('jump-bottom')">
                     <div>
-                        <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true">
-                            <path class="jump-arrow-top" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M4 3.8 8 7.6 12 3.8"/>
-                            <path class="jump-arrow-bot" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M4 8.4 8 12.2 12 8.4"/>
+                        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                            <path class="jump-arrow-top" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M4 3.8 8 7.6 12 3.8"/>
+                            <path class="jump-arrow-bot" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M4 8.4 8 12.2 12 8.4"/>
                         </svg>
-                        <span v-if="newMsgNum > 0">{{ newMsgNum }}</span>
+                        <span v-if="jumpToLatest">{{ $t('跳转到最新消息') }}</span>
                     </div>
                 </div>
             </div>
@@ -146,7 +146,7 @@
         replyName: string
         replyText: string
         showBottom: boolean
-        newMsgNum: number
+        jumpToLatest?: boolean
         plusOpen: boolean
         faceOpen: boolean
         disabled: boolean
@@ -864,28 +864,37 @@
 .chihiro-composer .chihiro-jump-bottom svg {
     display: block;
     fill: none;
+    color: var(--color-font-1, #c8c8c8);
 }
-.chihiro-composer .chihiro-jump-bottom .jump-arrow-top {
-    stroke: #8ec5ff;
-}
+.chihiro-composer .chihiro-jump-bottom .jump-arrow-top,
 .chihiro-composer .chihiro-jump-bottom .jump-arrow-bot {
-    stroke: #007aff;
+    stroke: currentColor;
 }
-.chihiro-composer .chihiro-jump-bottom span {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-    border-radius: 999px;
-    background: #007aff;
-    color: #fff;
-    font-size: 10px;
-    line-height: 16px;
-    font-weight: 650;
-    text-align: center;
-    box-sizing: border-box;
+.chihiro-composer .chihiro-jump-bottom.is-latest {
+    width: auto;
+    height: 34px;
+}
+.chihiro-composer .chihiro-jump-bottom.is-latest > div {
+    width: auto;
+    padding: 0 12px 0 10px;
+    gap: 4px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    color: #4c9fff;
+    background: color-mix(in srgb, var(--color-card-1) 82%, transparent);
+}
+.chihiro-composer .chihiro-jump-bottom.is-latest.is-on > div:hover {
+    background: color-mix(in srgb, var(--color-card-1) 92%, transparent);
+}
+.chihiro-composer .chihiro-jump-bottom.is-latest svg {
+    color: #4c9fff;
+    flex: 0 0 auto;
+}
+.chihiro-composer .chihiro-jump-bottom.is-latest span {
+    font-size: 13px;
+    line-height: 1;
+    white-space: nowrap;
 }
 
 .user-skin.chat-pan > div.more {

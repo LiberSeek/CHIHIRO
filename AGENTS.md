@@ -7,7 +7,7 @@ Read this before changing code. The old Stapxs **overlay** path is gone.
 ## Unified engineering migration (2026-09-14)
 
 The user has authorized the `frontend/`, `backend/`, `deploy/` migration in
-`docs/development-plan.md` and `docs/frontend-unification-plan.md`. Those paths
+`docs/development.md` and `docs/frontend-unification-plan.md`. Those paths
 are the destination for new product code. The sections below describe the
 legacy runtime while migration is in progress, not a requirement to retain
 separate frontend applications.
@@ -27,15 +27,17 @@ separate frontend applications.
 
 ```text
 Gateway :3100
-  /                 apps/web          workbench shell (accounts, login, feature panel)
-  /i/:instance/...  vendor/stapxs     IM (Stapxs, Chihiro-adapted, in-tree)
+  /                 frontend/         unified workbench (IM + Agent)
+  /legacy           apps/web          previous shell, rollback only
+  /i/:instance/...  vendor/stapxs     IM plugin assets
   /webui /api       NapCat Shell      live QQ runtime (not vendor/napcat)
   /astrbot          AstrBot           on-demand Bot / Dashboard
 ```
 
 | Path | Role | Edit? |
 |---|---|---|
-| `apps/web` | Workbench UI | Yes |
+| `frontend/` | Product UI | Yes |
+| `apps/web` | Legacy shell at `/legacy` | Only if debugging the old shell |
 | `backend/src/runtime` | NTQQ / NapCat / account lifecycle | Yes |
 | `backend/src/gateway` | Reverse proxy on `:3100` | Yes |
 | `vendor/stapxs` | **IM source of truth** | **Yes — edit files directly** |
@@ -48,10 +50,10 @@ Mac QQ: Runtime clones `data/runtimes/QQ.app`. Do not launch `/Applications/QQ.a
 
 ## Where a change belongs
 
-1. Workbench / login / logout / account bar / feature panel → `apps/web`, `backend/src/runtime`, `backend/src/gateway`
+1. Workbench / login / logout / account bar / feature panel → `frontend/`, `backend/src/runtime`, `backend/src/gateway`
 2. Chat composer, history window, emoji, Stapxs menus, IM CSS → **`pages/user` / `components/user` (`User*`) and `assets/css/user.css`. Never edit upstream `Chat.vue`, `MsgBody.vue`, `FacePan.vue`, `chat.css`, `view.css`.**
 3. OneBot / NTQQ protocol questions → read `vendor/napcat`, change Runtime if needed
-4. Bot / Agent / ChatUI → `vendor/astrbot` `User*` UI + `backend/src/runtime` / `apps/web`. NapCat stays read-only.
+4. Bot / Agent / ChatUI → `frontend/src/modules/agent`, `vendor/astrbot` `User*` UI, `backend/src/runtime`. NapCat stays read-only.
 
 Do not add string-replace overlays. Do not copy upstream files into `apps/`.
 
@@ -90,9 +92,7 @@ Chihiro IM pages live under `vendor/stapxs/src/renderer/src/pages/user/` (`UserC
 
 Chihiro ChatUI pages live under `vendor/astrbot/dashboard/src/components/user/` and `layouts/user/` (`UserChat`, `UserFullLayout`, …). After ChatUI edits: `npm run rebuild:astrbot-ui`, then restart AstrBot / hard-refresh the feature iframe.
 
-Workbench PWA: `apps/web/manifest.webmanifest` + `sw.js`. Open `http://127.0.0.1:3100/` in Chrome/Edge and install to desktop (`display: standalone`). API / IM iframe / WebUI paths are not cached.
-
-Frontend in `apps/web` is static (no HMR). Hard-refresh after shell changes too.
+Product PWA: `frontend/public/manifest.webmanifest`. Open `http://127.0.0.1:3100/` in Chrome/Edge and install to desktop (`display: standalone`). After `frontend/` changes: `npm run build:web`, then hard-refresh. The old shell is at `/legacy`.
 
 ## Hard rules
 
@@ -102,7 +102,7 @@ Frontend in `apps/web` is static (no HMR). Hard-refresh after shell changes too.
 - AstrBot Chihiro UI goes in `User*` copies on `vendor/astrbot` `develop`, not upstream Chat.vue
 - One official QQ container on Mac; isolated instances are cloned copies under `data/`
 - Logout of an account stops that instance and deletes its isolated data; keep the shared clone
-- Bot is on-demand, not a permanent daemon
+- AstrBot runs when ChatUI, hosted sessions, or scheduled tasks need it; collection does not depend on a Bot toggle
 - Gateway is the only URL the workbench should talk to
 
-More detail: [README.md](README.md), [docs/iteration.md](docs/iteration.md), [docs/git-workflow.md](docs/git-workflow.md), [docs/product.md](docs/product.md).
+More detail: [README.md](README.md), [docs/iteration.md](docs/iteration.md), [docs/git-workflow.md](docs/git-workflow.md), [docs/product.md](docs/product.md), [docs/development.md](docs/development.md).

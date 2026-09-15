@@ -17,3 +17,11 @@ app.provide(workspaceLoaderKey, createWorkspaceLoader(app, view => {
   useWorkspace().selectList(view)
 }))
 app.mount('#app')
+
+if ('serviceWorker' in navigator) {
+  void navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      if (registration.scope === `${location.origin}/`) void registration.unregister()
+    }
+  })
+}

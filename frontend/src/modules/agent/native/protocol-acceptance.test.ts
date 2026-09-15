@@ -148,7 +148,7 @@ beforeEach(async () => {
     removeItem: vi.fn(),
   });
   vi.stubGlobal("window", {
-    location: { origin: fixtureOrigin, hash: "#/next/agent" },
+    location: { origin: fixtureOrigin, hash: "#/agent" },
     fetch: vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
       nativeFetch(new URL(String(input), fixtureOrigin), init),
     ),

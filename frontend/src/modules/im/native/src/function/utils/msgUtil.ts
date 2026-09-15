@@ -24,6 +24,7 @@ import {
     findSessionContact,
     getSessionId,
 } from './sessionUtil'
+import { shouldShowChatDateChip } from '@chihiro/im-native/message-time'
 
 const logger = new Logger()
 
@@ -782,19 +783,16 @@ export function getShowName(base: string, remark: string) {
 }
 
 /**
- * 判断是否需要显示时间戳（上下超过五分钟的消息）
- * @param timePrv 上条消息的时间戳（10 位）
- * @param timeNow 当前消息的时间戳（10 位）
+ * 判断是否需要显示日期分割条（跨自然日，或列表首条）。
+ * @param timePrv 上条消息的时间戳（秒或毫秒）
+ * @param timeNow 当前消息的时间戳（秒或毫秒）
  */
 export function isShowTime(
     timePrv: number | undefined,
     timeNow: number,
     alwaysShow = false,
 ): boolean {
-    if (alwaysShow) return true
-    if (timePrv == undefined) return false
-    // 五分钟 10 位时间戳相差 300
-    return timeNow - timePrv >= 300
+    return shouldShowChatDateChip(timePrv, timeNow, alwaysShow)
 }
 
 /**

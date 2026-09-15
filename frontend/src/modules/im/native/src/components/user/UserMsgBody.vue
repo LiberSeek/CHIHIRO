@@ -19,7 +19,9 @@
             { 'me': isMe && type != 'body' },
             { 'selected': selected },
             { 'right': settingsStore.sysConfig.opt_ind_message === true && type != 'body' },
-            { 'body-only': type == 'body' }
+            { 'body-only': type == 'body' },
+            { 'first-in-group': firstInGroup },
+            { 'last-in-group': lastInGroup },
         ]"
         :data-raw="getMsgRawTxt(data)"
         :data-sender="data.sender.user_id"
@@ -29,6 +31,7 @@
             <img v-menu.prevent="event => $emit('showMenu', event, data)"
                 name="avatar"
                 referrerpolicy="no-referrer"
+                :class="{ 'is-placeholder': !lastInGroup }"
                 :src="backend.proxyUrl('https://q1.qlogo.cn/g?b=qq&s=0&nk=' + data.sender.user_id)"
                 :alt="data.sender.card ? data.sender.card : data.sender.nickname"
                 @click="onAvatarClick"
@@ -38,8 +41,8 @@
                 <font-awesome-icon :icon="['fas', 'spinner']" />
             </div>
         </template>
-        <div :class="[msgBodyClass, { 'bare-image': isBareImageMsg() }]">
-            <header v-if="type != 'body' && (chatStore.chatInfo.show.type == 'group' || (isDev && data._from_local_db))">
+        <div :class="[msgBodyClass, { 'bare-image': isBareImageMsg(), 'has-tail': hasBubbleTail() }]">
+            <header v-if="firstInGroup && type != 'body' && (chatStore.chatInfo.show.type == 'group' || (isDev && data._from_local_db))">
                 <template v-if="chatStore.chatInfo.show.type == 'group'">
                     <span v-if="senderInfo && isRobot(senderInfo.user_id)" class="robot">{{ $t('机器人') }}</span>
                     <span v-if="senderInfo?.role == 'owner'" class="owner">{{ $t('群主') }}</span>
@@ -362,14 +365,38 @@
                         </div>
                     </template>
                 </div>
+                <span v-if="type != 'body'"
+                    class="chihiro-msg-time-spacer"
+                    aria-hidden="true">{{ formatBubbleTime(data.time) }}</span>
+                <span v-if="type != 'body'"
+                    class="chihiro-msg-time">{{ formatBubbleTime(data.time) }}</span>
+                <svg v-if="hasBubbleTail()"
+                    class="chihiro-bubble-appendix"
+                    width="9"
+                    height="20"
+                    viewBox="0 0 9 20"
+                    aria-hidden="true">
+                    <path d="M3 17h6V0c-.193 2.84-.876 5.767-2.05 8.782-.904 2.325-2.446 4.485-4.625 6.48A1 1 0 003 17z" />
+                </svg>
             </div>
         </div>
+        <button
+            v-if="showPlusOne && type != 'body' && type != 'merge' && !selecting"
+            type="button"
+            class="chihiro-plus-one"
+            :title="$t('+1')"
+            @click.stop="emit('plusOne', data)">
+            +1
+        </button>
         <div v-if="data.fake_msg == true"
             :class="'sending right' + (isMe ? ' me' : '')">
             <font-awesome-icon :icon="['fas', 'spinner']" />
         </div>
-        <span v-if="selected && type != 'body'" class="chihiro-msg-check" aria-hidden="true">
-            <font-awesome-icon :icon="['fas', 'check']" />
+        <span v-if="selecting && type != 'body'"
+            class="chihiro-msg-check"
+            :class="{ on: selected }"
+            aria-hidden="true">
+            <font-awesome-icon v-if="selected" :icon="['fas', 'check']" />
         </span>
         <div v-if="data.emoji_like"
             :class="'emoji-like' + (isMe ? ' me' : '')">
@@ -419,6 +446,7 @@ import { linkView } from '@renderer/function/utils/linkViewUtil'
 import { MenuEventData, MergeStackData, MsgItemElem } from '@renderer/function/elements/information'
 import { backend } from '@renderer/runtime/backend'
 import { i18n } from '@chihiro/im-native/host'
+import { formatBubbleTime } from '@chihiro/im-native/message-time'
 import { useUIStore } from '@renderer/state/ui'
 import { useAuthStore } from '@renderer/state/auth'
 import { useContactStore } from '@renderer/state/contact'
@@ -453,6 +481,9 @@ const {
     globalMe,
     imageListHeader,
     selecting,
+    showPlusOne,
+    firstInGroup = true,
+    lastInGroup = true,
 } = defineProps<{
     data: any
     selected?: boolean
@@ -460,6 +491,9 @@ const {
     globalMe?: string
     imageListHeader?: Img | undefined
     selecting?: boolean
+    showPlusOne?: boolean
+    firstInGroup?: boolean
+    lastInGroup?: boolean
 }>()
 
 provide('message-content', data)
@@ -473,6 +507,7 @@ const emit = defineEmits<{
     leftMove: [msg: Msg]
     rightMove: [msg: Msg]
     showMenu: [event: MenuEventData, msg: Msg]
+    plusOne: [msg: Msg]
     openProfile: [payload: {
         userId: number
         nickname?: string
@@ -1143,6 +1178,14 @@ function isBareImageMsg() {
     return seg.type === 'image' || seg.type === 'mface'
 }
 
+function hasBubbleTail() {
+    if (type === 'body') return false
+    if (!lastInGroup) return false
+    if (isBareImageMsg()) return false
+    if (isSuperFaceMsg()) return false
+    return true
+}
+
 function getMdHTML(str: string, id: string) {
     const html = md.render(str)
     const div = document.createElement('div')
@@ -1288,6 +1331,29 @@ onMounted(() => {
 </script>
 
 <style>
+    .chihiro-plus-one {
+        flex: 0 0 auto;
+        align-self: flex-end;
+        width: 28px;
+        height: 28px;
+        margin: 0 6px 4px;
+        padding: 0;
+        border: 1.5px solid #4c9fff;
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--color-card-1) 82%, transparent);
+        color: #4c9fff;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: -0.2px;
+        line-height: 1;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        user-select: none;
+    }
+    .chihiro-plus-one:hover {
+        background: color-mix(in srgb, #4c9fff 16%, transparent);
+    }
     .chihiro-raw-msg {
         display: none !important;
         user-select: none !important;
@@ -1451,31 +1517,48 @@ onMounted(() => {
     position: relative;
     width: 100% !important;
     max-width: 100%;
-    padding: 2px 0 6px;
-    margin: 2px 0;
+    padding: 1px 0;
+    margin: 0;
     box-sizing: border-box;
     flex-wrap: nowrap;
-    align-items: flex-start;
-    transition: width 0.22s ease;
+    align-items: flex-end;
+    transition: width 0.22s ease, padding-left 0.18s ease, background 0.18s ease;
+}
+.message.first-in-group,
+#base-app .message.first-in-group {
+    padding-top: 12px;
+    margin-top: 10px;
+}
+.message.last-in-group,
+#base-app .message.last-in-group {
+    padding-bottom: 4px;
+    margin-bottom: 2px;
 }
 .user-skin .message.selected {
-    background: transparent !important;
+    background: color-mix(in srgb, var(--color-font) 8%, transparent) !important;
     backdrop-filter: none !important;
 }
 .user-skin .message.selected header a.time {
     display: none;
 }
-.user-skin.chat-pan.is-multiselect .message {
-    padding-right: 36px !important;
+.user-skin.chat-pan.is-multiselect .message:not(.body-only) {
+    padding-left: 36px !important;
 }
-.chihiro-msg-check {
+.chihiro-msg-check,
+#base-app .message > .chihiro-msg-check {
     position: absolute;
-    right: 4px;
-    top: 12px;
+    left: 8px;
+    right: auto;
+    top: auto;
+    bottom: 1px;
+    align-self: flex-end;
+    box-sizing: border-box;
     width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #007aff;
+    height: 28px;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
     color: #fff;
     display: grid;
     place-items: center;
@@ -1483,24 +1566,48 @@ onMounted(() => {
     pointer-events: none;
     z-index: 2;
 }
-.chihiro-msg-check svg {
+.message.last-in-group > .chihiro-msg-check,
+#base-app .message.last-in-group > .chihiro-msg-check {
+    bottom: 4px;
+}
+.chihiro-msg-check::after,
+#base-app .message > .chihiro-msg-check::after {
+    content: '';
+    grid-area: 1 / 1;
+    width: 20px;
+    height: 20px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 1.5px solid color-mix(in srgb, var(--color-font) 28%, transparent);
+    background: transparent;
+}
+.chihiro-msg-check.on::after,
+#base-app .message > .chihiro-msg-check.on::after {
+    border-color: #007aff;
+    background: #007aff;
+}
+.chihiro-msg-check svg,
+#base-app .message > .chihiro-msg-check svg {
+    grid-area: 1 / 1;
     width: 11px !important;
     height: 11px !important;
     margin: 0 !important;
     color: #fff !important;
+    z-index: 1;
 }
 .message > img {
     width: 28px !important;
     height: 28px !important;
     border-radius: 50% !important;
     margin: 0 8px 0 0 !important;
-    align-self: flex-start;
+    align-self: flex-end;
+}
+.message > img.is-placeholder {
+    visibility: hidden;
+    pointer-events: none;
 }
 .message.me > img {
     margin: 0 0 0 8px !important;
-}
-.message:has(.message-body > header:has(*)) > img {
-    margin-top: 8px !important;
 }
 #base-app .message.me {
     flex-direction: row-reverse;
@@ -1515,10 +1622,25 @@ onMounted(() => {
     display: flex;
 }
 .message-body > div {
+    position: relative;
+    overflow: visible;
     border-radius: 18px !important;
     padding: 8px 12px !important;
     background: var(--color-card-1);
     margin-top: 0 !important;
+}
+.message-body.has-tail > div {
+    border-bottom-left-radius: 4px !important;
+}
+.chihiro-bubble-appendix {
+    position: absolute;
+    left: -6px;
+    bottom: -3px;
+    width: 9px;
+    height: 20px;
+    fill: var(--color-card-1);
+    pointer-events: none;
+    overflow: visible;
 }
 .message-body > header:not(:has(*)),
 #base-app .message-body > header:not(:has(*)) {
@@ -1532,6 +1654,17 @@ onMounted(() => {
 .message-mine {
     background: #007aff !important;
     color: #fff !important;
+}
+.message-body.has-tail.me > div {
+    border-bottom-left-radius: 18px !important;
+    border-bottom-right-radius: 4px !important;
+}
+.message-body.me .chihiro-bubble-appendix {
+    left: auto;
+    right: -6px;
+    transform: scaleX(-1);
+    fill: #007aff;
+    bottom: -3px;
 }
 .message-body.bare-image > div,
 .message-body.bare-image.me > div,
@@ -1603,5 +1736,50 @@ onMounted(() => {
     overflow: hidden;
     text-overflow: ellipsis;
     min-width: 0;
+}
+.chihiro-msg-time-spacer {
+    display: inline-block;
+    visibility: hidden;
+    pointer-events: none;
+    user-select: none;
+    font-size: 11px;
+    line-height: 1.15;
+    padding-left: 8px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.chihiro-msg-time,
+#base-app .chihiro-msg-time {
+    position: absolute;
+    right: 12px;
+    bottom: 8px;
+    z-index: 1;
+    font-size: 11px;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    pointer-events: none;
+    user-select: none;
+    color: color-mix(in srgb, var(--color-font) 52%, transparent);
+}
+.message-body.me .chihiro-msg-time,
+.message-mine .chihiro-msg-time,
+#base-app .message-body.me .chihiro-msg-time {
+    color: rgba(255, 255, 255, 0.72);
+}
+.message-body.bare-image .chihiro-msg-time-spacer,
+.message-body.super-face .chihiro-msg-time-spacer {
+    display: none;
+}
+.message-body.bare-image .chihiro-msg-time,
+.message-body.super-face .chihiro-msg-time,
+#base-app .message-body.bare-image .chihiro-msg-time,
+#base-app .message-body.super-face .chihiro-msg-time {
+    right: 8px;
+    bottom: 6px;
+    padding: 2px 5px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.45);
+    color: rgba(255, 255, 255, 0.92);
 }
 </style>

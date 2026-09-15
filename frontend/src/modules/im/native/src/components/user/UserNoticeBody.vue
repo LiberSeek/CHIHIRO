@@ -45,11 +45,7 @@
             v-html="data.str + '<div class=\'space\'</div>'" />
         <div v-else-if="data.sub_type === 'time' && data.time != undefined"
             class="note-time note-base">
-            <a>{{ Intl.DateTimeFormat(
-                trueLang,
-                getTimeConfig(new Date(data.time * 1000)),
-            ).format(new Date(data.time * 1000))
-            }}</a>
+            <a>{{ formatChatDateChip(data.time) }}</a>
         </div>
     </div>
 </template>
@@ -59,10 +55,7 @@
     import { i18n } from '@chihiro/im-native/host'
     import { useAuthStore } from '@renderer/state/auth'
     import { useChatStore } from '@renderer/state/chat'
-    import {
-        getTimeConfig,
-        getTrueLang,
-    } from '@renderer/function/utils/systemUtil'
+    import { formatChatDateChip } from '@chihiro/im-native/message-time'
     import { pokeAnime } from '@renderer/function/utils/msgUtil'
     import { backend } from '@renderer/runtime/backend'
 
@@ -76,7 +69,6 @@
     const props = defineProps(['data', 'id'])
     defineEmits(['reedit'])
 
-    const trueLang = getTrueLang()
     const info = ref(props.data) as { [key: string]: any }
 
     function isMe(id: number) {

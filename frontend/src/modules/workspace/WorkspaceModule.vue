@@ -31,7 +31,8 @@ import AgentEntry from '../agent/AgentEntry.vue'
 import { routeForImConversation, routeForWorkspaceList, useWorkspace, type ListTab, type WorkspaceRoute } from './workspace'
 import { queryText, syncWorkspaceFromRoute, workspaceRouteMatches } from './routeSync'
 import { canRestoreNativeConversation, contactToChatInfo, findNativeConversationForRoute } from './nativeConversation'
-import { countNativeUnreadSessions, nativeUnreadOwnerAccountId } from './nativeUnread'
+import { countNativeUnreadSessions, flattenSessionNotice, formatUnreadLabel, nativeUnreadOwnerAccountId } from './nativeUnread'
+import { sessionUnreadCount } from '../im/native/chat-scroll-controls'
 
 const workspace = useWorkspace()
 const imListTab = ref<'messages' | 'friends'>('messages')
@@ -84,9 +85,9 @@ const popInfo = new PopInfo()
 const unreadCount = computed(() => countNativeUnreadSessions(
   contacts.onMsgList || [],
   contacts.groupAssistList || [],
-  Number(contacts.newMsgCount) || 0,
+  flattenSessionNotice(settings.sysConfig.session_notice, auth.loginInfo.uin),
 ))
-const unreadLabel = computed(() => unreadCount.value > 99 ? '99+' : String(unreadCount.value))
+const unreadLabel = computed(() => formatUnreadLabel(unreadCount.value))
 const unreadOwnerAccountId = computed(() => nativeUnreadOwnerAccountId({
   activeAccountId: shell.activeAccountId,
   activeAccountOnline: shell.activeAccount?.status === 'online',
@@ -132,8 +133,13 @@ function changeChat(info: BaseChatInfoElem) {
   workspace.selectIm()
   replaceWorkspaceRoute(routeForImConversation(info))
   if (chat.chatInfo.show.id === info.id && chat.chatInfo.show.type === info.type) return
+  const session = contacts.baseOnMsgList.get(info.id)
+  const assist = contacts.groupAssistList.find((item) => Number(item.group_id ?? item.user_id) === info.id)
   chat.chatInfo = {
-    show: info,
+    show: {
+      ...info,
+      enterUnread: Math.max(sessionUnreadCount(session), sessionUnreadCount(assist)),
+    },
     info: { group_info: {}, user_info: {}, me_info: {}, group_members: [],
       group_files: {}, group_sub_files: {}, jin_info: { list: [], pages: 0 } },
   }
@@ -369,6 +375,7 @@ onBeforeUnmount(() => {
   font-weight:700;
   line-height:16px;
   text-align:center;
+  white-space:nowrap;
 }
 .chihiro-native-im .workspace-tabs button.is-on .chihiro-inbox-unread {
   background:rgba(255,255,255,.34);

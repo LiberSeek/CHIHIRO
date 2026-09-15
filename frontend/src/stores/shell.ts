@@ -2,18 +2,45 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { AccountContext, AccountId } from '../contracts'
 import { accountId } from '../contracts'
+import {
+  filterUnreadPeers,
+  readAccountSessionNotice,
+  type NativeUnreadPeer,
+} from '@/modules/workspace/nativeUnread'
+
+type RuntimeAccountRow = AccountContext & { unreadPeers?: NativeUnreadPeer[] }
+
+function parseUnreadPeers(value: unknown): NativeUnreadPeer[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const peers = value.flatMap((item): NativeUnreadPeer[] => {
+    if (!record(item)) return []
+    const peer = String(item.peer ?? item.peerUin ?? item.peer_uin ?? item.user_id ?? item.group_id ?? '')
+    const unread = Math.max(0, Math.floor(Number(item.unread) || 0))
+    if (!peer || peer === '0' || unread <= 0) return []
+    return [{ peer, unread }]
+  })
+  return peers
+}
+
+function runtimeAccountUnread(account: RuntimeAccountRow): number | undefined {
+  if (account.unreadPeers) {
+    const filtered = filterUnreadPeers(account.unreadPeers, readAccountSessionNotice(account.id))
+    return filtered > 0 ? filtered : undefined
+  }
+  return account.unread
+}
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 /** Read only the public account fields; runtime tokens never enter this store. */
-export function parseRuntimeAccounts(value: unknown): { accounts: AccountContext[]; activeId: AccountId | null } {
+export function parseRuntimeAccounts(value: unknown): { accounts: RuntimeAccountRow[]; activeId: AccountId | null } {
   if (!record(value) || !record(value.accounts) || !Array.isArray(value.accounts.accounts)) {
     throw new Error('账号状态响应格式无效')
   }
   const ids = new Set<string>()
-  const accounts: AccountContext[] = value.accounts.accounts.map((item: unknown) => {
+  const accounts: RuntimeAccountRow[] = value.accounts.accounts.map((item: unknown) => {
     if (!record(item) || typeof item.id !== 'string' || !/^qq:\d+$/.test(item.id) || ids.has(item.id)) {
       throw new Error('账号状态包含无效或重复账号')
     }
@@ -21,6 +48,7 @@ export function parseRuntimeAccounts(value: unknown): { accounts: AccountContext
     const avatar = typeof item.avatar === 'string' && /^https?:\/\//.test(item.avatar) ? item.avatar : undefined
     const instanceId = typeof item.instanceId === 'string' && item.instanceId.trim() ? item.instanceId : undefined
     const unread = typeof item.unread === 'number' && Number.isFinite(item.unread) ? Math.max(0, Math.floor(item.unread)) : undefined
+    const unreadPeers = parseUnreadPeers(item.unreadPeers)
     return {
       id: accountId(item.id),
       label: [item.label, item.nickname, item.id].find((label): label is string => typeof label === 'string' && Boolean(label.trim()))!,
@@ -31,6 +59,7 @@ export function parseRuntimeAccounts(value: unknown): { accounts: AccountContext
       ...(item.botEnabled === true ? { botEnabled: true } : {}),
       ...(item.botWired === true ? { botWired: true } : {}),
       ...(unread !== undefined ? { unread } : {}),
+      ...(unreadPeers ? { unreadPeers } : {}),
     }
   })
   const selected = value.accounts.activeId
@@ -90,12 +119,28 @@ export const useShellStore = defineStore('shell', () => {
   }
 
   function applyLiveUnread(account: AccountContext): AccountContext {
-    if (account.id !== activeAccountId.value || !liveUnread.has(account.id)) return account
+    if (!liveUnread.has(account.id)) return account
     const unread = liveUnread.get(account.id) || 0
     if (unread > 0) return account.unread === unread ? account : { ...account, unread }
     if (account.unread === undefined) return account
     const next = { ...account }
     delete next.unread
+    return next
+  }
+
+  function toAccountContext(account: RuntimeAccountRow): AccountContext {
+    const unread = runtimeAccountUnread(account)
+    const next: AccountContext = {
+      id: account.id,
+      label: account.label,
+      platform: account.platform,
+      status: account.status,
+      ...(account.avatar ? { avatar: account.avatar } : {}),
+      ...(account.instanceId ? { instanceId: account.instanceId } : {}),
+      ...(account.botEnabled ? { botEnabled: true } : {}),
+      ...(account.botWired ? { botWired: true } : {}),
+      ...(unread ? { unread } : {}),
+    }
     return next
   }
 
@@ -111,14 +156,21 @@ export const useShellStore = defineStore('shell', () => {
       a.unread === b.unread
   }
 
-  function mergeAccounts(nextAccounts: AccountContext[]) {
+  function mergeAccounts(nextAccounts: RuntimeAccountRow[]) {
     const currentById = new Map(accounts.value.map(account => [account.id, account]))
     const next = nextAccounts.map(account => {
       const current = currentById.get(account.id)
-      const withRuntimeUnread = account.unread === undefined && current?.unread ? { ...account, unread: current.unread } : account
+      const fromRuntime = toAccountContext(account)
+      const withRuntimeUnread = fromRuntime.unread === undefined && !account.unreadPeers && current?.unread
+        ? { ...fromRuntime, unread: current.unread }
+        : fromRuntime
       const withLocalUnread = applyLiveUnread(withRuntimeUnread)
       return current && sameAccount(current, withLocalUnread) ? current : withLocalUnread
     })
+    const nextIds = new Set(next.map(account => account.id))
+    for (const id of [...liveUnread.keys()]) {
+      if (!nextIds.has(id)) liveUnread.delete(id)
+    }
     const unchanged = next.length === accounts.value.length &&
       next.every((account, index) => account === accounts.value[index])
     if (!unchanged) accounts.value = next
@@ -150,7 +202,6 @@ export const useShellStore = defineStore('shell', () => {
   // Selection is local to this browser; API calls carry their explicit account.
   function selectAccount(id: AccountId | null) {
     if (id !== null && !accounts.value.some(account => account.id === id)) return
-    if (activeAccountId.value !== id) dropLiveUnread(activeAccountId.value)
     ++selectionVersion
     activeAccountId.value = id
   }

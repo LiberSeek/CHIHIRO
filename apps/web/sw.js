@@ -1,13 +1,13 @@
-const CACHE = 'chihiro-web-v18'
+const CACHE = 'chihiro-legacy-v1'
 const PRECACHE = [
-  '/',
-  '/index.html',
-  '/app.css',
-  '/app.js',
-  '/icon.png',
-  '/favicon-32.png',
-  '/apple-touch-icon.png',
-  '/manifest.webmanifest'
+  '/legacy/',
+  '/legacy/index.html',
+  '/legacy/app.css',
+  '/legacy/app.js',
+  '/legacy/icon.png',
+  '/legacy/favicon-32.png',
+  '/legacy/apple-touch-icon.png',
+  '/legacy/manifest.webmanifest'
 ]
 
 self.addEventListener('install', (event) => {
@@ -27,8 +27,7 @@ self.addEventListener('activate', (event) => {
 function shouldBypass(url) {
   const path = url.pathname
   return (
-    path === '/next' ||
-    path.startsWith('/next/') ||
+    !path.startsWith('/legacy') ||
     path.startsWith('/api') ||
     path.startsWith('/i/') ||
     path.startsWith('/plugin') ||
@@ -54,6 +53,6 @@ self.addEventListener('fetch', (event) => {
         }
         return res
       })
-      .catch(() => caches.match(req).then((hit) => hit || caches.match('/index.html')))
+      .catch(() => caches.match(req).then((hit) => hit || caches.match('/legacy/index.html')))
   )
 })

@@ -115,7 +115,7 @@ describe('runtime account shell', () => {
 
     await shell.refreshAccounts()
     expect(shell.accounts.find(account => account.id === a)?.unread).toBe(3)
-    expect(shell.accounts.find(account => account.id === b)?.unread).toBe(0)
+    expect(shell.accounts.find(account => account.id === b)?.unread).toBeUndefined()
 
     shell.setAccountUnread(b, 12)
     await shell.refreshAccounts()
@@ -142,6 +142,53 @@ describe('runtime account shell', () => {
     await shell.refreshAccounts()
     expect(shell.accounts.find(account => account.id === a)?.unread).toBe(5)
     expect(shell.accounts.find(account => account.id === b)?.unread).toBe(1)
+  })
+
+  it('lets a live zero unread hide runtime badge on every account', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(response({ accounts: { activeId: a, accounts: [
+        { id: a, nickname: 'A', online: true, unread: 8 },
+        { id: b, nickname: 'B', online: true, unread: 9 },
+      ] } }))
+      .mockResolvedValueOnce(response({ accounts: { activeId: a, accounts: [
+        { id: a, nickname: 'A', online: true, unread: 8 },
+        { id: b, nickname: 'B', online: true, unread: 20 },
+      ] } })))
+    const shell = useShellStore()
+
+    await shell.refreshAccounts()
+    shell.setAccountUnread(a, 0)
+    shell.selectAccount(b)
+    await shell.refreshAccounts()
+    expect(shell.accounts.find(account => account.id === a)?.unread).toBeUndefined()
+    expect(shell.accounts.find(account => account.id === b)?.unread).toBe(20)
+  })
+
+  it('excludes muted peers from runtime unread badges', async () => {
+    const memory = new Map<string, string>([[
+      'chihiro:im:qq:123:options',
+      JSON.stringify({ session_notice: { 123: { 20001: 'silent', 20002: 'assist' } } }),
+    ]])
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => memory.get(key) ?? null,
+      setItem: (key: string, value: string) => { memory.set(key, value) },
+      removeItem: (key: string) => { memory.delete(key) },
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({ accounts: { activeId: a, accounts: [
+      {
+        id: a, nickname: 'A', online: true, unread: 12,
+        unreadPeers: [
+          { peer: '20001', unread: 4 },
+          { peer: '20002', unread: 7 },
+          { peer: '30001', unread: 1 },
+        ],
+      },
+      { id: b, nickname: 'B', online: true, unread: 3 },
+    ] } })))
+    const shell = useShellStore()
+    await shell.refreshAccounts()
+    expect(shell.accounts.find(account => account.id === a)?.unread).toBe(1)
+    expect(shell.accounts.find(account => account.id === b)?.unread).toBe(3)
   })
 
   it('keeps live unread for the selected account and still updates others from runtime', async () => {

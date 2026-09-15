@@ -1,6 +1,6 @@
-export function sumRecentContactUnread(rows) {
-  if (!Array.isArray(rows)) return 0
+export function collectRecentContactUnread(rows) {
   const seen = new Map()
+  if (!Array.isArray(rows)) return { total: 0, peers: [] }
   for (const row of rows) {
     if (!row || typeof row !== 'object') continue
     const peer = String(row.peerUin ?? row.peer_uin ?? row.user_id ?? row.group_id ?? '')
@@ -9,9 +9,14 @@ export function sumRecentContactUnread(rows) {
     if (n <= 0) continue
     seen.set(peer, Math.max(seen.get(peer) || 0, n))
   }
+  const peers = [...seen.entries()].map(([peer, unread]) => ({ peer, unread }))
   let total = 0
   for (const n of seen.values()) total += n
-  return total
+  return { total, peers }
+}
+
+export function sumRecentContactUnread(rows) {
+  return collectRecentContactUnread(rows).total
 }
 
 function recentContactRows(body) {
@@ -44,5 +49,5 @@ export async function fetchRecentContactUnread({
   if (!res.ok || json?.status === 'failed' || (ret != null && Number(ret) !== 0)) {
     throw new Error(json?.message || json?.wording || json?.error || 'get_recent_contact_failed')
   }
-  return sumRecentContactUnread(recentContactRows(json))
+  return collectRecentContactUnread(recentContactRows(json))
 }

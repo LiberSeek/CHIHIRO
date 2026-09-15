@@ -15,6 +15,7 @@ describe('hosted Agent chat layout contract', () => {
     expect(userChat.indexOf('<v-divider class="settings-menu-divider my-1" />')).toBeGreaterThan(userChat.indexOf('t("core.common.language")'))
     expect(userChat.indexOf('<v-list-item class="styled-menu-item settings-menu-item" rounded="md" @click="openAstrBotSettings">')).toBeGreaterThan(userChat.indexOf('<v-divider class="settings-menu-divider my-1" />'))
     expect(userChat).not.toContain('toggleTheme')
+    expect(userChat).toContain(':open-reasoning-in-sidebar="!isChihiroHosted"')
   })
 
   it('keeps provider and model selection inside the composer input controls', () => {

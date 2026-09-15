@@ -82,7 +82,7 @@ const server = http.createServer((req, res) => {
     res.end(JSON.stringify(runtimeState()));
     return;
   }
-  const name = req.url.split("?")[0].replace(/^\/next\//, "");
+  const name = req.url.split("?")[0].replace(/^\/+/, "") || "index.html";
   const file = path.join(
     root,
     "frontend/dist",
@@ -219,7 +219,7 @@ wss.on("connection", (socket, req) => {
           body: '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#aaa"/></svg>',
         }),
   );
-  await page.goto(`http://127.0.0.1:${port}/next/im`);
+  await page.goto(`http://127.0.0.1:${port}/im`);
   if (interactionChecks) {
     const assert = require('node:assert/strict');
     await page.getByText('客户小林 10001', { exact: true }).first().click();

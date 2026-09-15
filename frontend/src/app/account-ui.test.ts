@@ -29,6 +29,8 @@ describe('account rail UI contract', () => {
     expect(accountTitle(value)).toBe('千寻测试号 · QQ · 在线 · Bot · 右键管理')
     expect(shouldShowAccountUnread(value)).toBe(true)
     expect(accountUnreadLabel(value)).toBe('99+')
+    expect(accountUnreadLabel(account({ unread: 99 }))).toBe('99')
+    expect(accountUnreadLabel(account({ unread: 100 }))).toBe('99+')
     expect(shouldShowBotBadge(value)).toBe(true)
   })
 
