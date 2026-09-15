@@ -168,6 +168,7 @@ recent_contact:
         time: /msgTime
         chat_type: /chatType
         name: /peerName
+        unread: /unread
 # 戳一戳
 poke:
     name: group_poke

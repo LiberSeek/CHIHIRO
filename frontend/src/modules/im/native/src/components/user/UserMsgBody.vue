@@ -38,7 +38,7 @@
                 <font-awesome-icon :icon="['fas', 'spinner']" />
             </div>
         </template>
-        <div :class="msgBodyClass">
+        <div :class="[msgBodyClass, { 'bare-image': isBareImageMsg() }]">
             <header v-if="type != 'body' && (chatStore.chatInfo.show.type == 'group' || (isDev && data._from_local_db))">
                 <template v-if="chatStore.chatInfo.show.type == 'group'">
                     <span v-if="senderInfo && isRobot(senderInfo.user_id)" class="robot">{{ $t('机器人') }}</span>
@@ -1131,6 +1131,18 @@ function isSuperFaceMsg() {
     return Emoji.allSuperList.has(Number(seg.id))
 }
 
+function isBareImageMsg() {
+    if (type === 'body') return false
+    const segs = (data.message ?? []).filter((item: any) => {
+        if (!item || item.type === undefined) return false
+        if (item.type === 'text') return String(item.text ?? '').trim() !== ''
+        return true
+    })
+    if (segs.length !== 1) return false
+    const seg = segs[0]
+    return seg.type === 'image' || seg.type === 'mface'
+}
+
 function getMdHTML(str: string, id: string) {
     const html = md.render(str)
     const div = document.createElement('div')
@@ -1520,6 +1532,24 @@ onMounted(() => {
 .message-mine {
     background: #007aff !important;
     color: #fff !important;
+}
+.message-body.bare-image > div,
+.message-body.bare-image.me > div,
+#base-app .message-body.bare-image > div,
+#base-app .message-body.bare-image.me > div {
+    background: transparent !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    border: 0 !important;
+}
+.message-body.bare-image .msg-img.alone,
+.message-body.bare-image .msg-img.long-img.alone,
+.message-body.bare-image .msg-mface.alone {
+    margin: 0 !important;
+    max-width: 100%;
+    border: 0 !important;
+    border-radius: 12px;
 }
 .note-base {
     padding: 4px 10px !important;

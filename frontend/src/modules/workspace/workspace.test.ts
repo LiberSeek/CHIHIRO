@@ -76,6 +76,23 @@ describe('shared IM and Agent workspace', () => {
     expect(workspace.agentSessionId).toBeNull()
   })
 
+  it('reopening the same QQ conversation after an Agent session returns to the IM pane and chat route', () => {
+    const workspace = useWorkspace()
+    workspace.selectIm()
+    workspace.selectList('workbench')
+    workspace.selectAgent('4df24d95-3179-4a08-86b5-964f071f47f0')
+    expect(workspace.activePane).toBe('agent')
+    workspace.selectList('messages')
+    expect(workspace.listTab).toBe('messages')
+    expect(workspace.activePane).toBe('agent')
+    workspace.selectIm()
+    expect(workspace.activePane).toBe('im')
+    expect(routeForImConversation({ type: 'group', id: 732085886 })).toEqual({
+      path: '/im',
+      query: { chat: 'group:732085886' },
+    })
+  })
+
   it('keeps Agent drafts while switching to QQ and another Agent conversation', () => {
     const workspace = useWorkspace()
     workspace.selectAgent('first')

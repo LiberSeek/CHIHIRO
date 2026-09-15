@@ -333,40 +333,37 @@
      */
     function userClick(data: UserFriendElem & UserGroupElem) {
         const id = data.user_id ? data.user_id : data.group_id
-        if (!trRead.value && id != props.chat.show.id) {
-            if (uiStore.openSideBar) {
-                openLeftBar()
+        if (trRead.value) return
+        if (uiStore.openSideBar) {
+            openLeftBar()
+        }
+        const back = {
+            // 临时会话标志
+            temp: data.group_name == '' ? data.group_id : undefined,
+            type: data.user_id ? 'user' : 'group',
+            id: id,
+            name: getShowName(data.group_name || data.nickname, data.remark),
+            avatar: data.user_id? 'https://q1.qlogo.cn/g?b=qq&s=0&nk=' +
+                  data.user_id: 'https://p.qlogo.cn/gh/' +
+                  data.group_id + '/' + data.group_id + '/0',
+        }
+        const switching = id != props.chat.show.id
+        emit('userClick', back)
+        if (switching) {
+            if(!uiStore.nowGetHistory) {
+                emit('loadHistory', back)
             }
-            const back = {
-                // 临时会话标志
-                temp: data.group_name == '' ? data.group_id : undefined,
-                type: data.user_id ? 'user' : 'group',
-                id: id,
-                name: getShowName(data.group_name || data.nickname, data.remark),
-                avatar: data.user_id? 'https://q1.qlogo.cn/g?b=qq&s=0&nk=' +
-                      data.user_id: 'https://p.qlogo.cn/gh/' +
-                      data.group_id + '/' + data.group_id + '/0',
-            }
-            if (props.chat.id != back.id) {
-                // 更新聊天框
-                emit('userClick', back)
-                // 获取历史消息
-                if(!uiStore.nowGetHistory) {
-                    emit('loadHistory', back)
+            // 重置消息面板
+            // PS：这儿的作用是在运行时如果切换到了特殊面板，在点击联系人的时候可以切回来
+            getOpt('chatview_name').then((chatViewName) => {
+                const getChatViewName = decodeURIComponent(chatViewName ?? '').
+                    replaceAll('\\"', '')
+                if (settingsStore.sysConfig.chatview_name != '' &&
+                        settingsStore.sysConfig.chatview_name != getChatViewName) {
+                    settingsStore.sysConfig.chatview_name = getChatViewName
+                    runOpt('chatview_name', getChatViewName)
                 }
-                // 重置消息面板
-                // PS：这儿的作用是在运行时如果切换到了特殊面板，在点击联系人的时候可以切回来
-                getOpt('chatview_name').then((chatViewName) => {
-                    const getChatViewName = decodeURIComponent(chatViewName ?? '').
-                        replaceAll('\\"', '')
-                    if (settingsStore.sysConfig.chatview_name != '' &&
-                            settingsStore.sysConfig.chatview_name != getChatViewName) {
-                        settingsStore.sysConfig.chatview_name = getChatViewName
-                        runOpt('chatview_name', getChatViewName)
-                    }
-                })
-            }
-            // 清除新消息标记
+            })
             const item = contactStore.baseOnMsgList.get(id)
             if(item) {
                 if(item.new_msg) {
@@ -376,7 +373,6 @@
                 item.unread = 0
                 item.highlight = undefined
                 contactStore.baseOnMsgList.set(id, item)
-                // 关闭所有通知
                 new Notify().closeAll((item.group_id ?? item.user_id).toString())
             }
         }

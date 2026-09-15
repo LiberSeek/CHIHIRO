@@ -17,6 +17,7 @@ import {
   canOpenNapCatSettings,
   clampAccountMenuPosition,
   shouldCloseExitDialogForKey,
+  shouldCloseImSettingsForKey,
   shouldShowAccountUnread,
   shouldShowBotBadge,
 } from '@/app/account-ui'
@@ -128,6 +129,10 @@ function closeMenus(event: MouseEvent) {
 }
 function onKeydown(event: KeyboardEvent) {
   if (shouldCloseExitDialogForKey(event.key, Boolean(exitAccount.value), exitBusy.value)) closeExitDialog()
+  if (shouldCloseImSettingsForKey(event.key, route.name, route.query.settings)) {
+    event.preventDefault()
+    void router.push({ path: '/im' })
+  }
 }
 function selectClient(id: string) {
   const client = shell.clients.find(item => item.id === id)

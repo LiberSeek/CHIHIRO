@@ -3,6 +3,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { liveNapcatSecrets, napcatPaths } from './napcat-secrets.mjs'
+import { injectRecentContactUnread } from './chihiro-napcat-unread.mjs'
+import { fetchRecentContactUnread } from './account-unread.mjs'
 import { ensureStapxsSelfEvents, checkQQLoginStatus, getQQWebuiLoginInfo } from './napcat-ob11.mjs'
 import { portOpen, portsForSlot, allocateIsolatedPorts, astrbotReversePort } from './qq-ports.mjs'
 import { ensureQqClone } from './qq-clone.mjs'
@@ -20,6 +22,7 @@ const LOGIN_STEPS = [
   '等待扫码登录'
 ]
 const QR_TTL_MS = 180000
+const UNREAD_POLL_MS = 4000
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
@@ -184,9 +187,11 @@ function seedNapcatDir(root, napcatDir, ports, tokens) {
 
   writeJson(path.join(configDir, 'plugins.json'), { 'napcat-plugin-ssqq': true })
   const src = pluginSource(root)
+  const pluginDir = path.join(napcatDir, 'plugins/napcat-plugin-ssqq')
   if (src) {
-    execFileSync('rsync', ['-a', '--delete', `${src}/`, path.join(napcatDir, 'plugins/napcat-plugin-ssqq/')])
+    execFileSync('rsync', ['-a', '--delete', `${src}/`, `${pluginDir}/`])
   }
+  injectRecentContactUnread(pluginDir)
 }
 
 function patchOnebotPorts(napcatDir, uin, ports, tokens) {
@@ -213,10 +218,39 @@ function patchOnebotPorts(napcatDir, uin, ports, tokens) {
 
 export function createQqRuntime({ store, logDir, root }) {
   const instances = new Map()
+  const unreadByAccount = new Map()
   let pendingId = null
   let officialRemoved = false
   let runSerial = 0
   const listeners = new Set()
+
+  function accountIdForInst(inst) {
+    return inst?.uin ? `qq:${inst.uin}` : null
+  }
+
+  async function refreshUnread(inst, { force = false, wait = false } = {}) {
+    const accountId = accountIdForInst(inst)
+    if (!accountId || inst.phase !== 'ready' || !inst.onebotUp || !inst.ports?.http) return
+    if (inst.unreadInflight) {
+      if (wait && inst.unreadJob) await inst.unreadJob.catch(() => {})
+      return
+    }
+    if (!force && inst.lastUnreadAt && Date.now() - inst.lastUnreadAt < UNREAD_POLL_MS) return
+    inst.unreadInflight = true
+    inst.unreadJob = fetchRecentContactUnread({
+      httpPort: inst.ports.http,
+      httpToken: inst.tokens?.http,
+    }).then((count) => {
+      inst.lastUnreadAt = Date.now()
+      const prev = unreadByAccount.get(accountId)
+      unreadByAccount.set(accountId, count)
+      if (prev !== count) emit()
+    }).catch(() => {}).finally(() => {
+      inst.unreadInflight = false
+      inst.unreadJob = null
+    })
+    if (wait) await inst.unreadJob.catch(() => {})
+  }
 
   function emit() {
     const snap = snapshot()
@@ -294,7 +328,8 @@ export function createQqRuntime({ store, logDir, root }) {
       const ports = inst?.ports || a.ports
       const tokens = inst?.tokens || a.tokens
       if (ports && !ports.astrbotReverse) ports.astrbotReverse = astrbotReversePort(ports)
-      return {
+      const unread = unreadByAccount.get(a.id)
+      const row = {
         ...a,
         online: inst?.phase === 'ready',
         instanceId: a.instanceId || inst?.id || null,
@@ -303,6 +338,9 @@ export function createQqRuntime({ store, logDir, root }) {
         obAddress: ports?.ws ? `127.0.0.1:${ports.ws}` : '',
         obToken: tokens?.ws || ''
       }
+      if (typeof unread === 'number') row.unread = unread
+      else delete row.unread
+      return row
     })
     return {
       phase: view?.phase || 'idle',
@@ -426,6 +464,7 @@ export function createQqRuntime({ store, logDir, root }) {
           log('qq', `login ready ${inst.id} uin=${inst.uin} ${inst.nickname}`)
           pendingId = null
         }
+        void refreshUnread(inst, { force: becameReady })
       }
     }
     inst.qr = qrStat(inst.qrPath)
@@ -440,6 +479,12 @@ export function createQqRuntime({ store, logDir, root }) {
   async function refreshPorts() {
     for (const inst of instances.values()) {
       await refreshInstance(inst)
+    }
+    const missing = [...instances.values()].filter((inst) => (
+      inst.phase === 'ready' && inst.onebotUp && inst.uin && !unreadByAccount.has(`qq:${inst.uin}`)
+    ))
+    if (missing.length) {
+      await Promise.all(missing.map((inst) => refreshUnread(inst, { force: true, wait: true })))
     }
     emit()
     return snapshot()
@@ -527,7 +572,7 @@ export function createQqRuntime({ store, logDir, root }) {
     const marks = [inst.userDataDir, inst.homeDir, inst.napcatDir, inst.id].filter(Boolean)
     const pids = new Set()
     if (inst.pid) pids.add(inst.pid)
-    for (const row of parsePs()) {
+    for (const row of parseProcessRows()) {
       if (marks.some((m) => m && row.cmd.includes(m))) pids.add(row.pid)
     }
     return [...pids]
@@ -567,7 +612,7 @@ export function createQqRuntime({ store, logDir, root }) {
     }
     if (pendingId) keep.add(pendingId)
     const re = /\/data\/instances\/(inst-[a-f0-9]+)/i
-    for (const row of parsePs()) {
+    for (const row of parseProcessRows()) {
       const m = row.cmd.match(re)
       if (!m) continue
       if (keep.has(m[1])) continue

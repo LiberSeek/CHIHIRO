@@ -78,6 +78,7 @@ import {
     getSessionId,
     getSessionTime,
     getMissingGroupPreviewSessions,
+    applyRecentContactUnread,
     mergeContactListByKind,
     mergeEarlySessionContacts,
     resolveIncomingSession,
@@ -1407,18 +1408,10 @@ const msgFunctions = {
             let back = list.filter((item) => {
                 return item.chat_type == 1 || item.chat_type == 2
             })
-            // 排除掉在置顶列表里的
             const topList = settingsStore.sysConfig.top_info as {
                 [key: string]: number[]
             } | null
-            if (topList != null) {
-                const top = topList[authStore.loginInfo.uin]
-                if (top != undefined) {
-                    back = back.filter((item) => {
-                        return top.indexOf(Number(item.user_id)) == -1
-                    })
-                }
-            }
+            const topIds = topList?.[authStore.loginInfo.uin] ?? []
             // 去重
             back = back.filter((item, index, arr) => {
                 return (
@@ -1429,13 +1422,21 @@ const msgFunctions = {
             })
             const sessionsToHydrate: (UserFriendElem & UserGroupElem)[] = []
             back.forEach((item) => {
-                // 去消息列表里找一下它
-                const user = contactStore.userList.find((user) => {
-                    return user.user_id == item.user_id || user.group_id == item.user_id
-                })
-                if (user) {
-                    user.time = Math.max(getSessionTime(user), getSessionTime(item))
-                    contactStore.baseOnMsgList.set(Number(item.user_id), user)
+                const sessionId = Number(item.user_id)
+                const user = contactStore.userList.find((entry) => {
+                    return entry.user_id == item.user_id || entry.group_id == item.user_id
+                }) || contactStore.baseOnMsgList.get(sessionId)
+                if (!user) return
+                user.time = Math.max(getSessionTime(user), getSessionTime(item))
+                applyRecentContactUnread(user, item)
+                const mapped = contactStore.baseOnMsgList.get(sessionId)
+                if (mapped && mapped !== user) {
+                    mapped.time = Math.max(getSessionTime(mapped), getSessionTime(item))
+                    applyRecentContactUnread(mapped, item)
+                }
+                // 置顶会话已在列表中，只同步未读，不再重复拉历史
+                if (topIds.indexOf(sessionId) == -1) {
+                    contactStore.baseOnMsgList.set(sessionId, user)
                     sessionsToHydrate.push(user)
                 }
             })
@@ -1722,13 +1723,13 @@ function saveUser(msg: { [key: string]: any }, type: string) {
             }),
         })
     }
-    // 如果获取次数大于 0 并且是双数，刷新一下历史会话
-    if (listLoadTimes > 0 && listLoadTimes % 2 == 0) {
+    // 好友/群列表到达后立刻拉最近会话，未读不必等两次列表都齐。
+    if (listLoadTimes > 0) {
         // 获取最近的会话
         if (authStore.jsonMap.recent_contact)
             Connector.send(
                 authStore.jsonMap.recent_contact.name,
-                {},
+                { count: 200 },
                 'getRecentContact',
             )
     }

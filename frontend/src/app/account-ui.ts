@@ -40,3 +40,7 @@ export function canCloseExitDialog(exitBusy: boolean): boolean {
 export function shouldCloseExitDialogForKey(key: string, exitOpen: boolean, exitBusy: boolean): boolean {
   return key === 'Escape' && exitOpen && canCloseExitDialog(exitBusy)
 }
+
+export function shouldCloseImSettingsForKey(key: string, routeName: unknown, routeSettings: unknown): boolean {
+  return key === 'Escape' && routeName === 'im' && routeSettings === '1'
+}

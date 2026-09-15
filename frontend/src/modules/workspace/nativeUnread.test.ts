@@ -3,7 +3,7 @@ import { accountId } from '@/contracts'
 import { countNativeUnreadSessions, nativeUnreadOwnerAccountId } from './nativeUnread'
 
 describe('native IM unread ownership', () => {
-  it('counts unique unread sessions across direct and group-assist lists', () => {
+  it('sums unread messages across unique sessions', () => {
     expect(countNativeUnreadSessions([
       { user_id: 10001, unread: 2 },
       { user_id: 10001, unread: 3 },
@@ -12,7 +12,7 @@ describe('native IM unread ownership', () => {
     ], [
       { group_id: 20001, unread: 8 },
       { group_id: 20003, unread: 1 },
-    ], 1)).toBe(3)
+    ], 1)).toBe(12)
   })
 
   it('keeps runtime-provided unread count when it is larger than session count', () => {

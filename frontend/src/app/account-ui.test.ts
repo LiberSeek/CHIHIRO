@@ -7,6 +7,7 @@ import {
   canOpenNapCatSettings,
   clampAccountMenuPosition,
   shouldCloseExitDialogForKey,
+  shouldCloseImSettingsForKey,
   shouldShowAccountUnread,
   shouldShowBotBadge,
 } from './account-ui'
@@ -58,5 +59,12 @@ describe('account rail UI contract', () => {
     expect(shouldCloseExitDialogForKey('Escape', true, true)).toBe(false)
     expect(shouldCloseExitDialogForKey('Enter', true, false)).toBe(false)
     expect(shouldCloseExitDialogForKey('Escape', false, false)).toBe(false)
+  })
+
+  it('allows ESC to close only the IM settings route', () => {
+    expect(shouldCloseImSettingsForKey('Escape', 'im', '1')).toBe(true)
+    expect(shouldCloseImSettingsForKey('Enter', 'im', '1')).toBe(false)
+    expect(shouldCloseImSettingsForKey('Escape', 'im', undefined)).toBe(false)
+    expect(shouldCloseImSettingsForKey('Escape', 'agent', '1')).toBe(false)
   })
 })

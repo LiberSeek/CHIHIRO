@@ -9,8 +9,9 @@
 <template>
     <div class="opt-page">
         <template v-if="cards.length > 0">
-            <div v-for="card in cards" :key="card.id" class="ss-card">
-                <header>{{ card.title }}</header>
+            <div v-for="card in cards" :key="card.id" class="opt-group">
+                <header class="opt-group-title">{{ card.title }}</header>
+                <div class="opt-group-card">
                 <div v-if="card.description" class="tip">
                     {{ card.description }}
                 </div>
@@ -81,14 +82,17 @@
                         </button>
                     </template>
                 </div>
+                </div>
             </div>
         </template>
         <template v-else>
-            <div class="ss-card empty">
-                <font-awesome-icon :icon="['fas', 'box-open']" />
-                <span>{{ $t('什么都木有') }}</span>
-                <a>{{ $t('附加设置页设置项来自页面主题或其他插件注册，现在看起来什么都没有呢。') }}</a>
-                <a>{{ $t('注意：有些功能的设置项可能需要在触发后才会被注册。') }}</a>
+            <div class="opt-group">
+                <header class="opt-group-title">{{ $t('插件') }}</header>
+                <div class="opt-group-card empty">
+                <span>{{ $t('暂无附加设置') }}</span>
+                <span>{{ $t('附加设置由主题或其他插件注册，当前没有可用项。') }}</span>
+                <span>{{ $t('部分设置会在对应功能首次使用后出现。') }}</span>
+                </div>
             </div>
         </template>
     </div>
@@ -162,24 +166,31 @@
 </script>
 <style scoped>
 .empty {
-    margin: 0 auto;
-    width: 50%;
+    margin: 0;
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 .empty svg {
-    width: 50px;
-    height: 50px;
-    margin-bottom: 10px;
-    color: var(--color-main);
+    display: none;
 }
 .empty span {
-    color: var(--color-main);
-    margin-bottom: 10px;
-    font-size: 0.9rem;
+    color: var(--color-font-2);
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    text-align: center;
+}
+.empty span:first-child {
+    color: var(--color-font);
+    margin-bottom: 4px;
+    font-size: 0.88rem;
+    font-weight: 500;
 }
 .empty a {
-    font-size: 0.8rem;
+    color: var(--color-font-2);
+    font-size: 0.75rem;
+    text-decoration: none;
 }
 </style>

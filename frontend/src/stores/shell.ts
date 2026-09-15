@@ -83,6 +83,21 @@ export const useShellStore = defineStore('shell', () => {
   let selectionVersion = 0
   let loginVersion = 0
   let controller: AbortController | undefined
+  const liveUnread = new Map<AccountId, number>()
+
+  function dropLiveUnread(id: AccountId | null | undefined) {
+    if (id) liveUnread.delete(id)
+  }
+
+  function applyLiveUnread(account: AccountContext): AccountContext {
+    if (account.id !== activeAccountId.value || !liveUnread.has(account.id)) return account
+    const unread = liveUnread.get(account.id) || 0
+    if (unread > 0) return account.unread === unread ? account : { ...account, unread }
+    if (account.unread === undefined) return account
+    const next = { ...account }
+    delete next.unread
+    return next
+  }
 
   function sameAccount(a: AccountContext, b: AccountContext) {
     return a.id === b.id &&
@@ -100,7 +115,8 @@ export const useShellStore = defineStore('shell', () => {
     const currentById = new Map(accounts.value.map(account => [account.id, account]))
     const next = nextAccounts.map(account => {
       const current = currentById.get(account.id)
-      const withLocalUnread = account.unread === undefined && current?.unread ? { ...account, unread: current.unread } : account
+      const withRuntimeUnread = account.unread === undefined && current?.unread ? { ...account, unread: current.unread } : account
+      const withLocalUnread = applyLiveUnread(withRuntimeUnread)
       return current && sameAccount(current, withLocalUnread) ? current : withLocalUnread
     })
     const unchanged = next.length === accounts.value.length &&
@@ -124,13 +140,17 @@ export const useShellStore = defineStore('shell', () => {
     }
     mergeAccounts(state.accounts)
     const selectedStillExists = state.accounts.some(account => account.id === activeAccountId.value)
-    if (!preserveSelection || !selectedStillExists) activeAccountId.value = state.activeId ?? state.accounts[0]?.id ?? null
+    if (!preserveSelection || !selectedStillExists) {
+      dropLiveUnread(activeAccountId.value)
+      activeAccountId.value = state.activeId ?? state.accounts[0]?.id ?? null
+    }
     return state
   }
 
   // Selection is local to this browser; API calls carry their explicit account.
   function selectAccount(id: AccountId | null) {
     if (id !== null && !accounts.value.some(account => account.id === id)) return
+    if (activeAccountId.value !== id) dropLiveUnread(activeAccountId.value)
     ++selectionVersion
     activeAccountId.value = id
   }
@@ -165,7 +185,9 @@ export const useShellStore = defineStore('shell', () => {
   function setAccountUnread(id: AccountId, count: number) {
     const unread = Math.max(0, Math.floor(Number.isFinite(count) ? count : 0))
     const index = accounts.value.findIndex(account => account.id === id)
-    if (index < 0 || accounts.value[index].unread === unread) return
+    if (index < 0) return
+    liveUnread.set(id, unread)
+    if ((accounts.value[index].unread ?? 0) === unread) return
     const next = accounts.value.slice()
     next[index] = { ...next[index], ...(unread > 0 ? { unread } : { unread: undefined }) }
     accounts.value = next

@@ -66,8 +66,8 @@
                 <div class="chihiro-history-btn" :class="{ active: chihiroHistory.open }" :title="$t('搜索消息')" @click.stop="toggleChihiroHistory">
                     <font-awesome-icon :icon="['fas', 'clock-rotate-left']" />
                 </div>
-                <div class="more">
-                    <font-awesome-icon :icon="['fas', 'ellipsis-vertical']" @click="openChatInfoPan" />
+                <div class="more" :title="$t('更多')" @click.stop="openChatInfoPan">
+                    <font-awesome-icon :icon="['fas', 'ellipsis-vertical']" />
                 </div>
             </div>
         </div>
@@ -3581,6 +3581,12 @@ function exitWin() {
 
 <style>
 /* chihiro-moved-from-user-css */
+.note:has(.note-time).msglist-enter-from,
+.note:has(.note-time).msglist-enter-active {
+    transform: none !important;
+    opacity: 1 !important;
+    transition: none !important;
+}
 .msg-menu {
     overflow: visible !important;
     pointer-events: none !important;
@@ -3680,6 +3686,7 @@ function exitWin() {
     height: 16px !important;
     width: 16px !important;
     margin: 0 !important;
+    pointer-events: none;
 }
 .user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-feature-btn:hover,
 .user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-feature-btn.active,

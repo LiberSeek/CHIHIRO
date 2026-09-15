@@ -29,8 +29,18 @@ describe('workspace layout contract', () => {
     expect(source).toContain('.chihiro-native-im .native-list-content { position:relative; flex:1; min-height:0; overflow:hidden; background:var(--color-card-1); }')
   })
 
+  it('hosts native pop-box dialogs on the overlay layer', () => {
+    expect(source).toContain('<Teleport to="#chihiro-im-overlays">')
+    expect(source).toContain('class="pop-box"')
+    expect(source).toContain('#chihiro-im-overlays .pop-box {')
+    expect(source).toContain('position:fixed')
+    expect(source).toContain('#chihiro-im-overlays .pop-box-body {')
+    expect(source).toContain('background:var(--color-card) !important;')
+    expect(source).toContain('#chihiro-im-overlays .pop-box-body > div.button > button.master {')
+  })
+
   it('keeps IM modal and popup content on solid host surfaces', () => {
-    expect(source).toContain('.chihiro-native-im .pop-box-body,')
+    expect(source).toContain('.chihiro-native-im .ss-card.window {')
     expect(source).toContain('.chihiro-native-im .forward-pan > div.card,')
     expect(source).toContain('.chihiro-native-im .user-skin.chat-pan .face-pan,')
     expect(source).toContain('.chihiro-native-im .chat-info {')

@@ -7,20 +7,18 @@
 
 <template>
     <div class="opt-page">
-        <div v-if="!napcat" class="ss-card">
-            <header>{{ $t('兼容选项') }}</header>
+        <div v-if="!napcat" class="opt-group">
+            <header class="opt-group-title">{{ $t('兼容') }}</header>
+            <div class="opt-group-card">
             <div class="tip">
                 {{
-                    $t('这儿是兼容性相关的高级选项，这些选项通常会自动识别，如果出现了不正确的情况你也可以手动调整。')
+                    $t('以下选项通常会自动识别。仅在行为异常时手动调整。')
                 }}
             </div>
             <div class="opt-item">
-                <font-awesome-icon :icon="['fas', 'clipboard-list']" />
                 <div>
                     <label for="opt-dev-msg-type">{{ $t('消息类型') }}</label>
-                    <span>{{
-                        $t('[CQ:faceid=1]你好啊👋，这个选项将会强制覆盖自动检测')
-                    }}</span>
+                    <span>{{ $t('强制指定消息编码格式，将覆盖自动检测') }}</span>
                 </div>
                 <div class="select-wrapper">
                     <select id="opt-dev-msg-type" v-model="settingsStore.sysConfig.msg_type"
@@ -37,12 +35,9 @@
                 </div>
             </div>
             <div class="opt-item">
-                <font-awesome-icon :icon="['fas', 'gear']" />
                 <div>
-                    <label for="opt-dev-json-map">{{ $t('解析配置') }}</label>
-                    <span>{{
-                        $t('不同框架之间的化学反应我们将其称之为达利园效应')
-                    }}</span>
+                    <label for="opt-dev-json-map">{{ $t('协议映射') }}</label>
+                    <span>{{ $t('选择消息解析配置') }}</span>
                 </div>
                 <div class="select-wrapper">
                     <select id="opt-dev-json-map" v-model="jsonMapName" @change="changeJsonMap">
@@ -55,16 +50,17 @@
                     </select>
                 </div>
             </div>
+            </div>
         </div>
 
-        <div class="ss-card">
-            <header>{{ $t('开发者选项') }}</header>
+        <div class="opt-group">
+            <header class="opt-group-title">{{ $t('开发者') }}</header>
+            <div class="opt-group-card">
             <div class="opt-item">
                 <div :class="checkDefault('log_level')" />
-                <font-awesome-icon :icon="['fas', 'book']" />
                 <div>
                     <label for="opt-dev-log-level">{{ $t('日志等级') }}</label>
-                    <span>{{ $t('ReferenceError: moYu is not defined') }}</span>
+                    <span>{{ $t('控制控制台输出的详细程度') }}</span>
                 </div>
                 <div class="select-wrapper">
                     <select id="opt-dev-log-level" v-model="settingsStore.sysConfig.log_level"
@@ -86,12 +82,9 @@
             </div>
             <div class="opt-item">
                 <div :class="checkDefault('debug_msg')" />
-                <font-awesome-icon :icon="['fas', 'robot']" />
                 <div>
                     <label for="opt-dev-debug-msg">{{ $t('禁用消息渲染') }}</label>
-                    <span>
-                        <a style="cursor: pointer" @click="sendAbab">{{ $t('点击进行 CAPTCHA 验证') }}</a>
-                    </span>
+                    <span>{{ $t('仅显示原始消息数据，便于排查渲染问题') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-dev-debug-msg" v-model="settingsStore.sysConfig.debug_msg"
@@ -102,10 +95,9 @@
                 </label>
             </div>
             <div v-if="!napcat" class="opt-item">
-                <font-awesome-icon :icon="['fas', 'palette']" />
                 <div>
-                    <span>{{ $t('注入自定义样式') }}</span>
-                    <span v-if="!customCssLoaded">{{ $t('选择一个 CSS 文件上传') }}</span>
+                    <span>{{ $t('自定义样式') }}</span>
+                    <span v-if="!customCssLoaded">{{ $t('上传 CSS 文件以覆盖界面样式') }}</span>
                     <span v-else style="color: var(--color-main)">
                         {{ $t('已加载自定义样式') }}
                         ({{ customCssSize }})
@@ -127,10 +119,9 @@
                 </button>
             </div>
             <div v-if="customCssLoaded" class="opt-item">
-                <font-awesome-icon :icon="['fas', 'eye']" />
                 <div>
                     <span>{{ $t('查看自定义样式') }}</span>
-                    <span>{{ $t('查看当前加载的样式') }}</span>
+                    <span>{{ $t('查看当前加载的样式内容') }}</span>
                 </div>
                 <button
                     style="width: 100px; font-size: 0.8rem"
@@ -140,7 +131,6 @@
                 </button>
             </div>
             <div v-if="customCssLoaded" class="opt-item">
-                <font-awesome-icon :icon="['fas', 'trash']" />
                 <div>
                     <span>{{ $t('清除自定义样式') }}</span>
                     <span>{{ $t('移除已注入的自定义样式') }}</span>
@@ -152,34 +142,46 @@
                     {{ $t('清除') }}
                 </button>
             </div>
-        </div>
-        <div class="ss-card">
-            <header>{{ $t('调试') }}</header>
             <div class="opt-item">
-                <font-awesome-icon :icon="['fas', 'paper-plane']" />
+                <div>
+                    <label for="opt-dev-revolve">{{ $t('旋转界面') }}</label>
+                    <span>{{ $t('仅供调试，开启后整个界面会缓慢旋转') }}</span>
+                </div>
+                <label class="ss-switch">
+                    <input id="opt-dev-revolve" v-model="settingsStore.sysConfig.opt_revolve"
+                        type="checkbox" name="opt_revolve" @change="save">
+                    <div>
+                        <div />
+                    </div>
+                </label>
+            </div>
+            </div>
+        </div>
+        <div class="opt-group">
+            <header class="opt-group-title">{{ $t('调试') }}</header>
+            <div class="opt-group-card">
+            <div class="opt-item">
                 <div>
                     <label for="opt-dev-send-raw">{{ $t('发送原始消息') }}</label>
-                    <span>{{ $t('咻 ——') }}</span>
+                    <span>{{ $t('向协议连接发送 JSON') }}</span>
                 </div>
                 <input id="opt-dev-send-raw" v-model="ws_text" class="ss-input"
                     style="width: 150px"
                     type="text" @keyup="sendTestWs">
             </div>
             <div class="opt-item">
-                <font-awesome-icon :icon="['fas', 'paper-plane']" />
                 <div>
-                    <label for="opt-dev-parse-raw">{{ $t('接收原始消息') }}</label>
-                    <span>{{ $t('咻咻 ——') }}</span>
+                    <label for="opt-dev-parse-raw">{{ $t('模拟接收消息') }}</label>
+                    <span>{{ $t('注入一条原始事件') }}</span>
                 </div>
                 <input id="opt-dev-parse-raw" v-model="parse_text" class="ss-input"
                     style="width: 150px"
                     type="text" @keyup="sendTestParse">
             </div>
             <div class="opt-item">
-                <font-awesome-icon :icon="['fas', 'wand-magic-sparkles']" />
                 <div>
                     <span>{{ $t('消息渲染器') }}</span>
-                    <span>{{ $t('快速检查消息渲染组件') }}</span>
+                    <span>{{ $t('预览消息渲染结果') }}</span>
                 </div>
                 <button style="width: 100px; font-size: 0.8rem"
                     class="ss-button" @click="openRawRenderPreview">
@@ -187,19 +189,17 @@
                 </button>
             </div>
             <div class="opt-item">
-                <font-awesome-icon :icon="['fas', 'envelope']" />
                 <div>
-                    <label for="opt-dev-appmsg">{{ $t('应用消息测试') }}</label>
-                    <span>{{ $t('#$&*#$= ……') }}</span>
+                    <label for="opt-dev-appmsg">{{ $t('应用内通知测试') }}</label>
+                    <span>{{ $t('发送一条本地提示') }}</span>
                 </div>
                 <input id="opt-dev-appmsg" v-model="appmsg_text" class="ss-input"
                     style="width: 150px" type="text" @keyup="sendTestAppmsg">
             </div>
             <div v-if="dev" class="opt-item">
-                <font-awesome-icon :icon="['fas', 'trash']" />
                 <div>
-                    <span>{{ $t('移除未使用的配置') }}</span>
-                    <span>{{ $t('sudo rm -rf /etc') }}</span>
+                    <span>{{ $t('清理无效配置') }}</span>
+                    <span>{{ $t('删除已不再使用的配置项') }}</span>
                 </div>
                 <button style="width: 100px; font-size: 0.8rem"
                     class="ss-button" @click="rmNeedlessOption">
@@ -207,10 +207,9 @@
                 </button>
             </div>
             <div class="opt-item">
-                <font-awesome-icon :icon="['fas', 'file-invoice']" />
                 <div>
-                    <span>{{ $t('输出运行时') }}</span>
-                    <span>{{ $t('全都吐出来！') }}</span>
+                    <span>{{ $t('输出运行时状态') }}</span>
+                    <span>{{ $t('在控制台打印当前状态') }}</span>
                 </div>
                 <button style="width: 100px; font-size: 0.8rem"
                     class="ss-button" @click="printRuntime">
@@ -218,10 +217,9 @@
                 </button>
             </div>
             <div class="opt-item">
-                <font-awesome-icon :icon="['fas', 'screwdriver-wrench']" />
                 <div>
-                    <span>{{ $t('输出调试信息') }}</span>
-                    <span>{{ $t('到底用的什么版本呢 ……') }}</span>
+                    <span>{{ $t('导出调试信息') }}</span>
+                    <span>{{ $t('收集环境与版本信息') }}</span>
                 </div>
                 <button style="width: 100px; font-size: 0.8rem"
                     class="ss-button" @click="printVersionInfo">
@@ -230,10 +228,9 @@
             </div>
             <template v-if="backend.isDesktop()">
                 <div class="opt-item">
-                    <font-awesome-icon :icon="['fas', 'power-off']" />
                     <div>
                         <span>{{ $t('重启应用') }}</span>
-                        <span>{{ $t('99% 的特性都能通过重启解决！') }}</span>
+                        <span>{{ $t('重新启动以应用部分更改') }}</span>
                     </div>
                     <button style="width: 100px; font-size: 0.8rem"
                         class="ss-button" @click="restartapp">
@@ -241,16 +238,15 @@
                     </button>
                 </div>
             </template>
+            </div>
         </div>
-        <div class="ss-card">
-            <header>{{ $t('维护与备份') }}</header>
+        <div class="opt-group">
+            <header class="opt-group-title">{{ $t('维护') }}</header>
+            <div class="opt-group-card">
             <div class="opt-item">
-                <font-awesome-icon :icon="['fas', 'upload']" />
                 <div>
-                    <span>{{ $t('导出设置项') }}</span>
-                    <span>{{
-                        $t('tar zcvf config.tar.gz /localStorage')
-                    }}</span>
+                    <span>{{ $t('导出设置') }}</span>
+                    <span>{{ $t('复制当前配置为 JSON') }}</span>
                 </div>
                 <button style="width: 100px; font-size: 0.8rem"
                     class="ss-button" @click="printSetUpInfo">
@@ -258,10 +254,9 @@
                 </button>
             </div>
             <div class="opt-item">
-                <font-awesome-icon :icon="['fas', 'download']" />
                 <div>
-                    <span>{{ $t('导入设置项') }}</span>
-                    <span>{{ $t('tar zxvf cache.tar.gz /localStorage') }}</span>
+                    <span>{{ $t('导入设置') }}</span>
+                    <span>{{ $t('从 JSON 恢复配置') }}</span>
                 </div>
                 <button style="width: 100px; font-size: 0.8rem"
                     class="ss-button" @click="importSetUpInfo">
@@ -269,15 +264,15 @@
                 </button>
             </div>
             <div class="opt-item">
-                <font-awesome-icon :icon="['fas', 'trash-arrow-up']" />
                 <div>
                     <span>{{ $t('重置应用') }}</span>
-                    <span>{{ $t('sudo rm -rf /localStorage') }}</span>
+                    <span>{{ $t('清除全部本地设置并刷新') }}</span>
                 </div>
                 <button style="width: 100px; font-size: 0.8rem"
                     class="ss-button" @click="resetApp">
                     {{ $t('执行') }}
                 </button>
+            </div>
             </div>
         </div>
     </div>
@@ -378,13 +373,6 @@
             },
             full: true,
         })
-    }
-
-    function sendAbab() {
-        new PopInfo().add(
-            PopType.INFO,
-            $t('你不是人（逃'),
-        )
     }
 
     function printRuntime() {

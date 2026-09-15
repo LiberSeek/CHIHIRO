@@ -7,24 +7,14 @@
 
 <template>
     <div class="opt-page">
-        <div class="ss-card">
-            <header>{{ $t('本土化') }}</header>
-            <div class="l10n-info">
-                <font-awesome-icon :icon="['fas', 'language']" />
-                <div>
-                    <span>{{ $t('简体中文') }}</span>
-                    <span class="author">{{ $t('作者：') }}{{ $t('Stapx Steve') }}</span>
-                    <span>{{
-                        $t('你好世界！这是 Stapxs QQ Lite 的默认简体中文。')
-                    }}</span>
-                </div>
-            </div>
+        <div class="opt-group">
+            <header class="opt-group-title">{{ $t('语言') }}</header>
+            <div class="opt-group-card">
             <div class="opt-item">
                 <div :class="checkDefault('language')" />
-                <font-awesome-icon :icon="['fas', 'earth-asia']" />
                 <div>
-                    <label for="opt-view-language">{{ $t('语言（Language）') }}</label>
-                    <span>{{ $t('喵喵喵喵？') }}</span>
+                    <label for="opt-view-language">{{ $t('界面语言') }}</label>
+                    <span>{{ $t('更改后立即生效') }}</span>
                 </div>
                 <div class="select-wrapper">
                     <select id="opt-view-language"
@@ -37,9 +27,11 @@
                     </select>
                 </div>
             </div>
+            </div>
         </div>
-        <div v-if="backend.isMobile()" class="ss-card">
-            <header>{{ $t('图标') }}</header>
+        <div v-if="backend.isMobile()" class="opt-group">
+            <header class="opt-group-title">{{ $t('图标') }}</header>
+            <div class="opt-group-card">
             <div class="icon-list">
                 <div v-for="item in getIconList()"
                     :key="item.name"
@@ -49,16 +41,17 @@
                     <span>{{ $t(item.name != '' ? item.name : '默认') }}</span>
                 </div>
             </div>
+            </div>
         </div>
-        <div v-if="!napcat" class="ss-card">
-            <header>{{ $t('主题与颜色') }}</header>
+        <div v-if="!napcat" class="opt-group">
+            <header class="opt-group-title">{{ $t('外观') }}</header>
+            <div class="opt-group-card">
             <template v-if="settingsStore.sysConfig.opt_auto_gtk != true">
                 <div id="opt_view_dark" class="opt-item">
                     <div :class="checkDefault('opt_view_dark')" />
-                    <font-awesome-icon :icon="['fas', 'moon']" />
                     <div>
                         <label for="opt-view-dark">{{ $t('深色模式') }}</label>
-                        <span>{{ $t('是五彩斑斓的黑色！') }}</span>
+                        <span>{{ $t('使用深色外观') }}</span>
                     </div>
                     <label class="ss-switch">
                         <input id="opt-view-dark" v-model="settingsStore.sysConfig.opt_dark"
@@ -70,10 +63,9 @@
                 </div>
                 <div class="opt-item">
                     <div :class="checkDefault('opt_auto_dark')" />
-                    <font-awesome-icon :icon="['fas', 'toggle-on']" />
                     <div>
-                        <label for="opt-view-auto-dark">{{ $t('自动深色模式') }}</label>
-                        <span>{{ $t('Biubiu ——，自动变黑！') }}</span>
+                        <label for="opt-view-auto-dark">{{ $t('跟随系统外观') }}</label>
+                        <span>{{ $t('根据系统设置自动切换浅色或深色') }}</span>
                     </div>
                     <label class="ss-switch">
                         <input id="opt-view-auto-dark" v-model="settingsStore.sysConfig.opt_auto_dark"
@@ -86,36 +78,32 @@
                 <template v-if="settingsStore.sysConfig.opt_auto_win_color != true">
                     <div class="opt-item">
                         <div :class="checkDefault('theme_color')" />
-                        <font-awesome-icon :icon="['fas', 'palette']" />
                         <div>
-                            <label for="theme_color_custom" @click.prevent="themeColorChange">{{ $t('主题色') }}</label>
-                            <span>{{ $t('换个心情 🎵 ~') }}</span>
+                            <span>{{ $t('主题色') }}</span>
+                            <span>{{ $t('自定义界面强调色') }}</span>
                         </div>
-                        <div class="theme-color-col">
-                            <input id="theme_color_custom"
-                                v-model="themeColorRaw"
-                                type="text"
-                                readonly
-                                @click.prevent="themeColorChange">
-                            <label class="ss-radio" style="margin-left: 10px;">
-                                <input type="radio" name="theme_color"
-                                    :checked="Number(settingsStore.sysConfig.theme_color) > 10"
-                                    @click="themeColorChange">
-                                <div style="background: linear-gradient(135deg, hsl(0 100% 50%) 0%, hsl(30 100% 60%) 16%, hsl(60 100% 60%) 33%, hsl(120 80% 45%) 50%, hsl(220 90% 45%) 66%, hsl(260 60% 40%) 83%, hsl(290 80% 50%) 100%);">
-                                    <div />
-                                </div>
-                            </label>
-                            <label v-for="(name, index) in colors" :key="'color_id_' + index"
-                                :title="name" class="ss-radio">
-                                <input type="radio" name="theme_color" :data-id="index"
-                                    :checked="settingsStore.sysConfig.theme_color === undefined ?
-                                        index === 0 : Number(settingsStore.sysConfig.theme_color) === index"
-                                    @change="save($event);gaColor($event)">
-                                <div
-                                    :style="{ 'background': `var(--color-main-${index})` }">
-                                    <div />
-                                </div>
-                            </label>
+                        <div class="theme-swatches" role="radiogroup" :aria-label="$t('主题色')">
+                            <button
+                                v-for="(name, index) in colors"
+                                :key="'color_id_' + index"
+                                type="button"
+                                class="theme-swatch"
+                                :class="{ selected: isPresetThemeColor(index) }"
+                                :title="$t(name)"
+                                :aria-label="$t(name)"
+                                :aria-pressed="isPresetThemeColor(index)"
+                                :style="{ background: themeSwatchColors[index] }"
+                                @click="selectThemeColor(index)">
+                            </button>
+                            <button
+                                type="button"
+                                class="theme-swatch theme-swatch-custom"
+                                :class="{ selected: isCustomThemeColor }"
+                                :title="$t('自定义')"
+                                :aria-label="$t('自定义')"
+                                :aria-pressed="isCustomThemeColor"
+                                @click="themeColorChange">
+                            </button>
                         </div>
                     </div>
                 </template>
@@ -123,10 +111,9 @@
             <template v-if="backend.isDesktop() && browser.os != 'Linux'">
                 <div class="opt-item">
                     <div :class="checkDefault('opt_auto_win_color')" />
-                    <font-awesome-icon :icon="['fas', 'wand-magic-sparkles']" />
                     <div>
-                        <label for="opt-view-auto-win-color">{{ $t('自动跟随主题色') }}</label>
-                        <span>{{ $t('自动获取系统的主题色设置并应用') }}</span>
+                        <label for="opt-view-auto-win-color">{{ $t('跟随系统主题色') }}</label>
+                        <span>{{ $t('使用系统当前的强调色') }}</span>
                     </div>
                     <label class="ss-switch">
                         <input id="opt-view-auto-win-color" v-model="settingsStore.sysConfig.opt_auto_win_color"
@@ -139,10 +126,9 @@
             </template>
             <div class="opt-item">
                 <div :class="checkDefault('chat_more_blur')" />
-                <font-awesome-icon :icon="['fas', 'expand']" />
                 <div>
-                    <label for="opt-view-chat-more-blur">{{ $t('透明模式') }}</label>
-                    <span>{{ $t('透明超级加倍！在界面上使用更泛滥的透明和模糊') }}</span>
+                    <label for="opt-view-chat-more-blur">{{ $t('透明效果') }}</label>
+                    <span>{{ $t('增强界面透明与模糊，可能影响性能') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-view-chat-more-blur" v-model="settingsStore.sysConfig.chat_more_blur"
@@ -154,9 +140,8 @@
             </div>
             <div v-if="settingsStore.sysConfig.chat_more_blur && backend.platform === 'darwin' && Number(backend.release.split(' ')[1].split('.')[0]) >= 26" class="opt-item">
                 <div :class="checkDefault('glass_effect')" />
-                <font-awesome-icon :icon="['fas', 'wand-sparkles']" />
                 <div>
-                    <label for="opt-view-glass-effect">{{ $t('流体玻璃窗口') }}</label>
+                    <label for="opt-view-glass-effect">{{ $t('原生玻璃效果') }}</label>
                     <span>{{ $t('仅支持 macOS 26 及以上系统') }}</span>
                 </div>
                 <label class="ss-switch">
@@ -169,10 +154,9 @@
             </div>
             <div class="opt-item">
                 <div :class="checkDefault('chat_background')" />
-                <font-awesome-icon :icon="['fas', 'image']" />
                 <div>
-                    <span>{{ $t('背景图片') }}</span>
-                    <span>{{ $t('嘿嘿嘿（痴呆') }}</span>
+                    <span>{{ $t('聊天背景') }}</span>
+                    <span>{{ $t('为会话页面设置自定义背景') }}</span>
                 </div>
                 <div class="file-choice">
                     <div class="choice-btn"
@@ -200,40 +184,34 @@
             </div>
             <div class="opt-item">
                 <div :class="checkDefault('chat_background_blur')" />
-                <font-awesome-icon :icon="['fas', 'o']" />
                 <template v-if="!settingsStore.sysConfig.chat_more_blur">
                     <div>
                         <label for="opt-view-background-blur">{{ $t('背景模糊') }}</label>
-                        <span>{{ $t('什么都看不见了（恼') }}</span>
+                        <span>{{ $t('调整背景图片的模糊程度') }}</span>
                     </div>
-                    <div class="ss-range" :style="{ '--range-precent': `${settingsStore.sysConfig.chat_background_blur}%` }">
+                    <div class="ss-range" :style="{ '--range-precent': `${Number(settingsStore.sysConfig.chat_background_blur) || 0}%` }">
                         <input id="opt-view-background-blur" v-model="settingsStore.sysConfig.chat_background_blur"
-                            type="range" name="chat_background_blur" @input="save">
+                            type="range" min="0" max="100" name="chat_background_blur" @input="save">
                         <div />
-                        <span :style="{ 'color': `var(--color-font${ settingsStore.sysConfig.chat_background_blur > 50 ? '-r' : ''})` }">
-                            {{ settingsStore.sysConfig.chat_background_blur }}
-                            px</span>
+                        <span>{{ settingsStore.sysConfig.chat_background_blur || 0 }} px</span>
                     </div>
                 </template>
                 <template v-else>
                     <div>
                         <label for="opt-view-background-opacity">{{ $t('背景透明度') }}</label>
-                        <span>{{ $t('什么都看不见了（恼') }}</span>
+                        <span>{{ $t('调整背景图片的不透明度') }}</span>
                     </div>
-                    <div class="ss-range" :style="{ '--range-precent': `${settingsStore.sysConfig.chat_background_blur}%` }">
+                    <div class="ss-range" :style="{ '--range-precent': `${Number(settingsStore.sysConfig.chat_background_blur) || 0}%` }">
                         <input id="opt-view-background-opacity" v-model="settingsStore.sysConfig.chat_background_blur"
-                            type="range" max="100" name="chat_background_blur"
+                            type="range" min="0" max="100" name="chat_background_blur"
                             @input="save">
                         <div />
-                        <span :style="{ 'color': `var(--color-font${ settingsStore.sysConfig.chat_background_blur > 50 ? '-r' : ''})` }">
-                            {{ settingsStore.sysConfig.chat_background_blur }}
-                            %</span>
+                        <span>{{ settingsStore.sysConfig.chat_background_blur || 0 }}%</span>
                     </div>
                 </template>
             </div>
             <div class="opt-item">
                 <div :class="checkDefault('chat_background_align')" />
-                <font-awesome-icon :icon="['fas', 'crosshairs']" />
                 <div>
                     <label for="opt-view-background-align">{{ $t('背景对齐') }}</label>
                     <span>{{ $t('调整背景图片的对齐位置') }}</span>
@@ -263,7 +241,6 @@
             </div>
             <div class="opt-item">
                 <div :class="checkDefault('chat_background_fit')" />
-                <font-awesome-icon :icon="['fas', 'up-right-and-down-left-from-center']" />
                 <div>
                     <label for="opt-view-background-fit">{{ $t('背景填充') }}</label>
                     <span>{{ $t('调整背景图片的填充方式') }}</span>
@@ -288,15 +265,16 @@
                     </select>
                 </div>
             </div>
+            </div>
         </div>
-        <div class="ss-card">
-            <header>{{ $t('页面') }}</header>
+        <div class="opt-group">
+            <header class="opt-group-title">{{ $t('聊天界面') }}</header>
+            <div class="opt-group-card">
             <div class="opt-item">
                 <div :class="checkDefault('chatview_name')" />
-                <font-awesome-icon :icon="['fas', 'table-columns']" />
                 <div>
-                    <label for="opt-view-chatview-name">{{ $t('消息页面主题') }}</label>
-                    <span>{{ $t('一些好玩的主题！') }}</span>
+                    <label for="opt-view-chatview-name">{{ $t('会话布局') }}</label>
+                    <span>{{ $t('选择会话页面的显示样式') }}</span>
                 </div>
                 <div class="select-wrapper">
                     <select id="opt-view-chatview-name"
@@ -315,10 +293,9 @@
             </div>
             <div class="opt-item">
                 <div :class="checkDefault('quick_send')" />
-                <font-awesome-icon :icon="['fas', 'square-xmark']" />
                 <div>
-                    <label for="opt-view-quick-send">{{ $t('默认功能按钮') }}</label>
-                    <span>{{ $t('可以右击试试哦') }}</span>
+                    <label for="opt-view-quick-send">{{ $t('快捷功能按钮') }}</label>
+                    <span>{{ $t('设置输入栏默认功能，右键可临时切换') }}</span>
                 </div>
                 <div class="select-wrapper">
                     <select id="opt-view-quick-send" v-model="settingsStore.sysConfig.quick_send" name="quick_send"
@@ -340,10 +317,9 @@
             </div>
             <div class="opt-item">
                 <div :class="checkDefault('opt_ind_message')" />
-                <font-awesome-icon :icon="['fas', 'message']" />
                 <div>
-                    <label for="opt-view-ind-message">{{ $t('独立显示消息') }}</label>
-                    <span>{{ $t('始终让自己的消息显示在右边') }}</span>
+                    <label for="opt-view-ind-message">{{ $t('自己的消息靠右显示') }}</label>
+                    <span>{{ $t('将自己发送的消息显示在会话右侧') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-view-ind-message" v-model="settingsStore.sysConfig.opt_ind_message"
@@ -355,10 +331,9 @@
             </div>
             <div class="opt-item">
                 <div :class="checkDefault('opt_fast_animation')" />
-                <font-awesome-icon :icon="['fas', 'car-side']" />
                 <div>
-                    <label for="opt-view-fast-animation">{{ $t('更快的动画速度') }}</label>
-                    <span>{{ $t('咻咻！此选项将使动画加速到 100ms 并去除部分浪费时间的组动画') }}</span>
+                    <label for="opt-view-fast-animation">{{ $t('减少动画') }}</label>
+                    <span>{{ $t('缩短过渡时间，提升操作响应') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-view-fast-animation" v-model="settingsStore.sysConfig.opt_fast_animation"
@@ -371,10 +346,9 @@
             <div v-if="isMobile() && !backend.isMobile()"
                 class="opt-item">
                 <div :class="checkDefault('initial_scale')" />
-                <font-awesome-icon :icon="['fas', 'up-down-left-right']" />
                 <div>
                     <label for="opt-view-initial-scale">{{ $t('缩放比例') }}</label>
-                    <span>{{ $t('调整页面在移动端的缩放比例') }}</span>
+                    <span>{{ $t('调整移动端页面缩放') }}</span>
                 </div>
                 <div class="ss-range" :style="{ '--range-precent': `${(initialScaleShow - 0.5) / 0.01}%` }">
                     <input id="opt-view-initial-scale" v-model="settingsStore.sysConfig.initial_scale"
@@ -394,10 +368,9 @@
                 v-if="isMobile() && !backend.isMobile()"
                 class="opt-item">
                 <div :class="checkDefault('fs_adaptation')" />
-                <font-awesome-icon :icon="['fas', 'border-top-left']" />
                 <div>
                     <label for="opt-view-fs-adaptation">{{ $t('圆角适配') }}</label>
-                    <span>{{ $t('适配全面屏设备防止四角出界') }}</span>
+                    <span>{{ $t('为全面屏设备预留安全边距') }}</span>
                 </div>
                 <div class="ss-range" :style="{ '--range-precent': `${(fsAdaptationShow / 50) * 100}%` }">
                     <input id="opt-view-fs-adaptation" v-model="settingsStore.sysConfig.fs_adaptation"
@@ -416,10 +389,9 @@
             </div>
             <div v-if="backend.type == 'web' && !napcat" class="opt-item">
                 <div :class="checkDefault('use_favicon_notice')" />
-                <font-awesome-icon :icon="['fas', 'bell']" />
                 <div>
-                    <label for="opt-view-favicon-notice">{{ $t('在图标上显示通知') }}</label>
-                    <span>{{ $t('呜呜呜——图标都被遮挡的看不到了！') }}</span>
+                    <label for="opt-view-favicon-notice">{{ $t('在应用图标上显示未读') }}</label>
+                    <span>{{ $t('用图标角标提示未读消息') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-view-favicon-notice" v-model="settingsStore.sysConfig.use_favicon_notice"
@@ -429,26 +401,13 @@
                     </div>
                 </label>
             </div>
-            <div class="opt-item">
-                <font-awesome-icon :icon="['fas', 'arrows-rotate']" />
-                <div>
-                    <label for="opt-view-revolve">{{ $t('不要点这个') }}</label>
-                    <span>{{ $t('啊吧啊吧（智慧）') }}</span>
-                </div>
-                <label class="ss-switch">
-                    <input id="opt-view-revolve" v-model="settingsStore.sysConfig.opt_revolve"
-                        type="checkbox" name="opt_revolve" @change="save">
-                    <div>
-                        <div />
-                    </div>
-                </label>
             </div>
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { markRaw, onMounted, ref, toRaw, useTemplateRef, watch } from 'vue'
+import { computed, markRaw, onMounted, ref, toRaw, useTemplateRef, watch } from 'vue'
 import Option, { run, runASWEvent as save, checkDefault, runAS } from '../../function/option'
 import { BrowserInfo, detect } from 'detect-browser'
 import { getDeviceType } from '@renderer/function/utils/systemUtil'
@@ -476,12 +435,20 @@ const $t = i18n.global.t
 
 const napcat = import.meta.env.VITE_NAPCAT
 const colors = [
-    '林槐蓝',
-    '墨竹青',
-    '少女粉',
-    '微软紫',
-    '坏猫黄',
-    '玄素黑',
+    '蓝色',
+    '青色',
+    '粉色',
+    '紫色',
+    '黄色',
+    '黑色',
+]
+const themeSwatchColors = [
+    '#007aff',
+    '#32ade6',
+    '#ff2d55',
+    '#af52de',
+    '#ffcc00',
+    '#636366',
 ]
 const browser = detect() as BrowserInfo
 
@@ -540,9 +507,19 @@ function gaChatView(event: Event) {
     sendIdentifyData({ use_chatview: sender.value })
 }
 
-function gaColor(event: Event) {
-    const sender = event.target as HTMLInputElement
-    sendIdentifyData({ use_theme_color: colors[Number(sender.dataset.id)] })
+function isPresetThemeColor(index: number) {
+    const current = Number(settingsStore.sysConfig.theme_color)
+    if (settingsStore.sysConfig.theme_color === undefined || Number.isNaN(current)) {
+        return index === 0
+    }
+    return current === index
+}
+
+const isCustomThemeColor = computed(() => Number(settingsStore.sysConfig.theme_color) > 10)
+
+function selectThemeColor(index: number) {
+    runAS('theme_color', index)
+    sendIdentifyData({ use_theme_color: colors[index] })
 }
 
 function themeColorChange(event: Event) {

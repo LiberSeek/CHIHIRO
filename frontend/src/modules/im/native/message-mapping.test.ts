@@ -18,10 +18,13 @@ import { getMsgData } from './src/function/utils/msgUtil'
 
 describe('native IM JSONPath message mapping', () => {
   it('maps recent contacts from a provider response', () => {
-    const response = { data: [{ peerUin: '20001', chatType: 1 }, { peerUin: '30001', chatType: 2 }] }
+    const response = { data: [{ peerUin: '20001', chatType: 1, unread: 5 }, { peerUin: '30001', chatType: 2 }] }
     expect(getMsgData('recent_contact', response, {
-      source: '$.data[*]', list: { user_id: '/peerUin', chat_type: '/chatType' },
-    })).toEqual([{ user_id: '20001', chat_type: 1 }, { user_id: '30001', chat_type: 2 }])
+      source: '$.data[*]', list: { user_id: '/peerUin', chat_type: '/chatType', unread: '/unread' },
+    })).toEqual([
+      { user_id: '20001', chat_type: 1, unread: 5 },
+      { user_id: '30001', chat_type: 2, unread: undefined },
+    ])
   })
 
   it('returns an empty result when no file response matches', () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  applyRecentContactUnread,
   compareSessionsByRecency,
   getSessionTime,
   mergeContactListByKind,
@@ -60,5 +61,17 @@ describe('native IM session ordering', () => {
       unread: 2,
       time: 1_700_000_001_000,
     })
+  })
+
+  it('applies recent-contact unread only when the field is present', () => {
+    const session = { user_id: 10001, unread: 4, new_msg: true } as any
+    applyRecentContactUnread(session, {})
+    expect(session).toMatchObject({ unread: 4, new_msg: true })
+    applyRecentContactUnread(session, { unread: undefined })
+    expect(session).toMatchObject({ unread: 4, new_msg: true })
+    applyRecentContactUnread(session, { unread: 7 })
+    expect(session).toMatchObject({ unread: 7, new_msg: true })
+    applyRecentContactUnread(session, { unread: 0 })
+    expect(session).toMatchObject({ unread: 0, new_msg: false })
   })
 })

@@ -263,7 +263,8 @@
 
 <style scoped>
     .theme-color-picker-pan {
-        width: min(420px, 70vw);
+        width: 100%;
+        box-sizing: border-box;
     }
 
     .tip {
@@ -400,8 +401,8 @@
 
     @media (max-width: 500px) {
         .theme-color-picker-pan {
-            width: calc(100% - 20px);
-            padding: 10px !important;
+            width: 100%;
+            padding: 0;
         }
 
         .theme-color-main {

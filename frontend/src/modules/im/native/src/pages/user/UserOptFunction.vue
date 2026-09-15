@@ -8,14 +8,14 @@
 
 <template>
     <div class="opt-page">
-        <div class="ss-card">
-            <header>{{ $t('会话选项') }}</header>
+        <div class="opt-group">
+            <header class="opt-group-title">{{ $t('会话') }}</header>
+            <div class="opt-group-card">
             <div class="opt-item">
                 <div />
-                <font-awesome-icon :icon="['fas', 'robot']" />
                 <div>
-                    <label for="opt-chihiro-bot-new-default">新对话默认开启 Bot</label>
-                    <span>只影响还没单独点过机器人图标的会话</span>
+                    <label for="opt-chihiro-bot-new-default">{{ $t('新会话默认开启 Bot') }}</label>
+                    <span>{{ $t('仅对尚未单独设置过的会话生效') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-chihiro-bot-new-default" v-model="chihiroBotNewDefault"
@@ -27,10 +27,9 @@
             </div>
             <div class="opt-item">
                 <div :class="checkDefault('bubble_sort_user')" />
-                <font-awesome-icon :icon="['fas', 'box-open']" />
                 <div>
-                    <label for="opt-function-bubble-sort-user">{{ $t('群助手') }}</label>
-                    <span>{{ $t('全都放出来！全都放出来！') }}</span>
+                    <label for="opt-function-bubble-sort-user">{{ $t('展开群助手') }}</label>
+                    <span>{{ $t('在会话列表中展开群助手内的会话') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-function-bubble-sort-user" v-model="settingsStore.sysConfig.bubble_sort_user"
@@ -42,10 +41,9 @@
             </div>
             <div class="opt-item">
                 <div :class="checkDefault('session_display_mode')" />
-                <font-awesome-icon :icon="['fas', 'address-book']" />
                 <div>
-                    <label for="opt-function-session-display-mode">{{ $t('会话显示') }}</label>
-                    <span>{{ $t('关闭时仅显示最近会话，开启后显示全部会话') }}</span>
+                    <label for="opt-function-session-display-mode">{{ $t('显示全部会话') }}</label>
+                    <span>{{ $t('关闭后仅保留最近会话') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-function-session-display-mode" :checked="settingsStore.sysConfig.session_display_mode === 'all'"
@@ -55,15 +53,16 @@
                     </div>
                 </label>
             </div>
+            </div>
         </div>
-        <div class="ss-card">
-            <header>{{ $t('通知选项') }}</header>
+        <div class="opt-group">
+            <header class="opt-group-title">{{ $t('通知') }}</header>
+            <div class="opt-group-card">
             <div class="opt-item">
                 <div :class="checkDefault('close_notice')" />
-                <font-awesome-icon :icon="['fas', 'volume-xmark']" />
                 <div>
-                    <label for="opt-function-close-notice">{{ $t('禁用通知') }}</label>
-                    <span>{{ $t('好嘛 …… 不烦你 ……') }}</span>
+                    <label for="opt-function-close-notice">{{ $t('停用通知') }}</label>
+                    <span>{{ $t('开启后不再推送新消息提醒') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-function-close-notice" v-model="settingsStore.sysConfig.close_notice"
@@ -75,17 +74,16 @@
             </div>
             <div class="opt-item">
                 <div :class="checkDefault('group_notice_type')" />
-                <font-awesome-icon :icon="['fas', 'user-group']" />
                 <div>
-                    <label for="opt-function-group-notice-type">{{ $t('群消息通知方式') }}</label>
-                    <span>{{ $t('重要消息将始终发起应用内通知和系统通知') }}</span>
+                    <label for="opt-function-group-notice-type">{{ $t('群消息通知') }}</label>
+                    <span>{{ $t('重要消息仍会发送应用内和系统通知') }}</span>
                 </div>
                 <div class="select-wrapper">
                     <select id="opt-function-group-notice-type"
                         v-model="settingsStore.sysConfig.group_notice_type"
                         name="group_notice_type" title="group_notice_type" @change="save">
                         <option value="none">
-                            {{ $t('不通知（默认）') }}
+                            {{ $t('不通知') }}
                         </option>
                         <option value="inner">
                             {{ $t('仅应用内通知') }}
@@ -96,16 +94,15 @@
                     </select>
                 </div>
             </div>
+            </div>
         </div>
-        <div class="ss-card">
-            <header>{{ $t('聊天选项') }}</header>
+        <div class="opt-group">
+            <header class="opt-group-title">{{ $t('聊天') }}</header>
+            <div class="opt-group-card">
             <div class="opt-item">
-                <font-awesome-icon :icon="['fas', 'box-archive']" />
                 <div>
                     <label for="opt-function-msg-nd">{{ $t('消息防撤回') }}</label>
-                    <span>{{
-                        ndt === 0 ? $t('说出去的话就像泼出去的水 ……') : $t('说了不做这功能就是不做')
-                    }}</span>
+                    <span>{{ $t('该功能暂未提供') }}</span>
                 </div>
                 <label
                     v-if="ndt < 3"
@@ -119,10 +116,9 @@
             </div>
             <div class="opt-item">
                 <div :class="checkDefault('msg_taill')" />
-                <font-awesome-icon :icon="['fas', 'fish-fins']" />
                 <div>
-                    <label for="opt-function-msg-tail">{{ $t('小尾巴') }}</label>
-                    <span>{{ $t('只会追加在最后一段话后面') }}</span>
+                    <label for="opt-function-msg-tail">{{ $t('消息后缀') }}</label>
+                    <span>{{ $t('发送时追加在消息末尾') }}</span>
                 </div>
                 <input id="opt-function-msg-tail" v-model="settingsStore.sysConfig.msg_taill"
                     class="ss-input" style="width: 150px"
@@ -130,12 +126,9 @@
             </div>
             <div class="opt-item">
                 <div :class="checkDefault('send_face')" />
-                <font-awesome-icon :icon="['fas', 'square-arrow-up-right']" />
                 <div>
-                    <label for="opt-function-send-face">{{ $t('直接发送表情') }}</label>
-                    <span>{{
-                        $t('咻！点击发送！')
-                    }}</span>
+                    <label for="opt-function-send-face">{{ $t('点击表情直接发送') }}</label>
+                    <span>{{ $t('无需确认，点击后立即发送') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-function-send-face" v-model="settingsStore.sysConfig.send_face"
@@ -147,10 +140,9 @@
             </div>
             <div class="opt-item">
                 <div :class="checkDefault('opt_no_auto_load_image')" />
-                <font-awesome-icon :icon="['fas', 'image']" />
                 <div>
-                    <label for="opt-function-no-auto-load-image">{{ $t('不自动加载图片') }}</label>
-                    <span>{{ $t('图片消息默认显示占位符，点击后再加载') }}</span>
+                    <label for="opt-function-no-auto-load-image">{{ $t('手动加载图片') }}</label>
+                    <span>{{ $t('图片先显示占位，点击后再加载') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-function-no-auto-load-image" v-model="settingsStore.sysConfig.opt_no_auto_load_image"
@@ -162,10 +154,9 @@
             </div>
             <div class="opt-item">
                 <div :class="checkDefault('use_breakline')" />
-                <font-awesome-icon :icon="['fas', 'keyboard']" />
                 <div>
-                    <label for="opt-function-use-breakline">{{ $t('多行模式') }}</label>
-                    <span>{{ $t('I have a shift I have an enter ...') }}</span>
+                    <label for="opt-function-use-breakline">{{ $t('多行输入') }}</label>
+                    <span>{{ $t('允许在输入框中换行') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-function-use-breakline" v-model="settingsStore.sysConfig.use_breakline" type="checkbox"
@@ -177,10 +168,9 @@
             </div>
             <div v-if="settingsStore.sysConfig.use_breakline" class="opt-item">
                 <div :class="checkDefault('send_key')" />
-                <font-awesome-icon :icon="['fas', 'keyboard']" />
                 <div>
-                    <label for="opt-function-send-key">{{ $t('发送键') }}</label>
-                    <span>{{ $t('你可以使用其他组合键来换行') }}</span>
+                    <label for="opt-function-send-key">{{ $t('发送快捷键') }}</label>
+                    <span>{{ $t('未选中的组合键可用于换行') }}</span>
                 </div>
                 <div class="select-wrapper">
                     <select v-if="backend.platform === 'darwin' || backend.platform === 'ios'" id="opt-function-send-key" v-model="settingsStore.sysConfig.send_key"
@@ -223,10 +213,9 @@
             </div>
             <div class="opt-item">
                 <div :class="checkDefault('record_recent_emoji')" />
-                <font-awesome-icon :icon="['fas', 'clock-rotate-left']" />
                 <div>
-                    <label for="opt-function-recent-emoji">{{ $t('缓存最近使用表情') }}</label>
-                    <span>{{ $t('终于不用翻表情了') }}</span>
+                    <label for="opt-function-recent-emoji">{{ $t('最近使用的表情') }}</label>
+                    <span>{{ $t('按使用情况记录常用表情') }}</span>
                 </div>
                 <div class="select-wrapper">
                     <select
@@ -241,25 +230,19 @@
                             {{ $t('使用顺序') }}
                         </option>
                         <option value="100times">
-                            {{ $t('100次使用频率（默认）') }}
+                            {{ $t('按 100 次使用频率') }}
                         </option>
                         <option value="500times">
-                            {{ $t('500次使用频率') }}
+                            {{ $t('按 500 次使用频率') }}
                         </option>
                     </select>
                 </div>
             </div>
-        </div>
-        <div class="ss-card">
-            <header>{{ $t('浏览选项') }}</header>
             <div class="opt-item">
                 <div :class="checkDefault('close_respond')" />
-                <font-awesome-icon :icon="['fas', 'comments']" />
                 <div>
-                    <label for="opt-function-close-respond">{{ $t('关闭回应功能') }}</label>
-                    <span>{{
-                        $t('如果你不想用它或者 bot 不支持，可以关闭这个功能')
-                    }}</span>
+                    <label for="opt-function-close-respond">{{ $t('隐藏消息回应') }}</label>
+                    <span>{{ $t('不在消息上显示回应入口') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-function-close-respond" v-model="settingsStore.sysConfig.close_respond"
@@ -271,12 +254,9 @@
             </div>
             <div class="opt-item">
                 <div :class="checkDefault('use_super_face')" />
-                <font-awesome-icon :icon="['fas', 'face-laugh-squint']" />
                 <div>
                     <label for="opt-function-use-super-face">{{ $t('超级表情') }}</label>
-                    <span>{{
-                        $t('小黄脸长大了，变成了大黄脸！')
-                    }}</span>
+                    <span>{{ $t('播放大尺寸表情动画') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-function-use-super-face" v-model="settingsStore.sysConfig.use_super_face"
@@ -286,16 +266,16 @@
                     </div>
                 </label>
             </div>
-
-            <div v-if="backend.isDesktop()"
-                class="opt-item">
+            </div>
+        </div>
+        <div v-if="backend.isDesktop()" class="opt-group">
+            <header class="opt-group-title">{{ $t('窗口') }}</header>
+            <div class="opt-group-card">
+            <div class="opt-item">
                 <div :class="checkDefault('opt_always_top')" />
-                <font-awesome-icon :icon="['fas', 'angle-up']" />
                 <div>
-                    <label for="opt-function-always-top">{{ $t('置顶窗口') }}</label>
-                    <span>{{
-                        $t('你也不想想让 ta 知道你不在看消息吧 ~')
-                    }}</span>
+                    <label for="opt-function-always-top">{{ $t('窗口置顶') }}</label>
+                    <span>{{ $t('保持窗口始终可见') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-function-always-top" v-model="settingsStore.sysConfig.opt_always_top"
@@ -305,17 +285,16 @@
                     </div>
                 </label>
             </div>
+            </div>
         </div>
-        <div v-if="backend.type === 'tauri'" class="ss-card">
-            <header>{{ $t('消息存储') }}</header>
-            <div
-                class="opt-item"
-                :style="{ 'background': settingsStore.sysConfig.enable_local_history ? 'var(--color-card-1)' : 'none' }">
+        <div v-if="backend.type === 'tauri'" class="opt-group">
+            <header class="opt-group-title">{{ $t('消息存储') }}</header>
+            <div class="opt-group-card">
+            <div class="opt-item">
                 <div :class="checkDefault('enable_local_history')" />
-                <font-awesome-icon :icon="['fas', 'database']" />
                 <div>
-                    <label for="opt-function-enable-local-history">{{ $t('启用消息存储') }}</label>
-                    <span>{{ $t('保存消息记录何尝不是一种囤囤鼠') }}</span>
+                    <label for="opt-function-enable-local-history">{{ $t('本地保存消息') }}</label>
+                    <span>{{ $t('将消息加密保存在本地') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-function-enable-local-history" v-model="settingsStore.sysConfig.enable_local_history"
@@ -327,15 +306,14 @@
             </div>
             <div v-if="settingsStore.sysConfig.enable_local_history" class="tip">
                 {{
-                    $t('Stapxs QQ Lite 支持将消息缓存至本地，消息将以加密数据库的方式安全的保存。')
+                    $t('消息将以加密数据库的形式保存在本地。')
                 }}
             </div>
             <div v-if="settingsStore.sysConfig.enable_local_history" class="opt-item">
                 <div :class="checkDefault('mixed_load_messages')" />
-                <font-awesome-icon :icon="['fas', 'shuffle']" />
                 <div>
-                    <label for="opt-function-mixed-load-messages">{{ $t('混合加载消息（实验性）') }}</label>
-                    <span>{{ $t('优先加载本地缓存的消息以取得更快的加载速度') }}</span>
+                    <label for="opt-function-mixed-load-messages">{{ $t('混合加载消息') }}</label>
+                    <span>{{ $t('优先读取本地缓存，加快历史消息加载（实验性）') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-function-mixed-load-messages" v-model="settingsStore.sysConfig.mixed_load_messages"
@@ -349,10 +327,9 @@
             </div>
             <div v-if="settingsStore.sysConfig.enable_local_history" class="opt-item">
                 <div :class="checkDefault('disable_local_history_image_cache')" />
-                <font-awesome-icon :icon="['fas', 'image']" />
                 <div>
-                    <label for="opt-function-disable-local-history-image-cache">{{ $t('不缓存图片') }}</label>
-                    <span>{{ $t('开启后将删除已缓存图片，仅保留消息文本') }}</span>
+                    <label for="opt-function-disable-local-history-image-cache">{{ $t('不保存图片缓存') }}</label>
+                    <span>{{ $t('开启后删除已缓存图片，仅保留消息文本') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-function-disable-local-history-image-cache" v-model="settingsStore.sysConfig.disable_local_history_image_cache"
@@ -381,17 +358,16 @@
                     <span class="db-stat-label">{{ $t('图片缓存') }}{{ dbStats.imageCount > 0 ? '\u00a0(' + dbStats.imageCount.toLocaleString() + ')' : '' }}</span>
                 </div>
             </div>
+            </div>
         </div>
-        <div class="ss-card">
-            <header>{{ $t('分析信息') }}</header>
-            <div
-                class="opt-item"
-                :style="{ 'background': settingsStore.sysConfig.close_ga !== true ? 'var(--color-card-1)' : 'none' }">
+        <div class="opt-group">
+            <header class="opt-group-title">{{ $t('使用分析') }}</header>
+            <div class="opt-group-card">
+            <div class="opt-item">
                 <div :class="checkDefault('close_ga')" />
-                <font-awesome-icon :icon="['fas', 'cloud']" />
                 <div>
-                    <label for="opt-function-close-ga">{{ $t('关闭分析') }}</label>
-                    <span>{{ $t('真的不让看吗（小声') }}</span>
+                    <label for="opt-function-close-ga">{{ $t('停用使用分析') }}</label>
+                    <span>{{ $t('开启后不再上传匿名使用数据') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-function-close-ga" v-model="settingsStore.sysConfig.close_ga" type="checkbox"
@@ -405,14 +381,13 @@
                 v-if="settingsStore.sysConfig.close_ga !== true"
                 class="tip">
                 {{
-                    $t('我们使用 Umami 对应用的使用情况进行分析，它将不会上传精确到用户的信息；你也可以在这儿控制分析功能的开关和额外分析项。')
+                    $t('使用分析仅上传匿名统计，不包含可识别个人的信息。')
                 }}
             </div>
             <div v-if="settingsStore.sysConfig.close_ga !== true" class="opt-item">
-                <font-awesome-icon :icon="['fas', 'file-invoice']" />
                 <div>
-                    <span>{{ $t('分析统计信息') }}</span>
-                    <span>{{ $t('都有些什么数据呢') }}</span>
+                    <span>{{ $t('查看分析数据') }}</span>
+                    <span>{{ $t('了解已收集的匿名统计') }}</span>
                 </div>
                 <button style="width: 100px; font-size: 0.8rem"
                     class="ss-button" @click=" showUmamiInfo">
@@ -422,10 +397,9 @@
             <div v-if="settingsStore.sysConfig.close_ga !== true"
                 class="opt-item">
                 <div :class="checkDefault('open_ga_bot')" />
-                <font-awesome-icon :icon="['fas', 'dice']" />
                 <div>
-                    <label for="opt-function-open-ga-bot">{{ $t('后端类型分析') }}</label>
-                    <span>{{ $t('在连接后上传所使用的 bot 的类型分析') }}</span>
+                    <label for="opt-function-open-ga-bot">{{ $t('上报后端类型') }}</label>
+                    <span>{{ $t('连接后统计所使用的协议实现') }}</span>
                 </div>
                 <label class="ss-switch">
                     <input id="opt-function-open-ga-bot" v-model="settingsStore.sysConfig.open_ga_bot" type="checkbox"
@@ -434,6 +408,7 @@
                         <div />
                     </div>
                 </label>
+            </div>
             </div>
         </div>
     </div>

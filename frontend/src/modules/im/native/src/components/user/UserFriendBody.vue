@@ -102,6 +102,7 @@ const muted = computed(() => isSessionMuted(props.data || {}))
 }
 #base-app .friend-body > div {
     margin-left: 10px;
+    min-width: 0;
 }
 #base-app .friend-body p {
     font-size: 13px;
@@ -110,6 +111,7 @@ const muted = computed(() => isSessionMuted(props.data || {}))
 }
 #base-app .friend-body > div > div a {
     font-size: 12px;
+    min-width: 0;
 }
 #base-app .friend-body.active {
     background: var(--color-main) !important;
@@ -136,7 +138,7 @@ const muted = computed(() => isSessionMuted(props.data || {}))
     display: flex;
     align-items: center;
     gap: 6px;
-    flex-shrink: 0;
+    flex: 0 0 auto;
     justify-content: flex-end;
 }
 #base-app .friend-body .chihiro-session-meta svg {

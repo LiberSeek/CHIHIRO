@@ -23,6 +23,22 @@ export function shouldApplySessionPreview(
     return !session.raw_msg || getSessionTime(preview) >= getSessionTime(session)
 }
 
+export function applyRecentContactUnread(
+    session: Session,
+    contact: { unread?: unknown },
+) {
+    if (!contact || !Object.prototype.hasOwnProperty.call(contact, 'unread')) {
+        return session
+    }
+    const raw = contact.unread
+    if (raw === undefined || raw === null || raw === '') return session
+    const unread = Math.floor(Number(raw))
+    if (!Number.isFinite(unread) || unread < 0) return session
+    session.unread = unread
+    session.new_msg = unread > 0
+    return session
+}
+
 export function findSessionContact(
     contacts: Session[],
     sessionId: number,

@@ -175,7 +175,10 @@ function restoreRoutedConversation() {
   const target = findRoutedConversation()
   if (!target) return
   profileOnly.value = false
-  if (chat.chatInfo.show.id === target.id && chat.chatInfo.show.type === target.type) return
+  if (chat.chatInfo.show.id === target.id && chat.chatInfo.show.type === target.type) {
+    workspace.selectIm()
+    return
+  }
   changeChat(target)
   loadHistory(target)
 }
@@ -209,6 +212,12 @@ function closeModal() {
   ui.popBoxList.shift()
 }
 
+function closeModalFromBackdrop() {
+  if (!modal.value) return
+  if (modal.value.allowQuickClose === false || modal.value.allowClose === false) return
+  closeModal()
+}
+
 watch(viewer, host => {
   detachViewer?.()
   detachViewer = host ? setNativeViewerHost(host) : undefined
@@ -223,8 +232,8 @@ watch([unreadCount, unreadOwnerAccountId], ([count, accountId]) => {
   if (!accountId) return
   shell.setAccountUnread(accountId, Number(count) || 0)
 }, { immediate: true })
-watch(showSettings, (visible) => {
-  if (visible) clearNativePopups()
+watch(showSettings, () => {
+  clearNativePopups()
 })
 watch(() => workspace.activePane, (pane) => {
   if (pane !== 'im') clearNativePopups()
@@ -298,18 +307,26 @@ onBeforeUnmount(() => {
           </div>
         </TransitionGroup>
       </Teleport>
-      <div v-if="modal" class="pop-box" role="dialog" aria-modal="true" :aria-label="modal.title">
-        <div class="pop-box-body ss-card window">
-          <header><span>{{ modal.title }}</span><button v-if="modal.allowClose !== false" type="button" aria-label="关闭" @click="closeModal">×</button></header>
-          <div v-if="modal.html" v-html="safeModalHtml" />
-          <component :is="modal.template" v-else :data="modal.data" v-bind="modal.templateValue" />
-          <div class="button"><button v-for="(button, index) in modal.button" :key="index" class="ss-button" :class="{ master: button.master }" @click="button.fun">{{ button.text }}</button></div>
-        </div>
-      </div>
       <UserFileManager v-if="panelVisible" />
       <UserViewer ref="viewer" />
       <UserTooltips />
     </div>
+    <Teleport to="#chihiro-im-overlays">
+      <div v-if="modal" class="pop-box" role="dialog" aria-modal="true" :aria-label="modal.title">
+        <div class="pop-box-body ss-card window" :class="{ full: modal.full }">
+          <header v-if="modal.title">
+            <span>{{ modal.title }}</span>
+            <button v-if="modal.allowClose !== false" type="button" aria-label="关闭" @click="closeModal">×</button>
+          </header>
+          <div v-if="modal.html" v-html="safeModalHtml" />
+          <component :is="modal.template" v-else-if="modal.template" :data="modal.data" v-bind="modal.templateValue" />
+          <div v-if="modal.button?.length" class="button">
+            <button v-for="(button, index) in modal.button" :key="index" type="button" class="ss-button" :class="{ master: button.master }" @click="button.fun">{{ button.text }}</button>
+          </div>
+        </div>
+        <div @click="closeModalFromBackdrop" />
+      </div>
+    </Teleport>
     <AgentEntry v-if="workspace.agentOpened && agentSidebar && agentThread"
       :sidebar-target="agentSidebar" :thread-target="agentThread" />
   </section>
@@ -373,15 +390,134 @@ onBeforeUnmount(() => {
 .chihiro-global-toast.app-msg > div > span { min-width:0; overflow-wrap:anywhere; }
 .chihiro-global-toast.app-msg button { display:grid; width:22px; height:22px; flex:0 0 22px; place-items:center; padding:0; border:0; border-radius:6px; color:inherit; background:rgba(255,255,255,.16); cursor:pointer; font-size:16px; line-height:1; }
 .chihiro-global-toast.app-msg button:hover { background:rgba(255,255,255,.24); }
-.chihiro-native-im .pop-box-body header { display:flex; justify-content:space-between; }
-.chihiro-native-im .pop-box-body,
+#chihiro-im-overlays .pop-box {
+  position:fixed !important;
+  inset:0;
+  top:0;
+  left:0;
+  z-index:20;
+  display:flex;
+  width:100%;
+  height:100%;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  box-sizing:border-box;
+  pointer-events:auto;
+}
+#chihiro-im-overlays .pop-box > div:last-child {
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  margin:0;
+  background:rgba(0,0,0,.46);
+  opacity:1;
+}
+#chihiro-im-overlays .pop-box-body {
+  position:relative;
+  top:auto;
+  right:auto;
+  bottom:auto;
+  left:auto;
+  z-index:21;
+  display:flex;
+  width:min(420px, calc(100vw - 48px));
+  min-width:0;
+  max-height:calc(100vh - 48px);
+  margin:0 !important;
+  overflow:auto;
+  transform:none !important;
+  flex-direction:column;
+  border-radius:12px;
+  background:var(--color-card) !important;
+  color:var(--color-font);
+  box-shadow:0 18px 48px rgba(0,0,0,.36);
+  backdrop-filter:none !important;
+}
+#chihiro-im-overlays .pop-box-body.full,
+#chihiro-im-overlays .pop-box-body.full.window {
+  width:min(920px, calc(100vw - 48px));
+  height:auto;
+  max-height:calc(100vh - 48px);
+  margin:0;
+  transform:none;
+}
+#chihiro-im-overlays .pop-box-body header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:16px 18px 0;
+}
+#chihiro-im-overlays .pop-box-body header span,
+#chihiro-im-overlays .pop-box-body header a {
+  min-width:0;
+  color:var(--color-font);
+  font-size:.95rem;
+  font-weight:600;
+}
+#chihiro-im-overlays .pop-box-body header button {
+  display:grid;
+  width:28px;
+  height:28px;
+  flex:0 0 28px;
+  place-items:center;
+  padding:0;
+  border:0;
+  border-radius:8px;
+  color:var(--color-font-1);
+  background:transparent;
+  cursor:pointer;
+  font-size:18px;
+  line-height:1;
+}
+#chihiro-im-overlays .pop-box-body header button:hover {
+  color:var(--color-font);
+  background:rgba(127,127,127,.12);
+}
+#chihiro-im-overlays .pop-box-body > :not(header):not(.button) {
+  padding:16px 18px;
+}
+#chihiro-im-overlays .pop-box-body > div.button {
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  gap:8px;
+  margin:0;
+  padding:4px 18px 16px;
+  border-radius:0 0 12px 12px;
+  background:transparent !important;
+}
+#chihiro-im-overlays .pop-box-body > div.button > button,
+#chihiro-im-overlays .pop-box-body > div.button > button.ss-button {
+  display:inline-flex;
+  box-sizing:border-box;
+  height:32px;
+  min-width:72px;
+  align-items:center;
+  justify-content:center;
+  margin:0;
+  padding:0 16px;
+  border:0;
+  border-radius:999px;
+  background:var(--color-card-2);
+  color:var(--color-font);
+  box-shadow:none;
+  cursor:pointer;
+  font-size:.82rem;
+  font-weight:600;
+  line-height:1;
+  white-space:nowrap;
+}
+#chihiro-im-overlays .pop-box-body > div.button > button.master {
+  background:var(--color-font) !important;
+  color:var(--color-bg) !important;
+}
 .chihiro-native-im .ss-card.window {
   background: var(--color-card) !important;
   color: var(--color-font);
   backdrop-filter: none !important;
-}
-.chihiro-native-im .pop-box-body > div.button {
-  background: var(--color-card-1) !important;
 }
 .chihiro-native-im .forward-pan > div.card,
 .chihiro-native-im .user-skin.chat-pan .face-pan,

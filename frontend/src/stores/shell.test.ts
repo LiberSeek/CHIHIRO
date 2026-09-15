@@ -123,6 +123,46 @@ describe('runtime account shell', () => {
     expect(shell.accounts.find(account => account.id === b)?.unread).toBe(12)
   })
 
+  it('shows runtime unread for every account without selecting it', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(response({ accounts: { activeId: a, accounts: [
+        { id: a, nickname: 'A', online: true, unread: 5 },
+        { id: b, nickname: 'B', online: true, unread: 47 },
+      ] } }))
+      .mockResolvedValueOnce(response({ accounts: { activeId: a, accounts: [
+        { id: a, nickname: 'A', online: true, unread: 5 },
+        { id: b, nickname: 'B', online: true, unread: 1 },
+      ] } })))
+    const shell = useShellStore()
+
+    await shell.refreshAccounts()
+    expect(shell.accounts.find(account => account.id === a)?.unread).toBe(5)
+    expect(shell.accounts.find(account => account.id === b)?.unread).toBe(47)
+
+    await shell.refreshAccounts()
+    expect(shell.accounts.find(account => account.id === a)?.unread).toBe(5)
+    expect(shell.accounts.find(account => account.id === b)?.unread).toBe(1)
+  })
+
+  it('keeps live unread for the selected account and still updates others from runtime', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(response({ accounts: { activeId: a, accounts: [
+        { id: a, nickname: 'A', online: true, unread: 8 },
+        { id: b, nickname: 'B', online: true, unread: 9 },
+      ] } }))
+      .mockResolvedValueOnce(response({ accounts: { activeId: a, accounts: [
+        { id: a, nickname: 'A', online: true, unread: 8 },
+        { id: b, nickname: 'B', online: true, unread: 20 },
+      ] } })))
+    const shell = useShellStore()
+
+    await shell.refreshAccounts()
+    shell.setAccountUnread(a, 2)
+    await shell.refreshAccounts()
+    expect(shell.accounts.find(account => account.id === a)?.unread).toBe(2)
+    expect(shell.accounts.find(account => account.id === b)?.unread).toBe(20)
+  })
+
 
   it('does not recreate removed accounts when unread is updated for an unknown id', async () => {
     vi.stubGlobal('fetch', vi.fn()

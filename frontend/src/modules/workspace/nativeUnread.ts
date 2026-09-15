@@ -14,18 +14,20 @@ export function countNativeUnreadSessions(
   explicitCount = 0,
 ): number {
   const counted = Math.max(0, Number(explicitCount) || 0)
-  const seen = new Set<string>()
-  let sessions = 0
+  const seen = new Map<string, number>()
   const add = (item: NativeUnreadItem) => {
     const id = item.user_id ? `user:${item.user_id}` : item.group_id ? `group:${item.group_id}` : ''
-    if (!id || seen.has(id)) return
-    if ((Number(item.unread) || 0) <= 0 && item.new_msg !== true) return
-    seen.add(id)
-    sessions += 1
+    if (!id) return
+    const unread = Math.max(0, Number(item.unread) || 0)
+    const n = unread > 0 ? unread : item.new_msg === true ? 1 : 0
+    if (n <= 0) return
+    seen.set(id, Math.max(seen.get(id) || 0, n))
   }
   onMsgList.forEach(add)
   groupAssistList.forEach(add)
-  return Math.max(counted, sessions)
+  let total = 0
+  seen.forEach((n) => { total += n })
+  return Math.max(counted, total)
 }
 
 export function nativeUnreadOwnerAccountId(state: NativeUnreadOwnerState): AccountId | null {

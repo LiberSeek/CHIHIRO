@@ -253,9 +253,14 @@ export function createRuntime({ root, cfg, services = {} }) {
     }
 
     if (p === '/api/runtime/login/cancel' && method === 'POST') {
-      const snap = await qq.cancelLogin()
-      snap.astrbot = await astrbot.refreshStatus()
-      return json(res, snap)
+      try {
+        const snap = await qq.cancelLogin()
+        snap.astrbot = await astrbot.refreshStatus()
+        return json(res, snap)
+      } catch (e) {
+        logError('api', 'login.cancel', e)
+        return json(res, { error: e.message, message: e.message, ...(await snapshot()) }, 500)
+      }
     }
 
     if (p === '/api/runtime/start' && method === 'POST') {

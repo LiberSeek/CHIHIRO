@@ -4,6 +4,11 @@
 :root {
     --color-main: #007aff;
     --color-main-0: #007aff;
+    --color-main-1: #32ade6;
+    --color-main-2: #ff2d55;
+    --color-main-3: #af52de;
+    --color-main-4: #ffcc00;
+    --color-main-5: #636366;
     --color-font-r: #ffffff;
     --color-font-1-r: rgba(255, 255, 255, 0.78);
     --chihiro-list-width: 280px;
