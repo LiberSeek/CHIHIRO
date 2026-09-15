@@ -9,6 +9,7 @@ import { createRuntime } from '../runtime/api.mjs'
 import { liveNapcatSecrets } from '../runtime/napcat-secrets.mjs'
 import { log, logError } from '../runtime/log.mjs'
 import { resolveNapcatProxy, resolveOnebotWsTarget } from './napcat-routing.mjs'
+import { ensureAstrbotReady } from './astrbot-proxy.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '../../..')
@@ -321,17 +322,20 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname.startsWith('/astrbot/api/')) {
+    if (!await ensureAstrbotReady({ astrbot: runtime.astrbot, res })) return
     try {
       authorizeAstrbotRequest(req, url, runtime.astrbot)
       proxy.web(req, res, { target: astrbotTarget() })
-    } catch {
-      res.writeHead(503, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ error: 'astrbot_unavailable', message: '请在工作台重试启动 Agent' }))
+    } catch (error) {
+      logError('gw', 'astrbot authorize', error.message)
+      res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' })
+      res.end(JSON.stringify({ error: 'astrbot_unavailable', message: error.message }))
     }
     return
   }
 
   if (url.pathname === '/astrbot' || url.pathname.startsWith('/astrbot/')) {
+    if (!await ensureAstrbotReady({ astrbot: runtime.astrbot, res })) return
     req.url = (url.pathname.replace(/^\/astrbot/, '') || '/') + url.search
     proxy.web(req, res, { target: astrbotTarget() })
     return
@@ -391,15 +395,24 @@ server.on('upgrade', (req, socket, head) => {
     return
   }
   if (url.pathname.startsWith('/astrbot/api/')) {
-    try {
-      authorizeAstrbotRequest(req, url, runtime.astrbot, { websocket: true })
-      proxy.ws(req, socket, head, { target: astrbotTarget() })
-    } catch { socket.destroy() }
+    void (async () => {
+      if (!await ensureAstrbotReady({ astrbot: runtime.astrbot, socket })) return
+      try {
+        authorizeAstrbotRequest(req, url, runtime.astrbot, { websocket: true })
+        proxy.ws(req, socket, head, { target: astrbotTarget() })
+      } catch (error) {
+        logError('gw', 'astrbot websocket authorize', error.message)
+        socket.destroy()
+      }
+    })()
     return
   }
   if (url.pathname === '/astrbot' || url.pathname.startsWith('/astrbot/')) {
-    req.url = (url.pathname.replace(/^\/astrbot/, '') || '/') + url.search
-    proxy.ws(req, socket, head, { target: astrbotTarget() })
+    void (async () => {
+      if (!await ensureAstrbotReady({ astrbot: runtime.astrbot, socket })) return
+      req.url = (url.pathname.replace(/^\/astrbot/, '') || '/') + url.search
+      proxy.ws(req, socket, head, { target: astrbotTarget() })
+    })()
     return
   }
   if (routedPath.startsWith('/webui') || routedPath.startsWith('/plugin') || routedPath.startsWith('/api/')) {

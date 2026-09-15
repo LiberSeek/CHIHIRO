@@ -7,6 +7,7 @@ import path from 'node:path'
 import httpProxy from 'http-proxy'
 import { WebSocket, WebSocketServer } from 'ws'
 import { serveAstrbotChatui, authorizeAstrbotRequest } from '../../src/gateway/astrbot-chatui.mjs'
+import { ensureAstrbotReady } from '../../src/gateway/astrbot-proxy.mjs'
 
 const listen = (server) => new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`)))
 test('ChatUI assets are local, missing/encoded escaping assets never fall through to Python', async (t) => {
@@ -64,4 +65,45 @@ test('hosted API preserves POST streaming and authenticates HTTP and WebSocket i
   const message = await new Promise((resolve, reject) => { socket.once('message', data => resolve(data.toString())); socket.once('error', reject) })
   assert.equal(message, 'connected')
   socket.terminate()
+})
+
+test('AstrBot proxy boundary starts AstrBot before forwarding requests', async () => {
+  const order = []
+  const astrbot = {
+    ensure: async () => { order.push('ensure') }
+  }
+  const res = {
+    headersSent: false,
+    writeHead: () => {},
+    end: () => {}
+  }
+  assert.equal(await ensureAstrbotReady({ astrbot, res }), true)
+  order.push('proxy')
+  assert.deepEqual(order, ['ensure', 'proxy'])
+})
+
+test('AstrBot proxy boundary returns a readable 503 when startup fails', async () => {
+  let response
+  const astrbot = {
+    ensure: async () => { throw new Error('connection refused') }
+  }
+  const res = {
+    headersSent: false,
+    writeHead: (status, headers) => { response = { status, headers } },
+    end: (body) => { response.body = JSON.parse(body) }
+  }
+  assert.equal(await ensureAstrbotReady({ astrbot, res }), false)
+  assert.equal(response.status, 503)
+  assert.equal(response.body.error, 'astrbot_unavailable')
+  assert.match(response.body.detail, /connection refused/)
+})
+
+test('AstrBot WebSocket proxy boundary closes the socket when startup fails', async () => {
+  let destroyed = false
+  const astrbot = {
+    ensure: async () => { throw new Error('connection refused') }
+  }
+  const socket = { destroyed: false, destroy: () => { destroyed = true } }
+  assert.equal(await ensureAstrbotReady({ astrbot, socket }), false)
+  assert.equal(destroyed, true)
 })
