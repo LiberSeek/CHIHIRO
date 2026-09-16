@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, provide, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref } from 'vue'
 import { onThemeChange } from '@/theme'
 import { UserChat } from './native'
+import ConfirmDialog from './ConfirmDialog.vue'
 import { useCustomizerStore } from './native/src/stores/customizer'
 import { useToastStore } from './native/src/stores/toast.js'
 import { createHostedAgentNavigation, agentNavigationKey } from './native/src/navigation'
+import type { ConfirmDialogHandler } from './native/src/utils/confirmDialog'
 import { useWorkspace } from '@/modules/workspace/workspace'
 import { useRouter } from 'vue-router'
 
@@ -50,6 +52,27 @@ const currentToast = computed(() => toast.current as {
 } | undefined)
 const snackbarOpen = computed({ get: () => !!currentToast.value, set: (value) => { if (!value) toast.shift() } })
 onBeforeUnmount(() => { while (toast.current) toast.shift() })
+const confirmDialog = ref<{ open: ConfirmDialogHandler } | null>(null)
+const pendingConfirms = new Set<(answer: boolean) => void>()
+provide('$confirm', ((options) => new Promise<boolean>((resolve) => {
+  for (const pending of pendingConfirms) pending(false)
+  pendingConfirms.clear()
+  pendingConfirms.add(resolve)
+  const settle = (answer: boolean) => {
+    pendingConfirms.delete(resolve)
+    resolve(answer)
+  }
+  const open = () => {
+    if (!confirmDialog.value) {
+      settle(false)
+      return
+    }
+    void confirmDialog.value.open(options).then(settle)
+  }
+  if (confirmDialog.value) open()
+  else void nextTick(open)
+})) as ConfirmDialogHandler)
+onBeforeUnmount(() => { for (const resolve of pendingConfirms) resolve(false); pendingConfirms.clear() })
 </script>
 
 <template>
@@ -62,6 +85,7 @@ onBeforeUnmount(() => { while (toast.current) toast.shift() })
           <button v-if="!starting" type="button" @click="startAgent">重试连接</button>
         </div>
       </Teleport>
+      <ConfirmDialog ref="confirmDialog" />
       <v-snackbar v-if="currentToast" v-model="snackbarOpen" :color="currentToast.color"
         :timeout="currentToast.timeout" :multi-line="currentToast.multiLine" location="top center">
         {{ currentToast.message }}

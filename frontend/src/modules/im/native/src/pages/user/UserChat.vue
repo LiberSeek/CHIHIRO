@@ -60,8 +60,40 @@
             </div>
             <div class="space" />
             <div class="chihiro-head-actions">
-                <div class="chihiro-feature-btn" :class="{ active: chihiroFeatureOpen }" :title="$t('会话助手')" @click.stop="toggleChihiroFeature">
-                    <span class="chihiro-ai-symbol" aria-hidden="true">✦</span>
+                <div class="chihiro-bot-wrap">
+                    <div class="chihiro-feature-btn" :class="{ on: suggest.enabled }" title="ChatBot" @click.stop="toggleChihiroFeature">
+                        <span class="chihiro-ai-symbol" aria-hidden="true">✦</span>
+                    </div>
+                    <div v-if="suggest.menuOpen" class="chihiro-bot-menu" @click.stop>
+                        <div class="chihiro-bot-row">
+                            <span>ChatBot</span>
+                            <label class="ss-switch chihiro-bot-switch">
+                                <input type="checkbox" :checked="suggest.enabled" @change="suggest.setEnabled(!suggest.enabled)">
+                                <div><div /></div>
+                            </label>
+                        </div>
+                        <div class="chihiro-bot-row">
+                            <span>模式</span>
+                            <div class="chihiro-bot-tabs" :class="{ disabled: !suggest.enabled }">
+                                <button type="button" :class="{ 'is-on': suggest.mode === 'assist' }" :disabled="!suggest.enabled" @click="suggest.setMode('assist')">辅助</button>
+                                <button type="button" :class="{ 'is-on': suggest.mode === 'auto' }" :disabled="!suggest.enabled" @click="suggest.setMode('auto')">自动</button>
+                            </div>
+                        </div>
+                        <div class="chihiro-bot-row">
+                            <span>配置</span>
+                            <button
+                                v-if="suggest.needsAstrBotSetup"
+                                type="button"
+                                class="chihiro-bot-setup"
+                                @click="openChatBotSetup">去配置</button>
+                            <div v-else class="select-wrapper chihiro-bot-select">
+                                <select :disabled="!suggest.enabled" :value="suggest.configId ?? ''" @change="onSuggestConfigChange">
+                                    <option value="">未指定</option>
+                                    <option v-for="item in suggest.configs" :key="item.id" :value="item.id">{{ item.name }}</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="chihiro-history-btn" :class="{ active: chihiroHistory.open }" :title="$t('搜索消息')" @click.stop="toggleChihiroHistory">
                     <font-awesome-icon :icon="['fas', 'clock-rotate-left']" />
@@ -395,7 +427,7 @@
                 @cancel-select="exitMultipleSelect"
                 @select-pic="selectImg"
                 @select-file="selectFile">
-                <template #assistant><AssistantPanel v-if="assistant.open" /></template>
+                <template #assistant><SuggestBar surface="composer" /></template>
                 <template #extra>
                     <slot name="main-input-button" />
                 </template>
@@ -428,6 +460,10 @@
                     <div v-show="tags.menuDisplay.relpy" @click="menuReplyMsg(true)">
                         <div><font-awesome-icon :icon="['fas', 'message']" /></div>
                         <a>{{ $t('回复') }}</a>
+                    </div>
+                    <div v-show="tags.menuDisplay.askBot" @click="generateSuggestFromMenu">
+                        <div><span class="chihiro-ai-symbol">✦</span></div>
+                        <a>生成建议</a>
                     </div>
                     <div v-show="tags.menuDisplay.forward" @click="showForWard()">
                         <div><font-awesome-icon :icon="['fas', 'share']" /></div>
@@ -553,8 +589,12 @@
 <script setup lang="ts">
 import app from '@chihiro/im-native/host'
 import { i18n } from '@chihiro/im-native/host'
-import { useAssistantStore } from '@/modules/assistant/session'
-import AssistantPanel from '@/modules/assistant/AssistantPanel.vue'
+import { useSuggestStore, IDLE_MS, hasSubstantialText } from '@/modules/assistant/suggest'
+import SuggestBar from '@/modules/assistant/SuggestBar.vue'
+import { useShellStore } from '@/stores/shell'
+import { useWorkspace } from '@/modules/workspace/workspace'
+import { createHostedAgentNavigation } from '@/modules/agent/native/src/navigation'
+import { useRouter } from 'vue-router'
 import {
     forwardContactKey,
     hasOutgoingContent as hasComposerContent,
@@ -572,7 +612,6 @@ import UserComposer from '@renderer/components/user/UserComposer.vue'
 import imageCompression from 'browser-image-compression'
 
 import {
-    computed,
     ref,
     watch,
     onMounted,
@@ -688,10 +727,118 @@ function isChatScopeCurrent(scope: NativeAsyncScope) {
         viewGeneration,
     )
 }
-const assistant = useAssistantStore()
-const chihiroFeatureOpen = computed(() => assistant.open)
-function toggleChihiroFeature() {
-    assistant.open = !assistant.open
+const shell = useShellStore()
+const suggest = useSuggestStore()
+const workspace = useWorkspace()
+const router = useRouter()
+const agentNav = createHostedAgentNavigation(router, workspace)
+function openChatBotSetup() {
+    suggest.closeMenu()
+    workspace.selectList('workbench')
+    void agentNav.openProviderWorkspace()
+}
+async function toggleChihiroFeature() {
+    if (suggest.menuOpen) {
+        suggest.closeMenu()
+        return
+    }
+    if (!suggest.configsReady) await suggest.loadConfigs()
+    if (suggest.needsAstrBotSetup) {
+        openChatBotSetup()
+        return
+    }
+    suggest.toggleMenu()
+}
+function onSuggestConfigChange(event: Event) {
+    const value = (event.target as HTMLSelectElement).value
+    void suggest.setConfigId(value || null)
+}
+function isSuggestChatMessage(item: any) {
+    if (!item || item.fake_msg) return false
+    if (item.post_type && item.post_type !== 'message' && item.post_type !== 'message_sent') return false
+    if (!item.message_id || !item.message?.length) return false
+    return true
+}
+function conversationSuggestMessages() {
+    const self = Number(authStore.loginInfo.uin)
+    return list.filter(isSuggestChatMessage).slice(-20).flatMap((item: any) => {
+        const text = String(item.raw_message || getMsgRawTxt(item) || '').trim()
+        if (!text) return []
+        return [{ role: Number(item.sender?.user_id) === self ? 'me' as const : 'them' as const, text }]
+    })
+}
+function lastThemMessage() {
+    const self = Number(authStore.loginInfo.uin)
+    for (let index = list.length - 1; index >= 0; index--) {
+        const item = list[index]
+        if (!isSuggestChatMessage(item)) continue
+        if (Number(item.sender?.user_id) !== self) return item
+    }
+    return null
+}
+function composerHasContent() {
+    return hasSubstantialText(composer.value?.getPlainText?.() || msg.value) ||
+        Boolean(composer.value?.hasInlineFaces?.() || composer.value?.hasInlineAts?.())
+}
+function fillSuggest(text: string) {
+    const current = (composer.value?.getPlainText?.() || msg.value || '').replace(/\s+$/g, '')
+    const next = current ? `${current} ${text}` : text
+    composer.value?.setPlainText?.(next)
+    msg.value = next
+    toMainInput()
+}
+function sendSuggest(text: string, force = false) {
+    if (!text.trim()) return
+    if (!force && composerHasContent()) {
+        suggest.cancelCountdown()
+        return
+    }
+    const id = chat.show.temp ? chat.show.id + '/' + chat.show.temp : chat.show.id
+    sendMsgRaw(id, chat.show.type, [{ type: 'text', text }], true)
+    suggest.clearChips()
+}
+function bindSuggestActions() {
+    suggest.bindActions({
+        fill: fillSuggest,
+        send: sendSuggest,
+        inputText: () => composer.value?.getPlainText?.() || msg.value,
+    })
+}
+function syncSuggestContext() {
+    if (profileOnly || !shell.activeAccountId || !chat.show?.id) return
+    suggest.select({
+        accountId: shell.activeAccountId,
+        type: chat.show.type === 'group' ? 'group' : 'private',
+        peerId: String(chat.show.id),
+    })
+    bindSuggestActions()
+}
+function requestAutoSuggest(messageId: string) {
+    if (profileOnly || !suggest.enabled || composerHasContent()) return
+    void suggest.requestSuggest({
+        lastMessageId: messageId,
+        trigger: 'auto',
+        messages: conversationSuggestMessages(),
+    })
+}
+let suggestIdleTimer: ReturnType<typeof setTimeout> | undefined
+let seenSuggestIds = new Set<string>()
+let suggestReady = false
+function seedSuggestIds() {
+    seenSuggestIds = new Set()
+    for (const item of list) {
+        if (item?.message_id) seenSuggestIds.add(String(item.message_id))
+    }
+}
+function onSuggestIdle() {
+    suggest.onOperatorInput()
+    if (suggestIdleTimer !== undefined) clearTimeout(suggestIdleTimer)
+    suggestIdleTimer = setTimeout(() => {
+        suggestIdleTimer = undefined
+        const incoming = lastThemMessage()
+        if (!incoming) return
+        requestAutoSuggest(String(incoming.message_id))
+    }, IDLE_MS)
 }
 function toggleChihiroPlus() {
     chihiroPlusOpen.value = !chihiroPlusOpen.value
@@ -883,6 +1030,7 @@ const composer = useTemplateRef<{
     getPlainText: () => string
     hasInlineFaces: () => boolean
     hasInlineAts: () => boolean
+    setPlainText: (text: string) => void
 }>('composer')
 function getMainInput() {
     return composer.value?.getInput?.() ?? null
@@ -968,6 +1116,8 @@ function onChihiroDocClick(e: Event) {
         if (t && typeof t.closest === 'function' && t.closest('#msgMenu')) return
         closeMsgMenu()
     }
+    if (t && typeof t.closest === 'function' && t.closest('.chihiro-bot-wrap')) return
+    if (suggest.menuOpen) suggest.closeMenu()
     if (t && typeof t.closest === 'function' && (
         t.closest('.face-pan') ||
         t.closest('.chihiro-face-btn') ||
@@ -1001,6 +1151,10 @@ function onChihiroDocKey(e: KeyboardEvent) {
     }
     if (chihiroPlusOpen.value) {
         chihiroPlusOpen.value = false
+        return
+    }
+    if (suggest.menuOpen) {
+        suggest.closeMenu()
         return
     }
     if (details.value[1].open) details.value[1].open = false
@@ -1162,6 +1316,17 @@ watch(() => chat.show?.id, (id) => {
 }, { flush: 'sync', immediate: true })
 
 watch(currentConversationKey, () => {
+    suggestReady = false
+    seedSuggestIds()
+    if (suggestIdleTimer !== undefined) {
+        clearTimeout(suggestIdleTimer)
+        suggestIdleTimer = undefined
+    }
+    syncSuggestContext()
+    nextTick(() => {
+        seedSuggestIds()
+        suggestReady = true
+    })
     viewGeneration++
     searchRequestId.value++
     if (searchDebounceTimer.value) {
@@ -1189,6 +1354,16 @@ watch(currentConversationKey, () => {
 watch(() => msg.value, (_newMsg, oldMsgVal) => {
     oldMsg.value = oldMsgVal
     scheduleResizeMainInput()
+    onSuggestIdle()
+})
+
+watch(() => [suggest.generating, suggest.replies.length] as const, () => {
+    nextTick(() => {
+        scheduleChatPaddingUpdate(followingBottom ? () => {
+            const pan = document.getElementById('msgPan')
+            if (pan) scrollTo(pan.scrollHeight, false)
+        } : undefined)
+    })
 })
 
 watch(() => profileOnly, (value) => {
@@ -1201,6 +1376,10 @@ watch(() => profileOnly, (value) => {
 })
 
 onMounted(() => {
+    bindSuggestActions()
+    syncSuggestContext()
+    seedSuggestIds()
+    suggestReady = true
     const history = useSessionHistoryStore()
     const sessionId = chat.show.id
     const session = [...contactStore.userList].find(i => (i.user_id ?? i.group_id) === sessionId)
@@ -1211,6 +1390,14 @@ onMounted(() => {
     watch(() => list.map((item) => item.message_id + '_' + item.fake_msg),
         (newIds, oldIds = []) => {
             updateList(newIds.length, oldIds.length)
+            const last = list[list.length - 1]
+            const lastId = last ? String(last.message_id || '') : ''
+            if (suggestReady && oldIds.length > 0 && newIds.length >= oldIds.length && lastId && !seenSuggestIds.has(lastId) && String(lastThemMessage()?.message_id) === lastId) {
+                requestAutoSuggest(lastId)
+            }
+            for (const item of list) {
+                if (item?.message_id) seenSuggestIds.add(String(item.message_id))
+            }
         },
     )
     watch(() => chat.info.jin_info?.list?.length ?? 0, () => {
@@ -1237,6 +1424,11 @@ onMounted(() => {
 onBeforeUnmount(() => {
     viewGeneration++
     searchRequestId.value++
+    if (suggestIdleTimer !== undefined) {
+        clearTimeout(suggestIdleTimer)
+        suggestIdleTimer = undefined
+    }
+    suggest.closeMenu()
     stopSettlingToBottom()
     if (searchDebounceTimer.value) {
         clearTimeout(searchDebounceTimer.value)
@@ -1289,8 +1481,8 @@ function updateChatPadding() {
     const chatPan = msgPan.value
     if (!morePan || !padding || !chatPan) return
 
-    const scrollbarGap = 12
-    chatPan.style.marginBottom = `${morePan.offsetHeight + scrollbarGap}px`
+    const scrollbarGap = morePan.querySelector('.chihiro-suggest-bar') ? 20 : 12
+    chatPan.style.setProperty('margin-bottom', `${morePan.offsetHeight + scrollbarGap}px`, 'important')
 
     const contentBlocks = Array.from(morePan.children)
         .flatMap(child => Array.from(child.children))
@@ -2092,18 +2284,17 @@ function menuReplyMsg(closeMenu = true) {
     }
 }
 
-function quoteToBot() {
+function generateSuggestFromMenu() {
     const msgData = selectedMsg.value
-    if (!msgData) return
-    let text = ''
-    if (tags.value.menuDisplay.copySelect && selectCache.value) {
-        text = String(selectCache.value)
-    } else {
-        text = String(msgData.raw_message || getMsgRawTxt(msgData) || '')
-    }
-    assistant.quote = text.trim()
-    assistant.open = true
     closeMsgMenu()
+    if (!msgData || profileOnly) return
+    const messageId = String(msgData.message_id || '')
+    if (!messageId) return
+    void suggest.requestSuggest({
+        lastMessageId: messageId,
+        trigger: 'menu',
+        messages: conversationSuggestMessages(),
+    })
 }
 
 function replyMsg(msgData: any) {
@@ -3897,6 +4088,166 @@ function exitWin() {
     flex: 0 0 auto;
     margin-right: 0;
 }
+.chihiro-bot-wrap {
+    position: relative;
+}
+.chihiro-bot-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 40;
+    width: 280px;
+    padding: 8px 12px;
+    border: 1px solid var(--color-card-2);
+    border-radius: 12px;
+    background: var(--color-card);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+    color: var(--color-font);
+    font-size: 13px;
+}
+.chihiro-bot-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 40px;
+}
+.chihiro-bot-row > span {
+    color: var(--color-font);
+    flex: 0 0 auto;
+}
+.chihiro-bot-switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    width: 40px;
+    min-width: 40px;
+    height: 22px;
+    margin: 0;
+    cursor: pointer;
+}
+.chihiro-bot-switch input {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+    appearance: none;
+    display: block !important;
+}
+.chihiro-bot-switch > div {
+    position: relative;
+    width: 40px;
+    height: 22px;
+    border-radius: 11px;
+    background: rgba(127, 127, 127, 0.38);
+    transition: background 0.2s;
+}
+.chihiro-bot-switch > div > div {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+    transition: transform 0.2s;
+}
+.chihiro-bot-switch input:checked ~ div {
+    background: var(--color-main);
+}
+.chihiro-bot-switch input:checked ~ div > div {
+    transform: translateX(18px);
+}
+.chihiro-bot-tabs {
+    display: flex;
+    padding: 3px;
+    background: rgba(127, 127, 127, 0.14);
+    border-radius: 10px;
+}
+.chihiro-bot-tabs button {
+    appearance: none;
+    min-width: 52px;
+    height: 28px;
+    margin: 0;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--color-font-2);
+    font-size: 13px;
+    cursor: pointer;
+}
+.chihiro-bot-tabs button.is-on {
+    background: var(--color-card-1);
+    color: var(--color-font);
+    font-weight: 600;
+}
+.chihiro-bot-tabs.disabled,
+.chihiro-bot-select:has(select:disabled) {
+    opacity: 0.45;
+    pointer-events: none;
+}
+.chihiro-bot-select {
+    position: relative;
+    height: 32px;
+    min-width: 132px;
+    max-width: 176px;
+    flex: 0 0 auto;
+}
+.chihiro-bot-select::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid var(--color-font-2);
+}
+.chihiro-bot-select select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 100%;
+    background: rgba(var(--color-bg-rgb), 0.72) !important;
+    color: var(--color-font);
+    border: 1px solid rgba(127, 127, 127, 0.35) !important;
+    padding: 0 28px 0 14px;
+    border-radius: 999px !important;
+    font-size: 0.78rem;
+    line-height: 30px;
+    outline: none;
+}
+.chihiro-bot-setup {
+    appearance: none;
+    height: 32px;
+    min-width: 132px;
+    max-width: 176px;
+    margin: 0;
+    padding: 0 14px;
+    border: 1px solid rgba(127, 127, 127, 0.35);
+    border-radius: 999px;
+    background: rgba(var(--color-bg-rgb), 0.72);
+    color: rgb(var(--v-theme-primary));
+    font-size: 0.78rem;
+    line-height: 30px;
+    cursor: pointer;
+}
+.msg-menu-body .chihiro-ai-symbol {
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    line-height: 1;
+}
 .user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-feature-btn,
 .user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-history-btn,
 .user-skin.chat-pan > div.info > .chihiro-head-actions .more {
@@ -3928,8 +4279,10 @@ function exitWin() {
     pointer-events: none;
     user-select: none;
 }
+.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-feature-btn.on .chihiro-ai-symbol {
+    color: rgb(var(--v-theme-primary));
+}
 .user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-feature-btn:hover,
-.user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-feature-btn.active,
 .user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-history-btn:hover,
 .user-skin.chat-pan > div.info > .chihiro-head-actions .chihiro-history-btn.active,
 .user-skin.chat-pan > div.info > .chihiro-head-actions .more:hover {

@@ -84,7 +84,8 @@
     "displayName": "Имя чата",
     "displayNameUpdated": "Имя чата обновлено",
     "displayNameUpdateFailed": "Не удалось обновить имя чата",
-    "confirmDelete": "Вы уверены, что хотите удалить «{name}»? Это действие необратимо."
+    "confirmDeleteTitle": "Удалить диалог?",
+    "confirmDelete": "Это действие безвозвратно удалит подсказки, ответы и всё содержимое этого диалога."
   },
   "modes": {
     "darkMode": "Темная тема",

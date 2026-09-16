@@ -13,8 +13,16 @@ function isChatMessage(item: {
   return true
 }
 
+type PlusOneSeg = {
+  type?: string
+  text?: string
+  qq?: string | number
+  id?: string | number
+  url?: string
+}
+
 export function plusOneContentKey(msg: {
-  message?: Array<{ type?: string, text?: string, qq?: string | number, id?: string | number }>
+  message?: Array<PlusOneSeg>
 } | null | undefined): string | null {
   const segs = Array.isArray(msg?.message) ? msg.message : []
   if (!segs.length) return null
@@ -42,7 +50,7 @@ export function shouldShowPlusOne<T extends {
   revoke?: boolean
   fake_msg?: boolean
   raw_message?: string
-  message?: Array<{ type?: string, text?: string, qq?: string | number, id?: string | number }>
+  message?: Array<PlusOneSeg>
 }>(list: T[] = [], index: number): boolean {
   const cur = list[index]
   const key = plusOneContentKey(cur)
@@ -53,13 +61,14 @@ export function shouldShowPlusOne<T extends {
 }
 
 export function plusOneSendSegments(msg: {
-  message?: Array<{ type?: string, text?: string, qq?: string | number, id?: string | number }>
+  message?: Array<PlusOneSeg>
 } | null | undefined): Array<Record<string, unknown>> | null {
   if (!plusOneContentKey(msg)) return null
-  return (msg?.message ?? []).map((seg) => {
-    if (seg.type === 'text') return { type: 'text', text: String(seg.text ?? '') }
-    if (seg.type === 'at') return { type: 'at', qq: seg.qq, text: seg.text }
-    if (seg.type === 'face') return { type: 'face', id: seg.id }
-    return null
-  }).filter((seg): seg is Record<string, unknown> => !!seg)
+  const out: Array<Record<string, unknown>> = []
+  for (const seg of msg?.message ?? []) {
+    if (seg.type === 'text') out.push({ type: 'text', text: String(seg.text ?? '') })
+    else if (seg.type === 'at') out.push({ type: 'at', qq: seg.qq, text: seg.text })
+    else if (seg.type === 'face') out.push({ type: 'face', id: seg.id })
+  }
+  return out
 }

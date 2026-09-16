@@ -6,50 +6,60 @@
 -->
 
 <template>
-    <div
-        class="info-pan-set"
-        style="padding: 0">
-        <!-- 公用设置 -->
-        <!-- 群设置 -->
+    <div class="info-pan-set">
         <template v-if="type == 'group'">
-            <div v-if="chatStore.chatInfo.info.me_info.role == 'owner' ||
-                     chatStore.chatInfo.info.me_info.role == 'admin'"
-                class="opt-item">
-                <font-awesome-icon :icon="['fas', 'pen']" />
-                <div>
-                    <label for="opt-info-group-name">{{ $t('群聊名称') }}</label>
-                    <span>{{ $t('"你们真是害人不浅呐你们这个群"') }}</span>
-                </div>
-                <input id="opt-info-group-name" v-model="chatStore.chatInfo.show.name" class="ss-input"
-                    style="width: 150px" type="text" @keyup="setGroupName">
-            </div>
-            <div class="opt-item">
-                <font-awesome-icon :icon="['fas', 'note-sticky']" />
-                <div>
-                    <label for="opt-info-group-card">{{ $t('我的群昵称') }}</label>
-                    <span>{{ $t('￡爺↘僞ηι慹著彡') }}</span>
-                </div>
-                <input id="opt-info-group-card" v-model="chatStore.chatInfo.info.me_info.card" class="ss-input"
-                    style="width: 150px" type="text" @change="setGroupCard">
-            </div>
-            <div class="opt-item">
-                <font-awesome-icon :icon="['fas', 'bell']" />
-                <div>
-                    <span>{{ $t('通知群消息') }}</span>
-                    <span>{{ $t('快来水群快来水群！') }}</span>
-                </div>
-                <label class="ss-switch">
-                    <input v-model="canGroupNotice" type="checkbox"
-                        name="opt_dark" @change="setGroupNotice">
+            <div class="opt-group-card">
+                <div v-if="chatStore.chatInfo.info.me_info.role == 'owner' ||
+                         chatStore.chatInfo.info.me_info.role == 'admin'"
+                    class="opt-item">
                     <div>
-                        <div />
+                        <label for="opt-info-group-name">{{ $t('群聊名称') }}</label>
+                        <span>{{ $t('更改后将同步给所有成员') }}</span>
                     </div>
-                </label>
+                    <input id="opt-info-group-name"
+                        v-model="chatStore.chatInfo.show.name"
+                        class="ss-input"
+                        type="text"
+                        maxlength="30"
+                        autocomplete="off"
+                        spellcheck="false"
+                        :placeholder="$t('输入群名称')"
+                        @keyup="setGroupName">
+                </div>
+                <div class="opt-item">
+                    <div>
+                        <label for="opt-info-group-card">{{ $t('我的群昵称') }}</label>
+                        <span>{{ $t('仅在本群显示') }}</span>
+                    </div>
+                    <input id="opt-info-group-card"
+                        v-model="chatStore.chatInfo.info.me_info.card"
+                        class="ss-input"
+                        type="text"
+                        maxlength="16"
+                        autocomplete="off"
+                        spellcheck="false"
+                        :placeholder="$t('未设置')"
+                        @change="setGroupCard">
+                </div>
+                <div class="opt-item">
+                    <div>
+                        <label for="opt-info-group-notice">{{ $t('消息通知') }}</label>
+                        <span>{{ $t('关闭后该群新消息将静音') }}</span>
+                    </div>
+                    <label class="ss-switch">
+                        <input id="opt-info-group-notice"
+                            v-model="canGroupNotice"
+                            type="checkbox"
+                            name="opt_group_notice"
+                            @change="setGroupNotice">
+                        <div>
+                            <div />
+                        </div>
+                    </label>
+                </div>
             </div>
 
-            <button class="ss-button"
-                style="width: calc(100% - 60px); margin: 10px 30px 0 30px"
-                @click="leaveGroup()">
+            <button type="button" class="ss-button info-leave-btn" @click="leaveGroup()">
                 {{ $t('退出群聊') }}
             </button>
         </template>
@@ -158,8 +168,121 @@
 </script>
 
 <style scoped>
-    .opt-item:hover input[type='text'] {
-        background: var(--color-card-2);
+    .info-pan-set {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 4px 0 12px;
+    }
+    .opt-group-card {
+        background: var(--color-card-1);
+    }
+    .opt-item {
+        gap: 12px;
+    }
+    .ss-input {
+        box-sizing: border-box;
+        width: min(220px, 52%);
+        min-width: 132px;
+        height: 32px;
+        margin: 0;
+        padding: 0 14px;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(127, 127, 127, 0.16);
+        color: var(--color-font);
+        font-size: 0.82rem;
+        line-height: 32px;
+    }
+    .ss-input::placeholder {
+        color: var(--color-font-2);
+    }
+    .ss-input:focus {
+        outline: none;
+        background: rgba(127, 127, 127, 0.22);
+        box-shadow: none;
+    }
+    .ss-switch {
+        position: relative;
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        width: 40px;
+        min-width: 40px;
+        height: 22px;
+        margin: 0;
+        cursor: pointer;
+    }
+    .ss-switch input {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        margin: 0;
+        opacity: 0;
+        cursor: pointer;
+        appearance: none;
+        display: block !important;
+    }
+    .ss-switch > div {
+        position: relative;
+        width: 40px;
+        height: 22px;
+        border-radius: 11px;
+        background: rgba(127, 127, 127, 0.38);
         transition: background 0.2s;
+    }
+    .ss-switch > div > div {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 18px;
+        height: 18px;
+        margin: 0 !important;
+        border: 0 !important;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+        float: none;
+        transition: transform 0.2s;
+    }
+    .ss-switch input:checked ~ div {
+        background: var(--color-main);
+    }
+    .ss-switch input:checked ~ div > div {
+        border: 0 !important;
+        margin: 0 !important;
+        transform: translateX(18px);
+    }
+    .info-leave-btn {
+        display: inline-flex;
+        box-sizing: border-box;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 36px;
+        margin: 0;
+        padding: 0 16px;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(255, 69, 58, 0.12);
+        color: #ff453a;
+        box-shadow: none;
+        font-size: 0.86rem;
+        font-weight: 600;
+        line-height: 1;
+        cursor: pointer;
+    }
+    .info-leave-btn:hover {
+        background: rgba(255, 69, 58, 0.18);
+    }
+    @media (max-width: 680px) {
+        .opt-item {
+            flex-wrap: wrap;
+        }
+        .ss-input {
+            width: 100%;
+            min-width: 0;
+            max-width: none;
+        }
     }
 </style>

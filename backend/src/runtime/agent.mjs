@@ -967,7 +967,7 @@ export function createAgentController({ root, store: accounts, qq, astrbot, cfg 
     if (!acc) return false
     const key = `${type === 'group' ? 'group' : 'private'}:${String(peerId)}`
     const map = acc.botSessions || {}
-    if (Object.prototype.hasOwnProperty.call(map, key)) return Boolean(map[key])
+    if (Object.prototype.hasOwnProperty.call(map, key)) return map[key] === true
     return false
   }
 

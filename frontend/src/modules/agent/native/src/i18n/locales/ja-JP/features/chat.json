@@ -84,7 +84,8 @@
     "displayName": "セッション名",
     "displayNameUpdated": "セッション名を更新しました",
     "displayNameUpdateFailed": "セッション名の更新に失敗しました",
-    "confirmDelete": "「{name}」を削除しますか？この操作は元に戻せません。"
+    "confirmDeleteTitle": "会話を削除しますか？",
+    "confirmDelete": "この操作により、この会話の質問、回答、および作成したすべての内容が完全に削除されます。"
   },
   "modes": {
     "darkMode": "ダークモードに切り替え",

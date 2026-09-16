@@ -3,6 +3,8 @@ import { inject } from 'vue'
 export type ConfirmDialogOptions = {
   title?: string
   message?: string
+  confirmText?: string
+  cancelText?: string
 }
 
 export type ConfirmDialogHandler = (options: ConfirmDialogOptions) => Promise<boolean>
@@ -15,17 +17,18 @@ export function useConfirmDialog(): ConfirmDialogHandler | undefined {
 
 export async function askForConfirmation(
   message: string,
-  candidate?: ConfirmDialogCandidate
+  candidate?: ConfirmDialogCandidate,
+  extras?: Omit<ConfirmDialogOptions, 'message'>
 ): Promise<boolean> {
   const confirmDialog = candidate ?? undefined
 
   if (confirmDialog) {
     try {
-      return await confirmDialog({ message })
+      return await confirmDialog({ message, ...extras })
     } catch {
       return false
     }
   }
 
-  return window.confirm(message)
+  return window.confirm([extras?.title, message].filter(Boolean).join('\n\n'))
 }

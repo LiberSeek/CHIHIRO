@@ -14,13 +14,12 @@
         <div :class="data.new_msg === true ? 'new' : ''" />
         <font-awesome-icon v-if="data.user_id == -10000" :icon="['fas', 'bell']" />
         <font-awesome-icon v-else-if="data.user_id == -10001" :icon="['fas', 'user-group']" />
-        <img v-else loading="lazy" :title="getShowName(data.group_name || data.nickname, data.remark)"
+        <img v-else loading="lazy" :title="sessionName"
             :src="data.user_id ? 'https://q1.qlogo.cn/g?b=qq&s=0&nk=' + data.user_id :
                 'https://p.qlogo.cn/gh/' + data.group_id + '/' + data.group_id + '/0'">
         <div>
             <div>
-                <p>{{ getShowName(data.group_name || data.nickname, data.remark) }}</p>
-                <div style="flex: 1" />
+                <p>{{ sessionName }}</p>
                 <a class="time">{{ formatSessionTime(data.time) }}</a>
             </div>
             <div>
@@ -28,7 +27,7 @@
                     {{ data.highlight }}
                 </a>
                 <a :class="from == 'friend' ? 'nick' : ''">{{
-                    from == 'friend' ? (data.longNick ?? '') : data.raw_msg
+                    from == 'friend' ? (data.longNick ?? '') : previewText
                 }}</a>
                 <div v-if="from == 'message'" class="chihiro-session-meta">
                     <font-awesome-icon
@@ -63,6 +62,9 @@ const props = defineProps<{
     menu?: boolean
     from?: string
 }>()
+
+const sessionName = computed(() => getShowName(props.data?.group_name || props.data?.nickname, props.data?.remark))
+const previewText = computed(() => String(props.data?.raw_msg || ''))
 
 const unreadCount = computed(() => {
     const n = Number(props.data?.unread)
@@ -104,14 +106,31 @@ const muted = computed(() => isSessionMuted(props.data || {}))
     margin-left: 10px;
     min-width: 0;
 }
+#base-app .friend-body > div > div {
+    min-width: 0;
+    gap: 8px;
+}
 #base-app .friend-body p {
+    flex: 1 1 0;
+    min-width: 0;
     font-size: 13px;
     font-weight: 600;
     margin-top: 0 !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 #base-app .friend-body > div > div a {
     font-size: 12px;
     min-width: 0;
+}
+#base-app .friend-body > div > div a.time {
+    flex: 0 0 auto;
+    min-width: max-content;
+    margin-left: 0;
+    overflow: visible;
+    text-overflow: unset;
+    white-space: nowrap;
 }
 #base-app .friend-body.active {
     background: var(--color-main) !important;

@@ -222,6 +222,10 @@
         el.textContent = text
         refreshEmpty()
     }
+    function writePlainText(text: string) {
+        setPlainText(text)
+        syncToModel()
+    }
 
     function syncToModel(event?: Event) {
         refreshEmpty()
@@ -441,6 +445,7 @@
         serialize,
         clear,
         getPlainText,
+        setPlainText: writePlainText,
         hasInlineFaces,
         hasInlineAts,
     })
@@ -699,8 +704,11 @@
     z-index: 8;
     pointer-events: none;
 }
-.chihiro-composer .assistant-slot:has(.assistant-panel) {
-    padding-bottom: 48px;
+.chihiro-composer .assistant-slot {
+    padding: 0;
+}
+.chihiro-composer .assistant-slot:has(.chihiro-suggest-bar) {
+    padding: 0 16px 10px;
 }
 .chihiro-composer .chihiro-bot-think {
     position: absolute;
@@ -922,7 +930,10 @@
 .user-skin.chat-pan > div.chat {
     width: 100% !important;
     max-width: none !important;
-    margin: -90px 0 70px !important;
+    margin-top: -90px !important;
+    margin-right: 0 !important;
+    margin-left: 0 !important;
+    margin-bottom: 70px;
     padding: 90px 28px 0 !important;
     box-sizing: border-box;
     overflow-y: auto !important;

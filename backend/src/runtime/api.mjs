@@ -5,6 +5,7 @@ import { createAccountStore } from './accounts.mjs'
 import { createQqRuntime } from './qq-napcat.mjs'
 import { createAstrbotRuntime } from './astrbot.mjs'
 import { createBotController } from './bot.mjs'
+import { createBotSuggest } from './bot-suggest.mjs'
 import { createAgentController } from './agent.mjs'
 import { createChatuiProxy } from './chatui.mjs'
 import { createCustomerInsights } from '../core/customer-insights.mjs'
@@ -24,6 +25,7 @@ export function createRuntime({ root, cfg, services = {} }) {
   const customers = services.customers || createCustomerInsights({ root })
   const groupIntelligence = services.groupIntelligence || createGroupIntelligence({ root })
   const bot = services.bot || createBotController({ store, qq, astrbot, cfg })
+  const botSuggest = services.botSuggest || createBotSuggest({ store, qq, astrbot })
   const chatui = services.chatui || createChatuiProxy({ astrbot })
 
   async function snapshot() {
@@ -234,11 +236,34 @@ export function createRuntime({ root, cfg, services = {} }) {
       const body = await readJson(req)
       if (!body.id || body.peerId == null) return json(res, { error: 'missing_id' }, 400)
       try {
-        await bot.setSession(body.id, body.type, body.peerId, body.enabled !== false)
+        await bot.setSession(body.id, body.type, body.peerId, {
+          enabled: body.enabled,
+          mode: body.mode,
+          configId: body.configId ?? body.config_id,
+        })
         return json(res, await snapshot())
       } catch (e) {
         logError('api', 'bot.session', e)
         return json(res, { error: e.message, message: e.message, ...(await snapshot()) }, 400)
+      }
+    }
+
+    if (p === '/api/runtime/bot/suggest' && method === 'POST') {
+      const body = await readJson(req)
+      try {
+        return json(res, await botSuggest.suggest(body))
+      } catch (e) {
+        logError('api', 'bot.suggest', e)
+        return json(res, { lastMessageId: String(body?.lastMessageId || ''), replies: [] })
+      }
+    }
+
+    if (p === '/api/runtime/bot/configs' && method === 'GET') {
+      try {
+        return json(res, await botSuggest.listConfigs())
+      } catch (e) {
+        logError('api', 'bot.configs', e)
+        return json(res, { configs: [], needsSetup: true })
       }
     }
 
@@ -342,7 +367,7 @@ export function createRuntime({ root, cfg, services = {} }) {
     await astrbot.stopIfOwned().catch((e) => logError('api', 'astrbot stop', e))
   }
 
-  return { handle, qq, store, astrbot, bot, agent, customers, groupIntelligence, snapshot, shutdown }
+  return { handle, qq, store, astrbot, bot, botSuggest, agent, customers, groupIntelligence, snapshot, shutdown }
 }
 
 function json(res, obj, status = 200) {

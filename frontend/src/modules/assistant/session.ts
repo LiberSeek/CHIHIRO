@@ -89,10 +89,13 @@ export const useAssistantStore = defineStore('conversation-assistant', () => {
 
   function applyHosted(value: unknown, accountId: string) {
     const schema = z.object({ accounts: z.object({ accounts: z.array(z.object({
-      id: z.string(), botSessions: z.record(z.string(), z.boolean()).optional(),
+      id: z.string(), botSessions: z.record(z.string(), z.unknown()).optional(),
     })) }) })
     const account = schema.parse(value).accounts.accounts.find(item => item.id === accountId)
-    hosted.value = Object.fromEntries(Object.entries(account?.botSessions ?? {}).map(([id, value]) => [`${accountId}:${id}`, value]))
+    hosted.value = Object.fromEntries(Object.entries(account?.botSessions ?? {}).map(([id, raw]) => {
+      const enabled = raw === true || (raw !== null && typeof raw === 'object' && (raw as { enabled?: unknown }).enabled === true)
+      return [`${accountId}:${id}`, enabled]
+    }))
   }
 
   async function start(accountId: string) {

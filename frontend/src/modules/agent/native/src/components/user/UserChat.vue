@@ -1361,9 +1361,10 @@ function editSidebarSessionTitle(session: Session) {
 }
 
 async function deleteSidebarSession(session: Session) {
-  const title = sessionTitle(session);
-  const message = tm("conversation.confirmDelete", { name: title });
-  if (!(await askForConfirmation(message, confirmDialog))) return;
+  if (!(await askForConfirmation(tm("conversation.confirmDelete"), confirmDialog, {
+    title: tm("conversation.confirmDeleteTitle"),
+    confirmText: t("core.common.delete"),
+  }))) return;
 
   const wasCurrent = currSessionId.value === session.session_id;
   await deleteSession(session.session_id);

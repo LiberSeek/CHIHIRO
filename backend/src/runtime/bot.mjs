@@ -2,6 +2,22 @@ import { log, logError } from './log.mjs'
 import { setAstrbotClient } from './napcat-ob11.mjs'
 import { astrbotReversePort } from './qq-ports.mjs'
 
+export function sessionPeerKey(type, peerId) {
+  return `${type === 'group' ? 'group' : 'private'}:${String(peerId)}`
+}
+
+export function normalizeBotSession(value) {
+  if (value === true) return { enabled: true, mode: 'assist', configId: null }
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const mode = value.mode === 'auto' ? 'auto' : 'assist'
+    const configId = typeof value.configId === 'string' && value.configId.trim()
+      ? value.configId.trim()
+      : (typeof value.config_id === 'string' && value.config_id.trim() ? value.config_id.trim() : null)
+    return { enabled: Boolean(value.enabled), mode, configId }
+  }
+  return { enabled: false, mode: 'assist', configId: null }
+}
+
 export function createBotController({ store, qq, astrbot, cfg }) {
   const wired = new Set()
   const failedAt = new Map()
@@ -88,16 +104,31 @@ export function createBotController({ store, qq, astrbot, cfg }) {
     return qq.snapshot()
   }
 
-  async function setSession(id, type, peerId, enabled) {
+  function sessionPatch(value) {
+    if (value && typeof value === 'object' && !Array.isArray(value) && ('enabled' in value || 'mode' in value || 'configId' in value || 'config_id' in value)) {
+      return value
+    }
+    return { enabled: Boolean(value) }
+  }
+
+  async function setSession(id, type, peerId, enabledOrPatch) {
     const acc = accountOf(id)
     if (!acc) throw new Error('account_not_found')
-    const key = `${type === 'group' ? 'group' : 'private'}:${String(peerId)}`
+    const key = sessionPeerKey(type, peerId)
     const map = { ...(acc.botSessions || {}) }
-    map[key] = Boolean(enabled)
+    const current = normalizeBotSession(map[key])
+    const patch = sessionPatch(enabledOrPatch)
+    const next = {
+      enabled: patch.enabled == null ? current.enabled : Boolean(patch.enabled),
+      mode: patch.mode === 'auto' || patch.mode === 'assist' ? patch.mode : current.mode,
+      configId: patch.configId === undefined && patch.config_id === undefined
+        ? current.configId
+        : (typeof (patch.configId ?? patch.config_id) === 'string' && String(patch.configId ?? patch.config_id).trim()
+          ? String(patch.configId ?? patch.config_id).trim()
+          : null),
+    }
+    map[key] = next
     store.patch(id, { botSessions: map })
-    const any = Object.values(map).some(Boolean)
-    if (enabled && !acc.botEnabled) return setEnabled(id, true)
-    if (!any && acc.botEnabled) return setEnabled(id, false)
     qq.touch?.()
     return qq.snapshot()
   }

@@ -28,6 +28,7 @@
     --color-green: #6cd892;
     --color-red: #f56269;
     --color-yellow: #f6c344;
+    --v-theme-primary: 91, 164, 212;
 }
 html, body {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif !important;
@@ -51,6 +52,7 @@ html.bp-dark,
     --color-green: #6cd892;
     --color-red: #f56269;
     --color-yellow: #f6c344;
+    --v-theme-primary: 91, 164, 212;
 }
 html.bp-light,
 :root[data-theme="light"] {
@@ -70,6 +72,7 @@ html.bp-light,
     --color-green: #408558;
     --color-red: #cb444a;
     --color-yellow: #d68100;
+    --v-theme-primary: 60, 150, 202;
 }
 
 #base-app {

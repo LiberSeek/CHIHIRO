@@ -33,7 +33,7 @@
                 referrerpolicy="no-referrer"
                 :class="{ 'is-placeholder': !lastInGroup }"
                 :src="backend.proxyUrl('https://q1.qlogo.cn/g?b=qq&s=0&nk=' + data.sender.user_id)"
-                :alt="data.sender.card ? data.sender.card : data.sender.nickname"
+                :alt="data.sender.card || data.sender.nickname"
                 @click="onAvatarClick"
                 @dblclick="sendPoke">
             <div v-if="data.fake_msg == true"
@@ -53,7 +53,7 @@
                     {{ $t('本地') }}
                 </span>
                 <a v-if="chatStore.chatInfo.show.type == 'group' && (data.sender.card || data.sender.nickname)">
-                    {{ data.sender.card ? data.sender.card : data.sender.nickname }}
+                    {{ data.sender.card || data.sender.nickname }}
                 </a>
                 <a v-else-if="chatStore.chatInfo.show.type == 'group'">
                     {{ isMe ? authStore.loginInfo.nickname : chatStore.chatInfo.show.name }}
@@ -414,6 +414,9 @@
             </div>
         </div>
         <code class="chihiro-raw-msg" aria-hidden="true">{{ data.raw_message }}</code>
+        <div v-if="showSuggest" class="chihiro-suggest-under">
+            <SuggestBar surface="bubble" />
+        </div>
     </div>
 </template>
 
@@ -422,7 +425,9 @@ import Option from '@renderer/function/option'
 import markdownit from 'markdown-it'
 
 import { MsgBodyFuns as ViewFuns } from '@renderer/function/model/msg-body'
-import { watch, onMounted, nextTick, provide, inject, useTemplateRef, ref, toRaw } from 'vue'
+import { watch, onMounted, nextTick, provide, inject, useTemplateRef, ref, toRaw, computed } from 'vue'
+import SuggestBar from '@/modules/assistant/SuggestBar.vue'
+import { useSuggestStore } from '@/modules/assistant/suggest'
 import { Connector } from '@renderer/function/connect'
 import { useSettingsStore } from '@renderer/state/settings'
 import { Logger, LogType, PopInfo, PopType } from '@renderer/function/base'
@@ -495,6 +500,13 @@ const {
     firstInGroup?: boolean
     lastInGroup?: boolean
 }>()
+
+const suggest = useSuggestStore()
+const showSuggest = computed(() => {
+    if (type === 'body' || type === 'merge') return false
+    const id = String(data.message_id || '')
+    return Boolean(id && suggest.lastMessageId === id && (suggest.generating || suggest.replies.length > 0))
+})
 
 provide('message-content', data)
 
@@ -1331,6 +1343,31 @@ onMounted(() => {
 </script>
 
 <style>
+    .message:has(> .chihiro-suggest-under),
+    #base-app .message:has(> .chihiro-suggest-under) {
+        flex-wrap: wrap;
+    }
+    .chihiro-suggest-under {
+        flex: 0 0 100%;
+        width: 100%;
+        max-width: 100%;
+        order: 99;
+        margin: 6px 0 8px;
+        padding: 0 0 0 36px;
+        box-sizing: border-box;
+        display: flex;
+        justify-content: flex-start;
+        pointer-events: auto;
+    }
+    .message.me > .chihiro-suggest-under,
+    #base-app .message.me > .chihiro-suggest-under {
+        padding: 0 36px 0 0;
+        justify-content: flex-end;
+    }
+    .chihiro-suggest-under .chihiro-suggest-bar {
+        width: fit-content;
+        max-width: 100%;
+    }
     .chihiro-plus-one {
         flex: 0 0 auto;
         align-self: flex-end;
@@ -1517,7 +1554,7 @@ onMounted(() => {
     position: relative;
     width: 100% !important;
     max-width: 100%;
-    padding: 1px 0;
+    padding: 2px 0;
     margin: 0;
     box-sizing: border-box;
     flex-wrap: nowrap;

@@ -254,7 +254,7 @@ onUnmounted(() => {
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         </button>
         <div v-if="settingsOpen" class="settings-menu" role="menu">
-          <button type="button" role="menuitem" @click="openImSettings"><Settings :size="16" />{{ route.path === '/im' && route.query.settings === '1' ? '返回千寻 IM' : '千寻 IM 设置' }}</button>
+          <button type="button" role="menuitem" @click="openImSettings"><Settings :size="16" />{{ route.path === '/im' && route.query.settings === '1' ? '返回千寻 IM' : '设置' }}</button>
         </div>
       </div>
     </nav>

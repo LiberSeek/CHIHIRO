@@ -149,10 +149,8 @@
                     </div>
                 </div>
                 <div :name="$t('设置')">
-                    <div style="padding: 0 20px">
-                        <OptInfo :type="'group'" :chat="chat"
-                            @update_mumber_card="updateMumberCard" />
-                    </div>
+                    <OptInfo :type="'group'" :chat="chat"
+                        @update_mumber_card="updateMumberCard" />
                 </div>
             </BcTab>
             <div :class="'ss-card user-config' + (Object.keys(showUserConfig).length > 0 ? ' show' : '')">
@@ -1015,6 +1013,47 @@ function canEditMember(role: string) {
     height: 36px;
     border-radius: 10px;
     font-size: 13px;
+}
+.chat-info .info-pan-set {
+    padding: 8px 16px 16px;
+}
+.chat-info .info-pan-set .opt-group-card {
+    background: var(--color-card-1);
+}
+.chat-info .info-pan-set .ss-input {
+    width: min(220px, 52%);
+    min-width: 132px;
+    height: 32px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(127, 127, 127, 0.16);
+    box-shadow: none;
+    font-size: 0.82rem;
+    line-height: 32px;
+}
+.chat-info .info-pan-set .ss-input:focus {
+    box-shadow: none;
+    background: rgba(127, 127, 127, 0.22);
+}
+.chat-info .info-pan-set .ss-button.info-leave-btn {
+    width: 100%;
+    height: 36px;
+    margin: 0;
+    border-radius: 999px;
+    background: rgba(255, 69, 58, 0.12);
+    color: #ff453a;
+    font-size: 0.86rem;
+    font-weight: 600;
+}
+@media (max-width: 680px) {
+    .chat-info .info-pan-set .opt-item {
+        flex-wrap: wrap;
+    }
+    .chat-info .info-pan-set .ss-input {
+        width: 100%;
+        min-width: 0;
+    }
 }
 .user-config {
     width: 100% !important;

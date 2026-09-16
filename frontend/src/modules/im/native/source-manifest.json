@@ -240,7 +240,7 @@
     {
       "path": "src/components/user/UserComposer.vue",
       "upstreamPath": "components/user/UserComposer.vue",
-      "sha256": "fb58d39d59ca359dc0bec55dcfd25d73f16d067b5ef779091ee38742f50b35ce",
+      "sha256": "6c45d594c67bfa96763724477104c5649df8c07876928a42c5c02cf2fd7476ef",
       "extractedSha256": "5a72399947ada83841f94339b6d2f03fcf576921e53f47ae3f8baa70bfd05268"
     },
     {
@@ -305,7 +305,7 @@
     {
       "path": "src/components/user/UserMsgBody.vue",
       "upstreamPath": "components/user/UserMsgBody.vue",
-      "sha256": "5d94f373c0311a07ceadbfaa8473d1e622be16628b0121ea94ddcdce4a79fb9e",
+      "sha256": "cd7f9d5b6c8fefedf7e89fecadc2168b74b69238e56aea3c03929369e5d35996",
       "extractedSha256": "52387ba4ff41a58814518999375b8b318c05cb43b3a965fb21edac86ff7b0338"
     },
     {
@@ -512,7 +512,7 @@
     {
       "path": "src/pages/user/UserChat.vue",
       "upstreamPath": "pages/user/UserChat.vue",
-      "sha256": "3ecf0ed00615d92d8a31b68fdc47f73d69f135f78a7c8a61da2b40222b6cca2d",
+      "sha256": "594c81db031c5d37a46f8eccd828cb7cdfd6fc93c386be825a69e34000cec9b9",
       "extractedSha256": "a4f779b55313f65426613dd5729811ad1388b9b1c684e50651ab3a49695d222b"
     },
     {
@@ -737,7 +737,7 @@
     {
       "path": "src/assets/css/user.css",
       "upstreamPath": "assets/css/user.css",
-      "sha256": "bad46e6602180044075ab618a015816609f6bea009dced3123dcf30f967df138",
+      "sha256": "c5c69f34dcc5e3d223ccae8d150e37319699e0897dc3f5e6da607a381306d528",
       "extractedSha256": "e45eb50b0d21c0ac8647dd8ea013347fdceb2726c660271c9ed40b1af9e78e04",
       "sourceTreeCommit": "0686935276ac8c471068958893467f835e3905f4"
     },

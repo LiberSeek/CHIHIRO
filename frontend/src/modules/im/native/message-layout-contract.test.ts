@@ -36,6 +36,15 @@ describe('IM message bubble layout contract', () => {
     expect(msgBody).toContain('margin-top: 10px')
   })
 
+  it('places session Bot chips under the bubble instead of beside it', () => {
+    expect(msgBody).toContain('flex-wrap: wrap')
+    expect(msgBody).toContain('chihiro-suggest-under')
+    expect(msgBody).toContain('order: 99')
+    expect(msgBody).toContain('padding: 0 0 0 36px')
+    expect(msgBody).toContain('padding: 0 36px 0 0')
+    expect(msgBody).toContain('justify-content: flex-end')
+  })
+
   it('puts HH:MM at the end of each bubble like Telegram', () => {
     expect(msgBody).toContain('chihiro-msg-time')
     expect(msgBody).toContain('chihiro-msg-time-spacer')

@@ -80,7 +80,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { FolderCog, MessageSquare, Pencil, Trash2 } from "@lucide/vue";
-import { useModuleI18n } from "@/modules/agent/native/src/i18n/composables";
+import { useI18n, useModuleI18n } from "@/modules/agent/native/src/i18n/composables";
 import type { Project } from "@/modules/agent/native/src/components/chat/ProjectList.vue";
 import { askForConfirmation, useConfirmDialog } from "@/modules/agent/native/src/utils/confirmDialog";
 
@@ -103,6 +103,7 @@ const emit = defineEmits<{
   deleteSession: [sessionId: string];
 }>();
 
+const { t } = useI18n();
 const { tm } = useModuleI18n("features/chat");
 
 const confirmDialog = useConfirmDialog();
@@ -130,10 +131,10 @@ function formatDate(dateString: string): string {
 }
 
 async function handleDeleteSession(session: Session) {
-  const sessionTitle =
-    session.display_name || tm("conversation.newConversation");
-  const message = tm("conversation.confirmDelete", { name: sessionTitle });
-  if (await askForConfirmation(message, confirmDialog)) {
+  if (await askForConfirmation(tm("conversation.confirmDelete"), confirmDialog, {
+    title: tm("conversation.confirmDeleteTitle"),
+    confirmText: t("core.common.delete"),
+  })) {
     emit("deleteSession", session.session_id);
   }
 }
