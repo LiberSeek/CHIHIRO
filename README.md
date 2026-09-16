@@ -53,7 +53,6 @@ AI IM 工作台。产品仓：[LiberSeek/CHIHIRO](https://github.com/LiberSeek/C
 ```bash
 git clone https://github.com/LiberSeek/CHIHIRO.git
 cd CHIHIRO
-git checkout develop
 git submodule update --init vendor/napcat vendor/astrbot
 npm install
 npm run build:web
@@ -91,7 +90,7 @@ Docker：见 [deploy/README.md](deploy/README.md)。标准 Compose 起千寻 + A
 
 ## 如何开发
 
-日常在 `develop`。不要在 `main` 上做 IM 或工作台功能（`main` 只用来合 Stapxs 上游）。
+日常在 `develop`。发版把 `develop` 合进 `main`。不要在 `main` 上直接改功能。
 
 ```bash
 npm run check:layout

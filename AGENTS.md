@@ -64,15 +64,15 @@ Origin: `https://github.com/LiberSeek/CHIHIRO.git`
 | Branch | Purpose |
 |---|---|
 | `develop` | Daily Chihiro work. Default branch for agents. |
-| `release` | Product cuts / tags |
-| `master` | Frozen stable snapshot |
-| `main` | Sync Stapxs upstream into `vendor/stapxs` only, then merge into `develop` |
+| `main` | Published product. GitHub default. Fast-forward or merge from `develop` when shipping. |
+| `release` | Frozen. Do not cut new releases here. |
+| `master` | Frozen stable snapshot. Do not update. |
 
-Work on `develop`. Do not land IM or workbench features on `main`.
+Work on `develop`. Publish by merging `develop` → `main`. Do not develop features on `main`.
 
 NapCat (`vendor/napcat`) stays a read-only submodule. AstrBot (`vendor/astrbot`) is a submodule with Chihiro branches: `master` pins upstream, `develop` holds `User*` ChatUI. Do not edit upstream `Chat.vue` / `FullLayout.vue`.
 
-Stapxs pin: `vendor/stapxs/UPSTREAM`. Syncing upstream is a `main`-branch job (subtree/merge from `Stapxs-QQ-Lite-2.0` `next`), then merge `main` → `develop` and resolve conflicts in the files Chihiro already changed (`Chat.vue`, `chat.css`, `FacePan.vue`, `App.vue`, …).
+Stapxs pin: `vendor/stapxs/UPSTREAM`. Sync upstream on a topic branch from `develop` (not on `main`), then merge back to `develop` and resolve conflicts in the files Chihiro already changed (`Chat.vue`, `chat.css`, `FacePan.vue`, `App.vue`, …).
 
 ## Commands
 

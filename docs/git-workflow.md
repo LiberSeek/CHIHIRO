@@ -7,16 +7,17 @@
 | 分支 | 用途 |
 |---|---|
 | **develop** | 日常开发。Agent 和新功能都在这。 |
-| **release** | 发版、打 tag。 |
-| **master** | 冻结的稳定快照。 |
-| **main** | **只接收 Stapxs 上游**。把官方 `next` 合进 `vendor/stapxs`，再 merge 到 `develop`。不要在 main 上做工作台或 IM 功能。 |
+| **main** | 对外发布、GitHub 默认分支。发版时从 `develop` 快进或合并过来。 |
+| **release** | 冻结。不再作为发版线。 |
+| **master** | 冻结的稳定快照。不再推进。 |
 
 ```bash
 git clone https://github.com/LiberSeek/CHIHIRO.git
 cd CHIHIRO
-git checkout develop
 git submodule update --init vendor/napcat vendor/astrbot
 ```
+
+日常开发：`git checkout develop`。不要在 `main` 上直接改功能。
 
 ## vendor 怎么管
 
@@ -26,24 +27,25 @@ git submodule update --init vendor/napcat vendor/astrbot
 | `vendor/napcat` | submodule | `https://github.com/NapNeko/NapCatQQ.git`（默认 `main`） |
 | `vendor/astrbot` | submodule | `https://github.com/AstrBotDevs/AstrBot.git`（默认 `master`） |
 
-NapCat、AstrBot 更新慢，也几乎不改源码，继续 submodule。Stapxs 是 IM 本体，直接改文件，用 `main` 分支吸收上游。
+NapCat、AstrBot 更新慢，也几乎不改源码，继续 submodule。Stapxs 上游合入走 `develop` 上的专题分支，不要占用 `main`。
 
 ### 吸收 Stapxs
 
-在干净的 `main` 上操作（示例，按当时仓库状态选 subtree 或 checkout 合并）：
+从干净的 `develop` 拉专题分支（示例，按当时仓库状态选 subtree 或 checkout 合并）：
 
 ```bash
-git checkout main
-git pull origin main
+git checkout develop
+git pull origin develop
+git checkout -b upstream/stapxs
 # 将 Stapxs-QQ-Lite-2.0 的 next 合入 vendor/stapxs
 # 更新 vendor/stapxs/UPSTREAM 里的 commit
 git checkout develop
-git merge main
+git merge upstream/stapxs
 npm run check:layout
 npm run rebuild:im
 ```
 
-冲突只解决 `vendor/stapxs` 里千寻改过的文件，不要为了「干净」把千寻 UI 改回去。
+冲突只解决 `vendor/stapxs` 里千寻改过的文件，不要为了「干净」把千寻 UI 改回去。合入 `develop` 后，发版再把 `develop` 推到 `main`。
 
 ### 升级 NapCat / AstrBot
 

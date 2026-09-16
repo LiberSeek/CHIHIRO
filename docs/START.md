@@ -5,7 +5,6 @@
 ```bash
 git clone https://github.com/LiberSeek/CHIHIRO.git
 cd CHIHIRO
-git checkout develop
 git submodule update --init vendor/napcat vendor/astrbot
 npm install
 npm run build:web
