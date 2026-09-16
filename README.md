@@ -1,12 +1,15 @@
-# 千寻 Chihiro
+<p align="center">
+  <img src="frontend/public/icon.png" alt="千寻 IM" width="128" />
+</p>
+<p align="center">
+  <strong>千寻 IM</strong> — 千人千面，千域千寻
+</p>
 
-AI IM 工作台。产品仓：[LiberSeek/CHIHIRO](https://github.com/LiberSeek/CHIHIRO)。
-
-一套前端、多账号。IM 是工作现场：人在真实会话里聊天，Agent 在工作台接跨会话任务，Bot 是某个客户会话的接待模式，不是单独产品。
+目的是为了在真实 IM 会话里把人、Bot 和 Agent 放进同一套工作台。一套前端、多账号：人在客户会话里聊天，Agent 在工作台接跨会话任务，Bot 是某个客户会话的接待模式，不是单独产品。
 
 当前开发：**Bot**（客户会话接待）和 **Agent**（操作员工作台）。营销获客、群发、画像评分、多群情报报告后置。
 
-交流 / 反馈：QQ 群 **千寻 IM** `1121253225`，见 [联系我们](#联系我们)。
+产品仓：[LiberSeek/CHIHIRO](https://github.com/LiberSeek/CHIHIRO)。交流 / 反馈：QQ 群 **千寻 IM** `1121253225`，见 [联系我们](#联系我们)。
 
 编码 Agent 先读 [AGENTS.md](AGENTS.md)。产品口径 [docs/product.md](docs/product.md)，工程 [docs/development.md](docs/development.md)。
 
@@ -22,18 +25,18 @@ AI IM 工作台。产品仓：[LiberSeek/CHIHIRO](https://github.com/LiberSeek/C
 
 ## 现在支持什么
 
-| 能力 | 状态 |
-|---|---|
-| QQ 扫码 / 快速登录（NapCat + NTQQ） | 支持。Mac 上由 Runtime 拉起隔离的 QQ，不要手跑 `--no-sandbox` |
-| 工作台内多账号切换 | 支持。同 peerId 的历史、草稿、未读按账号隔离 |
-| 消息 / 联系人 / 聊天 | 支持。统一前端中的 IM 模块，入口 `/im` |
-| Agent 工作台 | 支持。ChatUI / Agent 进入同一前端，入口 `/im?tab=workbench` |
-| 会话 Bot（问助手 / 草稿 / 接待模式） | 开发中。见 [docs/next-stage-execution-plan.md](docs/next-stage-execution-plan.md) |
-| NapCat 设置、AstrBot Dashboard | 支持。Dashboard 只作高级设置 |
-| Docker Compose 自托管 | 支持。Linux NapCat 镜像尚未验收 |
-| 外部 NapCat（宿主机 QQ） | 支持。macOS 标准路径 |
-| Telegram / 飞书 / 钉钉等完整 IM | 未支持。下拉可占位，不表示该平台已有个人号登录和历史 |
-| 营销活动、线索评分、跨群报告 | 未作为产品交付。接口与上下文留给 Agent 工具 |
+| 能力 | QQ | Telegram | 微信 |
+|---|:---:|:---:|:---:|
+| 登录 / 多账号 | ✅ | — | — |
+| 聊天 | ✅ | — | — |
+| 信息获取 | ✅ | — | — |
+| ChatBot | 开发中 | — | — |
+| Agent | ✅ | — | — |
+| MCP | ✅ | — | — |
+
+QQ：扫码 / 快速登录（NapCat + NTQQ），Mac 上由 Runtime 拉起隔离的 QQ，不要手跑 `--no-sandbox`。同 peerId 的历史、草稿、未读按账号隔离。ChatBot 见 [docs/next-stage-execution-plan.md](docs/next-stage-execution-plan.md)。
+
+Telegram / 微信等下拉可占位，不表示该平台已有个人号登录和历史。营销获客、群发、画像评分、跨群报告未作为产品交付。
 
 默认打开 http://127.0.0.1:3100/ 就是统一前端。旧壳在 http://127.0.0.1:3100/legacy/ 。以前的 `/next/...` 会 308 到去掉 `/next` 后的路径。
 
@@ -174,23 +177,11 @@ CHIHIRO/
 ├── package.json
 ├── package-lock.json
 ├── AGENTS.md
+├── LICENSE
 └── README.md
 ```
 
 本地运行或构建生成的 `data/`、`.cache/`、`dist/`、各级 `node_modules/` 和数据库文件不属于发布源码，不提交到 Git。
-
-## 参考项目
-
-千寻把三件成熟的事先用起来，自己做账号、现场、策略和发送出口。
-
-| 项目 | 在千寻里的角色 | 上游 |
-|---|---|---|
-| [Stapxs QQ Lite 2.0](https://github.com/Stapxs/Stapxs-QQ-Lite-2.0) | IM 能力与交互参考 | `vendor/stapxs`，只读 |
-| [NapCatQQ](https://github.com/NapNeko/NapCatQQ) | QQ 协议 / OneBot / NTQQ | `vendor/napcat`，只读对照 |
-| [AstrBot](https://github.com/AstrBotDevs/AstrBot) | 模型、知识库、Agent 循环、ChatUI 能力参考 | `vendor/astrbot`，只读 |
-| [OneBot v11](https://github.com/botuniverse/onebot-11) | 消息事件与发信约定 | 经 NapCat 暴露 |
-
-AstrBot 能接某个平台的 Bot 接口，不等于千寻已经提供该平台的完整个人号 IM。
 
 ## 联系我们
 
@@ -199,3 +190,17 @@ AstrBot 能接某个平台的 Bot 接口，不等于千寻已经提供该平台�
 <p align="center">
   <img src="docs/readme/qq-group.jpg" alt="千寻 IM QQ 群二维码，群号 1121253225" width="280" />
 </p>
+
+## 许可与声明
+
+本项目采用 [MIT License](LICENSE) 开源。
+项目中引用、移植或依赖的第三方项目、源代码与资源，仍分别遵循其原有开源许可证及版权声明。使用或分发本项目时，请同时遵守相关第三方许可协议。
+
+- 感谢 [LINUX DO](https://linux.do/) 社区一直以来的支持与帮助。
+- 感谢 [https://github.com/AstrBotDevs/AstrBot](https://github.com/AstrBotDevs/AstrBot) 项目在 AI Agent、对话能力与架构设计方面带来的启发与参考。
+- 感谢 [https://github.com/NapNeko/NapCatQQ](https://github.com/NapNeko/NapCatQQ) 项目提供的 QQ 协议与 OneBot 生态支持。
+- 感谢 [https://github.com/Stapxs/Stapxs-QQ-Lite-2.0](https://github.com/Stapxs/Stapxs-QQ-Lite-2.0) 项目在 IM 交互与前端实现方面提供的参考。
+
+本项目仅用于技术研究、学习交流与合法场景下的软件开发实践，不得用于任何违反法律法规、侵犯他人合法权益、干扰平台正常运行或未经授权访问、采集、传播数据的活动。
+使用本项目时，请遵守所在地法律法规、相关平台的用户协议及开发者规则，并妥善保护账号凭据、个人信息和业务数据。使用者应自行评估使用风险，并对其部署、配置、操作及产生的结果承担相应责任。
+本项目按“现状”提供，不作任何明示或默示的保证。因使用、修改、分发或无法使用本项目而产生的任何损失、争议或法律责任，由使用者自行承担。项目作者及贡献者在适用法律允许的最大范围内不承担相关责任。
